@@ -1,8 +1,8 @@
-# `lag_complexity`,: The Cognitive Clutch for Advanced AI Agents
+# `lag_complexity`: The Cognitive Clutch for Advanced AI Agents
 
-`lag_complexity`**is a high-performance, modular, and production-grade Rust
+`lag_complexity` is a high-performance, modular, and production-grade Rust
 implementation of the Cognitive Load metric, CL(q), as defined in the
-Logic-Augmented Generation (LAG) research paper.**
+Logic-Augmented Generation (LAG) research paper.
 
 Modern Large Language Models (LLMs) excel at many tasks but often struggle with
 complex, multi-step questions, leading to "hallucination". The LAG paradigm

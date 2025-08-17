@@ -7,7 +7,7 @@ primary public interfaces.
 
 - [ ] Initialise the Rust project via `cargo new`.
 - [x] Define all public data structures (`Complexity`, `Trace`, `ScopingConfig`
-    and its sub-types) and derive `serde` traits for configuration types.
+    and its subtypes) and derive `serde` traits for configuration types.
 - [x] Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
     `DepthEstimator`, `AmbiguityEstimator`).
 - [ ] Implement the mathematical logic for variance calculation and all `Sigma`

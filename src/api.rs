@@ -1,3 +1,6 @@
+//! Public API: types and traits for complexity scoring and tracing.
+//!
+//! Exposes `Complexity`, `Trace`, and the `ComplexityFn` trait.
 use serde::{Deserialize, Serialize};
 
 /// Aggregated complexity scores for a query.

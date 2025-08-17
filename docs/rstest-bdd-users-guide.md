@@ -2,7 +2,7 @@
 
 ## Introduction
 
-https://github.com/leynos/rstest-bdd/
+<https://github.com/leynos/rstest-bdd/>
 
 Behaviour‑Driven Development (BDD) is a collaborative practice that emphasizes
 a shared understanding of software behaviour across roles. The design of
@@ -256,4 +256,3 @@ sequence before running any remaining test code. While advanced Gherkin
 constructs and parameterization remain on the horizon, this foundation allows
 teams to integrate acceptance criteria into their Rust test suites and to
 engage all three amigos in the specification process.
-
