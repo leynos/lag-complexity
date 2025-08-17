@@ -37,7 +37,12 @@ impl<'de> Deserialize<'de> for Complexity {
             _total: Option<f32>, // ignored if present
         }
 
-        let Parts { scope, depth, ambiguity, .. } = Parts::deserialize(deserializer)?;
+        let Parts {
+            scope,
+            depth,
+            ambiguity,
+            ..
+        } = Parts::deserialize(deserializer)?;
         #[expect(clippy::float_arithmetic, reason = "computing invariant total")]
         let total = scope + depth + ambiguity;
         Ok(Self {

@@ -1,6 +1,8 @@
-//! Provider traits for embeddings, depth, and ambiguity estimation.
+//! Provider interfaces for embeddings, depth estimation, and ambiguity
+//! estimation.
 //!
-//! These traits define the contracts used by the scoring engine.
+//! Defines the `TextProcessor` trait and the provider aliases used by the
+//! scoring engine.
 
 /// Processes text to produce a structured output.
 ///
@@ -11,7 +13,7 @@ pub trait TextProcessor {
     /// Structured result returned by the processor.
     type Output;
     /// Error type returned when processing fails.
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Process the supplied text.
     ///

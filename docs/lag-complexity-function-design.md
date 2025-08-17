@@ -358,10 +358,14 @@ require a wider retrieval strategy.
 - **Formulaic Fidelity:** The default implementation will adhere precisely to
   the definition provided in the LAG paper: the variance across the dimensions
   of the query's embedding vector, `ϕ(q)`.6 The mathematical formula is
+  `Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2`.
 
-Var(v)=d1​∑i=1d​(vi​−vˉ)2, where v is the d-dimensional embedding vector. This
-direct translation ensures that the implementation is grounded in the source
-research.
+  ```text
+  Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2
+  ```
+
+  Here, `v` is the `d`-dimensional embedding vector. This expression is a
+  direct translation of the variance definition given in the source research.
 
 - **Generic Provider:** The `ScopeVariance` struct will be generic over any
   type that satisfies the `EmbeddingProvider` alias of `TextProcessor`,
@@ -460,9 +464,12 @@ For higher accuracy, the crate will provide model-based estimators.
 - The prompt will be carefully engineered using a few-shot approach, asking the
   LLM to explicitly break down the question and count the sub-questions. For
   example:
-  `Prompt: Analyse the question "Which university did the CEO of the company that`
-   `developed the original iPhone attend?" and`
-  `state the number of reasoning steps required. Response: 2`.
+
+  ```text
+  Prompt: Analyse the question "Which university did the CEO of the company that developed the original iPhone attend?" and
+  state the number of reasoning steps required.
+  Response: 2
+  ```
 
 ### 2.3 Ambiguity: ,`σ(H(q))`
 
