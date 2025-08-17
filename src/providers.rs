@@ -11,7 +11,7 @@
 /// documentation.
 pub trait TextProcessor {
     /// Structured result returned by the processor.
-    type Output;
+    type Output: Send + Sync + 'static;
     /// Error type returned when processing fails.
     type Error: std::error::Error + Send + Sync + 'static;
 
