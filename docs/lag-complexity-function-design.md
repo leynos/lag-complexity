@@ -226,7 +226,7 @@ time.
 ```rust
 pub trait TextProcessor {
     type Output;
-    type Error: std::error::Error + Send + Sync + 'static;
+    type Error: std::error::Error + Send + Sync;
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
 
@@ -242,8 +242,8 @@ system. The trait defines associated `Output` and `Error` types so concrete
 providers can expose domain-specific behaviour without forcing a single error
 enum on all implementations. Embeddings use `Box<[f32]>` to eliminate spare
 capacity, and provider trait objects are `Send + Sync` for cross-thread
-invocation. Errors must also be `'static` so trait objects can be moved between
-threads without lifetime issues.
+invocation. Errors implement `std::error::Error + Send + Sync` to propagate
+across threads.
 
 ### Configuration (ScoringConfig and sub-types)
 

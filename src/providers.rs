@@ -7,7 +7,7 @@ pub trait TextProcessor {
     /// Structured result returned by the processor.
     type Output;
     /// Error type returned when processing fails.
-    type Error: std::error::Error + Send + Sync + 'static;
+    type Error: std::error::Error + Send + Sync;
 
     /// Process the supplied text.
     ///
