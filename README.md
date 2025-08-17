@@ -1,6 +1,6 @@
-# `lag_complexity`,: The Cognitive Clutch for Advanced AI Agents
+# LAG Complexity: The Cognitive Clutch for Advanced AI Agents
 
-`lag_complexity`** is a high-performance, modular, and production-grade Rust
+`lag-complexity` is a high-performance, modular, and production-grade Rust
 implementation of the Cognitive Load metric, CL(q), as defined in the
 Logic-Augmented Generation (LAG) research paper.**
 
@@ -35,10 +35,10 @@ decisions about how to best approach a problem.
 
 ### Installation
 
-Add `lag_complexity` to your project's dependencies:
+Add `lag-complexity` to your project's dependencies:
 
 ```null
-cargo add lag_complexity
+cargo add lag-complexity
 
 ```
 
@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Features
 
-The `lag_complexity` crate is highly modular and uses feature flags to keep the
+The `lag-complexity` crate is highly modular and uses feature flags to keep the
 core library lean. You can opt into additional functionality as needed:
 
 | **Feature Flag**  | **Purpose**                                                                           | **Default** |
@@ -148,7 +148,7 @@ check out our live demonstrations:
   question and see its cognitive load scores update in real-time, right in your
   browser!
 - **Jupyter Notebook Walkthroughs**: [Link to notebooks directory] - Explore
-  detailed, narrative examples showcasing how `lag_complexity` enables smarter,
+  detailed, narrative examples showcasing how `lag-complexity` enables smarter,
   safer agent behaviour.
 
 ## Contributing
