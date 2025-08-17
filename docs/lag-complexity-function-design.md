@@ -227,15 +227,19 @@ time.
 
 ```rust
 pub trait TextProcessor {
+    /// Structured, thread-safe result.
     type Output: Send + Sync + 'static;
+    /// Thread-safe error type.
     type Error: std::error::Error + Send + Sync + 'static;
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
 
 pub type EmbeddingProvider<E> =
-    dyn TextProcessor<Output = Box<[f32]>, Error = E> + Send + Sync;
-pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E> + Send + Sync;
-pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E> + Send + Sync;
+    dyn TextProcessor<Output = Box<[f32]>, Error = E> + Send + Sync + 'static;
+pub type DepthEstimator<E> =
+    dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
+pub type AmbiguityEstimator<E> =
+    dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
 ```
 
 All provider methods return a `Result` to ensure that failures, such as a
