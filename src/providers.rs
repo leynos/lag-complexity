@@ -1,38 +1,27 @@
-/// Provides vector embeddings for text.
-pub trait EmbeddingProvider {
-    /// Error type returned when embedding fails.
+/// Processes text to produce a structured output.
+///
+/// Providers for embeddings, depth, and ambiguity all implement this trait via
+/// type aliases. Centralising the interface reduces boilerplate and eases
+/// documentation.
+pub trait TextProcessor {
+    /// Structured result returned by the processor.
+    type Output;
+    /// Error type returned when processing fails.
     type Error;
 
-    /// Produce an embedding for the given input text.
+    /// Process the supplied text.
     ///
     /// # Errors
     ///
-    /// Returns an error if embedding fails.
-    fn embed(&self, input: &str) -> Result<Vec<f32>, Self::Error>;
+    /// Returns an error if processing fails.
+    fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
 
-/// Estimates the reasoning depth of a query.
-pub trait DepthEstimator {
-    /// Error type returned when estimation fails.
-    type Error;
+/// Provides vector embeddings.
+pub type EmbeddingProvider<E> = dyn TextProcessor<Output = Vec<f32>, Error = E>;
 
-    /// Estimate the reasoning depth of the supplied text.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if estimation fails.
-    fn estimate_depth(&self, query: &str) -> Result<f32, Self::Error>;
-}
+/// Estimates reasoning depth.
+pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
 
-/// Estimates the ambiguity of a query.
-pub trait AmbiguityEstimator {
-    /// Error type returned when estimation fails.
-    type Error;
-
-    /// Estimate the ambiguity score of the supplied text.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if estimation fails.
-    fn estimate_ambiguity(&self, query: &str) -> Result<f32, Self::Error>;
-}
+/// Estimates ambiguity.
+pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;

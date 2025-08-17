@@ -7,7 +7,7 @@ pub mod providers;
 
 pub use api::{Complexity, ComplexityFn, Trace};
 pub use config::{ScopingConfig, VarianceScopingConfig};
-pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
+pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};
 
 /// Returns a greeting for the library.
 ///

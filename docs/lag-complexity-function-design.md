@@ -109,9 +109,10 @@ re-exported at the crate root for convenient access.
 
 - `lag_complexity::api`: Contains the core public traits (`ComplexityFn`) and
   data structures (`Complexity`, `Trace`).
-- `lag_complexity::providers`: Houses the trait definitions for pluggable
-  components (`EmbeddingProvider`, `DepthEstimator`, `AmbiguityEstimator`) and
-  their concrete implementations (e.g., `ApiEmbedding`, `DepthHeuristic`).
+- `lag_complexity::providers`: Houses the `TextProcessor` trait and type
+  aliases for pluggable components (`EmbeddingProvider`, `DepthEstimator`,
+  `AmbiguityEstimator`) along with their concrete implementations (e.g.,
+  `ApiEmbedding`, `DepthHeuristic`).
 - `lag_complexity::config`: Defines the configuration structs (`ScoringConfig`,
   `Sigma`, `Weights`, `Schedule`, `Halting`).
 - `lag_complexity::error`: Defines the crate's custom `Error` enum using the
@@ -186,8 +187,8 @@ pub trait ComplexityFn {
   low-latency execution in production.
 - The `trace` method is designed for diagnostics, debugging, and
   explainability. It will return a `Trace` struct containing a wealth of
-  intermediate data: raw scores from each provider before normalization, the
-  specific normalization parameters that were applied, token counts, a list of
+  intermediate data: raw scores from each provider before normalisation, the
+  specific normalisation parameters that were applied, token counts, a list of
   detected heuristic patterns (e.g., conjunctions or ambiguous pronouns found),
   and the latency of each provider call. This detailed output is invaluable for
   creating golden-file tests (Section 5.3), debugging scoring anomalies, and
@@ -237,40 +238,37 @@ time.
 Rust
 
 ```null
-pub trait EmbeddingProvider {
+pub trait TextProcessor {
+    type Output;
     type Error;
-    fn embed(&self, text: &str) -> Result<Vec<f32>, Self::Error>;
+    fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
-pub trait DepthEstimator {
-    type Error;
-    fn estimate(&self, text: &str) -> Result<f32, Self::Error>;
-}
-pub trait AmbiguityEstimator {
-    type Error;
-    fn entropy_like(&self, text: &str) -> Result<f32, Self::Error>;
-}
+
+pub type EmbeddingProvider<E> = dyn TextProcessor<Output = Vec<f32>, Error = E>;
+pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
+pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
 
 ```
 
 All provider methods return a `Result` to ensure that failures, such as a
 network timeout or a model loading error, are propagated cleanly through the
-system. In the implemented scaffolding each trait defines an associated `Error`
-type so that concrete providers can expose domain-specific failures without
-forcing a single error enum on all implementations.
+system. The trait defines associated `Output` and `Error` types so concrete
+providers can expose domain-specific behaviour without forcing a single error
+enum on all implementations.
 
-### Configuration (,`ScoringConfig`, and Sub-types)
+### Configuration (ScoringConfig and sub-types)
 
-The `ScoringConfig` struct and its components provide a centralized,
-declarative way to tune the behaviour of the scoring engine. The entire
-structure will be deserialisable from a TOML file using `serde`, allowing
-operators to adjust parameters in different environments (development, staging,
-production) without recompiling the application.
+The ScoringConfig struct and its components provide a centralised, declarative
+way to tune the behaviour of the scoring engine. The entire structure will be
+deserialisable from a TOML file using serde, allowing operators to adjust
+parameters in different environments (development, staging, production) without
+recompiling the application.
 
-- `ScoringConfig`: The top-level configuration object.
-- `ScopingConfig`: Configures how semantic scope is measured. The initial
-  variant, `Variance`, accepts a `window` size and all configuration types
-  derive `Serialize`/`Deserialize` for convenient loading.
-- `Sigma`: An enum representing the normalisation strategy. This provides
+- ScoringConfig: The top-level configuration object.
+- ScopingConfig: Configures how semantic scope is measured. The initial
+  variant, Variance, accepts a window size and all configuration types derive
+  Serialize/Deserialize for convenient loading.
+- Sigma: An enum representing the normalisation strategy. This provides
   statistical flexibility to adapt to different distributions of raw scores.
 
 Rust
@@ -387,8 +385,8 @@ direct translation ensures that the implementation is grounded in the source
 research.
 
 - **Generic Provider:** The `ScopeVariance` struct will be generic over any
-  type that implements the `EmbeddingProvider` trait, decoupling the variance
-  calculation from the source of the embedding itself.
+  type that satisfies the `EmbeddingProvider` alias of `TextProcessor`,
+  decoupling the variance calculation from the source of the embedding itself.
 - **Numerical Stability:** To prevent floating-point precision errors,
   especially with high-dimensional embeddings (e.g., 768 or 1024 dimensions),
   the variance calculation will use a numerically stable one-pass algorithm,
@@ -483,7 +481,7 @@ For higher accuracy, the crate will provide model-based estimators.
 - The prompt will be carefully engineered using a few-shot approach, asking the
   LLM to explicitly break down the question and count the sub-questions. For
   example:
-  `Prompt: Analyze the question "Which university did the CEO of the company that`
+  `Prompt: Analyse the question "Which university did the CEO of the company that`
    `developed the original iPhone attend?" and`
   `state the number of reasoning steps required. Response: 2`.
 
@@ -556,19 +554,19 @@ production-oriented, industrial-grade system.
 | **ONNX Classifier** | Medium   | Low (~5-20ms)   | Low (local CPU)    | `ort` crate, model file     | Production systems needing a balance of speed and accuracy.          |
 | **External LLM**    | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Systems where accuracy is paramount and latency/cost are acceptable. |
 
-## 3. Configuration Deep Dive: Normalization, Scheduling, and Halting
+## 3. Configuration Deep Dive: Normalisation, Scheduling, and Halting
 
 Effective configuration is central to the `lag_complexity` crate's
 adaptability. The `ScoringConfig` structure provides fine-grained control over
 how raw signals are processed and interpreted, allowing the system to be tuned
 for specific domains and performance requirements.
 
-### Normalization (,`Sigma`,)
+### Normalisation (Sigma)
 
 The raw scores produced by the various providers—embedding variance, heuristic
 counts, or model outputs—exist on different, arbitrary scales. The purpose of
-the `Sigma` normalization module is to transform these raw scores into a
-consistent, comparable range, typically $$, so they can be meaningfully
+the Sigma normalisation module is to transform these raw scores into a
+consistent, comparable range, typically [0, 1], so they can be meaningfully
 aggregated into the final CL(q) score.
 
 - **Implementations:**
@@ -581,8 +579,8 @@ aggregated into the final CL(q) score.
 - `Sigma::ZScore { mean, std }`: This method standardizes scores by subtracting
   the mean and dividing by the standard deviation of the expected distribution.
   The resulting Z-score is then typically passed through a sigmoid function to
-  map it to the $$ range. This approach is effective when the raw scores are
-  approximately normally distributed.
+  map it to the [0, 1] range. This approach is effective when the raw scores
+  are approximately normally distributed.
 - `Sigma::Robust { median, mad }`: For distributions with significant outliers
   or skew, this provides a more robust alternative to Z-scoring. It uses the
   median as the measure of central tendency and the Median Absolute Deviation
@@ -767,7 +765,7 @@ deterministic for a given input and configuration.
 - **Seeding:** Any internal processes that rely on random number generation
   (e.g., certain model layers, stochastic preprocessing) will be explicitly
   seeded.
-- **Configuration Snapshotting:** The calibrated normalization parameters
+- **Configuration Snapshotting:** The calibrated normalisation parameters
   (`Sigma`) and heuristic weights will be stored in a version-controlled
   configuration file, ensuring that the exact parameters used for evaluation
   are captured and reproducible.
@@ -791,7 +789,7 @@ in isolation.
 
 - The variance calculation will be tested against known inputs and edge cases
   (e.g., zero-length vectors, vectors with all identical elements).
-- Each `Sigma` normalization implementation will be tested to ensure it
+- Each `Sigma` normalisation implementation will be tested to ensure it
   correctly scales inputs according to its formula and handles values outside
   the calibrated range gracefully (clipping).
 - The `Schedule::ExpDecay` logic will be tested to confirm that the threshold
@@ -843,7 +841,7 @@ components of the crate work correctly together.
   control. On subsequent test runs, the new output will be compared against the
   golden snapshot; any discrepancies will fail the test, immediately flagging
   unintended changes in behavior from modifications to heuristics, models, or
-  normalization logic.
+  normalisation logic.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based
@@ -926,7 +924,7 @@ efforts.
 
 - **Provider Latency:**
 
-- `EmbeddingProvider::embed`: The latency of this method will be measured for
+- `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
   `candle` backends). This will quantify the performance trade-offs between
   remote API calls and local model inference.
@@ -939,7 +937,7 @@ efforts.
 - **Computational Overhead:**
 
 - The time taken for the variance calculation and the application of `Sigma`
-  normalization will be measured to ensure they contribute negligibly to the
+  normalisation will be measured to ensure they contribute negligibly to the
   overall latency.
 
 ### Macro-benchmarks
@@ -970,17 +968,17 @@ A key advantage of the Rust implementation is its ability to leverage
 multi-core processors. These benchmarks will quantify the performance gains
 from parallelism.
 
-- `rayon`**Speedup:** The `score_batch` method will be benchmarked with the
-  `rayon` feature enabled, running on 1, 2, 4, 8, and 16 threads. The results
-  will be used to calculate the speedup factor and assess how effectively the
-  implementation scales with additional CPU cores.
+- **Rayon speed-up:** Benchmark `score_batch` with the `rayon` feature enabled,
+  running on 1, 2, 4, 8, and 16 threads. The results will be used to calculate
+  the speed-up factor and assess how effectively the implementation scales with
+  additional CPU cores.
 
 ### Reporting
 
 Transparent and reproducible performance reporting is crucial for users and
 maintainers.
 
-- `criterion`**Reports:** The `criterion` framework automatically generates
+- **Criterion reports:** The `criterion` framework automatically generates
   detailed HTML reports with statistical analysis of benchmark runs, which can
   be archived for historical comparison.
 - **Version-Controlled Summary:** A `BENCHMARKS.md` file will be maintained in
@@ -1014,7 +1012,7 @@ experience of the complexity metric in action.
   area where a user can type or paste a question. As the user types, the input
   will be passed to the WASM module in real-time. The application will display:
 
-- A set of gauges or progress bars visualizing the normalized scores for
+- A set of gauges or progress bars visualizing the normalised scores for
   `total`, `scope`, `depth`, and `ambiguity`. These will update dynamically,
   providing instant feedback.
 - A color-coded overall complexity indicator (e.g., Green for Low, Yellow for
@@ -1102,10 +1100,10 @@ use lag_complexity::api::{Complexity, ComplexityFn, Error};
 use lag_complexity::providers::{EmbeddingProvider, DepthEstimator, AmbiguityEstimator};
 use lag_complexity::config::ScoringConfig;
 
-pub struct DefaultComplexity<'a> {
-    emb: &'a dyn EmbeddingProvider,
-    depth: &'a dyn DepthEstimator,
-    amb: &'a dyn AmbiguityEstimator,
+pub struct DefaultComplexity<'a, EE, DE, AE> {
+    emb: &'a dyn EmbeddingProvider<EE>,
+    depth: &'a dyn DepthEstimator<DE>,
+    amb: &'a dyn AmbiguityEstimator<AE>,
     cfg: &'a ScoringConfig,
 }
 
@@ -1136,7 +1134,7 @@ impl<'a> ComplexityFn for DefaultComplexity<'a> {
         let raw_depth = d_res?;
         let raw_ambiguity = a_res?;
 
-        // Calculate variance and apply normalization
+        // Calculate variance and apply normalisation
         let variance = calculate_variance(&embedding);
         let scope = self.cfg.sigma.apply(variance);
         let depth = self.cfg.sigma.apply(raw_depth);
@@ -1160,7 +1158,7 @@ impl<'a> ComplexityFn for DefaultComplexity<'a> {
 This example clearly illustrates the composition pattern, the use of
 `rayon::join` for concurrent provider execution, and the conditional
 compilation based on the `rayon` feature flag. It walks through the logical
-flow from raw provider outputs to the final, normalized, and weighted
+flow from raw provider outputs to the final, normalised, and weighted
 `Complexity` score.
 
 ### Configuration from File
@@ -1273,13 +1271,13 @@ defining the primary public interfaces.
 - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
   its sub-types) and derive `serde` traits for configuration types.
 - Implement the mathematical logic for variance calculation and all `Sigma`
-  normalization strategies.
+  normalisation strategies.
 - Create the stub for the `lagc` command-line interface binary using the `clap`
   crate.63
 - **Acceptance Criteria:**
 
 - The crate and all its core types compile successfully.
-- A comprehensive suite of unit tests for the mathematical and normalization
+- A comprehensive suite of unit tests for the mathematical and normalisation
   logic passes.
 - The `lagc` CLI application can be built and executed, though it will have no
   functional commands yet.
@@ -1339,7 +1337,7 @@ and tuning its parameters.
 - Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
   calibration (`ECE`) metrics.
 - Run the evaluation harness and analyze the results to fine-tune the `Sigma`
-  normalization parameters and the weights within the heuristic models.
+  normalisation parameters and the weights within the heuristic models.
 - **Acceptance Criteria:**
 
 - The evaluation harness successfully generates a report (`EVALUATION.md`).
@@ -1439,9 +1437,9 @@ as follows:
   resolution. The agent proceeds with its standard execution flow: retrieve
   context relevant to qt​ and generate an answer.
 
-1. **Synthesize and Repeat:** Once a sub-question is resolved, its answer is
+1. **Synthesise and Repeat:** Once a sub-question is resolved, its answer is
    added to the context for subsequent steps. The loop continues until all
-   sub-questions are answered and a final answer can be synthesized, or a
+   sub-questions are answered and a final answer can be synthesised, or a
    halting condition is met.
 
 ### Integrating Halting Conditions
