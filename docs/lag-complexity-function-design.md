@@ -124,17 +124,13 @@ The central data structures are designed for transparency and interoperability.
 
 - `Complexity`:
 
-Rust
-
-```null
-#
+```rust
 pub struct Complexity {
     pub total: f32,
     pub scope: f32,
     pub depth: f32,
     pub ambiguity: f32,
 }
-
 ```
 
 The fields of the `Complexity` struct are intentionally public and the struct
@@ -144,15 +140,12 @@ to inspect the individual components of the score, not just the aggregated
 might trigger different actions based on which component score is elevated. For
 example, a high `ambiguity` score could trigger a clarification prompt to the
 user, whereas a high `depth` score would trigger query decomposition.6
-Serialization enables easy logging and transport of complexity data.
+Serialisation enables easy logging and transport of complexity data.
 
 - `Error`: A comprehensive error enum will be defined using `thiserror` to
   provide structured and actionable error information.
 
-Rust
-
-```null
-#
+```rust
 pub enum Error {
     #[error("Configuration error: {0}")]
     Config(String),
@@ -162,25 +155,22 @@ pub enum Error {
     Inference(String),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    //... other error variants
+    // ... other error variants
 }
-
 ```
 
-### The ,`ComplexityFn`, Trait
+### The `ComplexityFn` trait
 
 This trait is the primary public API and the central abstraction for any
 complexity scoring engine.
 
-Rust
-
-```null
+```rust
 pub trait ComplexityFn {
-    fn score(&self, q: &str) -> Result<Complexity, Error>;
-    fn trace(&self, q: &str) -> Result<Trace, Error>;
-    //... builder methods for configuration
-}
+    type Error: std::error::Error + Send + Sync;
 
+    fn score(&self, q: &str) -> Result<Complexity, Self::Error>;
+    fn trace(&self, q: &str) -> Result<Trace, Self::Error>;
+}
 ```
 
 - The `score` method represents the hot path, designed for high-throughput,
@@ -213,12 +203,12 @@ sequenceDiagram
   alt embed error
     ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
   else embed ok
-    ComplexityFn->>DepthEstimator: estimate_depth(query)
+    ComplexityFn->>DepthEstimator: estimate(query)
     DepthEstimator-->>ComplexityFn: f32 or Self::Error
     alt depth error
       ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
     else depth ok
-      ComplexityFn->>AmbiguityEstimator: estimate_ambiguity(query)
+      ComplexityFn->>AmbiguityEstimator: entropy_like(query)
       AmbiguityEstimator-->>ComplexityFn: f32 or Self::Error
       alt ambiguity error
         ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
@@ -235,19 +225,16 @@ These traits are the key to the crate's modularity, allowing for the
 implementation of each complexity signal to be swapped at runtime or compile
 time.
 
-Rust
-
-```null
+```rust
 pub trait TextProcessor {
     type Output;
-    type Error;
+    type Error: std::error::Error + Send + Sync;
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
 
 pub type EmbeddingProvider<E> = dyn TextProcessor<Output = Vec<f32>, Error = E>;
 pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
 pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
-
 ```
 
 All provider methods return a `Result` to ensure that failures, such as a
@@ -267,48 +254,39 @@ recompiling the application.
 - ScoringConfig: The top-level configuration object.
 - ScopingConfig: Configures how semantic scope is measured. The initial
   variant, Variance, accepts a window size and all configuration types derive
-  Serialize/Deserialize for convenient loading.
+  Serialise/Deserialise for convenient loading.
 - Sigma: An enum representing the normalisation strategy. This provides
   statistical flexibility to adapt to different distributions of raw scores.
 
-Rust
-
-```null
+```rust
 pub enum Sigma {
     MinMax { p01: f32, p99: f32 },
     ZScore { mean: f32, std: f32 },
     Robust { median: f32, mad: f32 },
 }
-
 ```
 
 - `Weights`: A simple struct for re-weighting the final components of the
   `CL(q)` score. The default will be `1.0` for all components, directly
   matching the unweighted sum in the LAG paper's formula.6
 
-Rust
-
-```null
+```rust
 pub struct Weights {
     pub scope: f32,
     pub depth: f32,
     pub ambiguity: f32,
 }
-
 ```
 
 - `Schedule`: An enum that implements the decaying threshold logic, `τ(t)`, for
   the split condition. The primary variant directly models the paper's concept
   of a threshold that becomes more lenient as the reasoning process deepens.6
 
-Rust
-
-```null
+```rust
 pub enum Schedule {
     Constant(f32),
     ExpDecay { tau0: f32, lambda: f32 },
 }
-
 ```
 
 - `Halting`: A struct to hold the parameters for the agent-level "Logical
@@ -316,14 +294,11 @@ pub enum Schedule {
   parameters are configured alongside the rest of the complexity logic for
   coherence.
 
-Rust
-
-```null
+```rust
 pub struct Halting {
     pub gamma: f32, // Semantic redundancy threshold
     pub t_max: u8,  // Max decomposition steps
 }
-
 ```
 
 ### Feature Flags
@@ -705,7 +680,7 @@ which are critical for managing the cache's memory footprint and data freshness.
 ### Observability (Metrics & Tracing)
 
 To operate and debug the system in production, deep visibility into its
-behavior is required. The crate will provide first-class support for modern
+behaviour is required. The crate will provide first-class support for modern
 observability practices.
 
 - **Frameworks:** It will use the `tracing` crate for structured, context-aware
@@ -775,7 +750,7 @@ deterministic for a given input and configuration.
 A rigorous, multi-layered testing and evaluation strategy is essential to
 validate the correctness, robustness, and effectiveness of the `lag_complexity`
 crate. The strategy encompasses unit tests for isolated logic, property tests
-for behavioral invariants, integration tests for component composition, and a
+for behavioural invariants, integration tests for component composition, and a
 large-scale evaluation against academic datasets to measure real-world
 performance.
 
@@ -836,16 +811,16 @@ components of the crate work correctly together.
   A set of approximately 50 curated queries representing a wide range of
   complexity types (single-hop, multi-hop, ambiguous, high-scope, simple, and
   nonsensical) will be stored in a "golden file." The integration test will
-  execute the `trace()` method for each query and serialize the detailed
+  execute the `trace()` method for each query and serialise the detailed
   `Trace` object to a snapshot file. This snapshot will be committed to version
   control. On subsequent test runs, the new output will be compared against the
   golden snapshot; any discrepancies will fail the test, immediately flagging
-  unintended changes in behavior from modifications to heuristics, models, or
+  unintended changes in behaviour from modifications to heuristics, models, or
   normalisation logic.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based
-  providers correctly serialize requests and deserialize responses (using mock
+  providers correctly serialise requests and deserialise responses (using mock
   servers like `wiremock`) and that ONNX models can be loaded and executed
   successfully.
 
@@ -875,7 +850,7 @@ annotated reasoning hops will serve as the ground truth for reasoning depth.
 a question has multiple plausible interpretations.
 
 - **Semantic Scope (**`scope`**):** As there is no direct ground-truth label
-  for "scope," its behavior will be evaluated indirectly. Using diverse
+  for "scope," its behaviour will be evaluated indirectly. Using diverse
   datasets from the **BEIR benchmark** 54 and Semantic Textual Similarity (STS)
   tasks, the hypothesis is that a set of queries with high conceptual diversity
   (low average inter-query similarity) should produce a higher average scope
@@ -995,7 +970,7 @@ To effectively communicate the value and functionality of the `lag_complexity`
 crate to a broader audience, including product managers, technical leadership,
 and other stakeholders, a set of clear and compelling demonstrations will be
 developed. These demonstrations will translate the abstract concept of
-"cognitive load" into tangible, intuitive examples of improved system behavior.
+"cognitive load" into tangible, intuitive examples of improved system behaviour.
 
 ### Live "Complexity Meter" (WASM Demo)
 
@@ -1086,19 +1061,17 @@ crate, the documentation will include clear, practical examples of its primary
 usage patterns. These examples will serve as both a guide and a reference
 implementation for common configurations.
 
-### The ,`DefaultComplexity`, Engine
+### The `DefaultComplexity` engine
 
-A central example will demonstrate the composition of the default,
-general-purpose `ComplexityFn` implementation. This struct will hold references
-to the configured providers and the scoring configuration, acting as the
-primary engine for calculating complexity.
+A central example demonstrates the composition of the default, general-purpose
+`ComplexityFn` implementation. This struct holds references to the configured
+providers and the scoring configuration, acting as the primary engine for
+calculating complexity.
 
-Rust
-
-```null
-use lag_complexity::api::{Complexity, ComplexityFn, Error};
-use lag_complexity::providers::{EmbeddingProvider, DepthEstimator, AmbiguityEstimator};
+```rust
+use lag_complexity::api::{Complexity, ComplexityFn};
 use lag_complexity::config::ScoringConfig;
+use lag_complexity::providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
 
 pub struct DefaultComplexity<'a, EE, DE, AE> {
     emb: &'a dyn EmbeddingProvider<EE>,
@@ -1109,25 +1082,29 @@ pub struct DefaultComplexity<'a, EE, DE, AE> {
 
 // Constructor and other methods omitted for brevity...
 
-impl<'a> ComplexityFn for DefaultComplexity<'a> {
-    fn score(&self, q: &str) -> Result<Complexity, Error> {
+impl<'a, EE, DE, AE> ComplexityFn for DefaultComplexity<'a, EE, DE, AE>
+where
+    EE: std::error::Error + Send + Sync,
+    DE: std::error::Error + Send + Sync,
+    AE: std::error::Error + Send + Sync,
+{
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+
+    fn score(&self, q: &str) -> Result<Complexity, Self::Error> {
         // Parallel execution path using `rayon`
         #[cfg(feature = "rayon")]
         let (e_res, d_res, a_res) = rayon::join(
-|
-| self.emb.embed(q),
-|
-| self.depth.estimate(q),
-|
-| self.amb.entropy_like(q),
+            || self.emb.process(q),
+            || self.depth.process(q),
+            || self.amb.process(q),
         );
 
         // Sequential execution path if `rayon` is disabled
         #[cfg(not(feature = "rayon"))]
         let (e_res, d_res, a_res) = (
-            self.emb.embed(q),
-            self.depth.estimate(q),
-            self.amb.entropy_like(q),
+            self.emb.process(q),
+            self.depth.process(q),
+            self.amb.process(q),
         );
 
         let embedding = e_res?;
@@ -1150,9 +1127,8 @@ impl<'a> ComplexityFn for DefaultComplexity<'a> {
             ambiguity,
         })
     }
-    //... trace() implementation...
+    // ... trace() implementation ...
 }
-
 ```
 
 This example clearly illustrates the composition pattern, the use of
@@ -1164,14 +1140,13 @@ flow from raw provider outputs to the final, normalised, and weighted
 ### Configuration from File
 
 To promote best practices for configuration management, an example will show
-how to deserialize the `ScoringConfig` from a TOML file. This allows for easy
-tuning of the system's behavior without requiring code changes or recompilation.
+how to deserialise the `ScoringConfig` from a TOML file. This allows for easy
+tuning of the system's behaviour without requiring code changes or
+recompilation.
 
-`config.toml`**example:**
+`config.toml` example:
 
-Ini, TOML
-
-```null
+```toml
 [sigma]
 type = "Robust"
 median = 0.5
@@ -1195,9 +1170,7 @@ t_max = 5
 
 **Rust code to load the configuration:**
 
-Rust
-
-```null
+```rust
 use lag_complexity::config::ScoringConfig;
 use std::fs;
 
@@ -1209,47 +1182,29 @@ fn load_config(path: &str) -> Result<ScoringConfig, Box<dyn std::error::Error>> 
 
 ```
 
-### Using the ,`Trace`, Object for Diagnostics
+### Using the `Trace` object for diagnostics
 
 The `trace()` method is a powerful tool for debugging and understanding the
-scorer's behavior. An example will be provided to show how to invoke it and
-pretty-print its contents.
+scorer's behaviour. An example shows how to invoke it and inspect the component
+scores.
 
-Rust
-
-```null
+```rust
 fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
-            println!("--- Trace for query: '{}' ---", query);
+            println!("--- Trace for query: '{}' ---", trace.query);
             println!("Final Complexity Score: {:.4}", trace.complexity.total);
             println!("  - Scope:     {:.4}", trace.complexity.scope);
             println!("  - Depth:     {:.4}", trace.complexity.depth);
             println!("  - Ambiguity: {:.4}", trace.complexity.ambiguity);
-            println!("\n--- Intermediate Values ---");
-            println!("Raw Scope (Variance): {:.6}", trace.raw_scope);
-            println!("Raw Depth Score:      {:.4}", trace.raw_depth);
-            println!("Raw Ambiguity Score:  {:.4}", trace.raw_ambiguity);
-            println!("\n--- Heuristic Details ---");
-            println!("Detected Depth Patterns: {:?}", trace.depth_patterns);
-            println!("Detected Ambiguity Patterns: {:?}", trace.ambiguity_patterns);
-            println!("\n--- Performance ---");
-            println!("Embedding Provider Latency: {:?}", trace.embedding_latency);
-            println!("Depth Provider Latency:     {:?}", trace.depth_latency);
-            println!("Ambiguity Provider Latency: {:?}", trace.ambiguity_latency);
-            println!("---------------------------------");
         }
-        Err(e) => eprintln!("Failed to generate trace: {}", e),
+        Err(e) => eprintln!("Failed to generate trace: {e}"),
     }
 }
-
 ```
 
-This example highlights the richness of the `Trace` object, showing how it
-provides not just the final scores but also the raw inputs to the normalizer,
-the specific linguistic features that were triggered, and performance metrics
-for each component. This level of detail is essential for developers who need
-to diagnose why a particular query received an unexpected score.
+This example highlights how the `Trace` object exposes the original query and
+its component scores, aiding debugging without additional instrumentation.
 
 ## 9. Phased Implementation and Project Roadmap
 
@@ -1265,7 +1220,7 @@ defining the primary public interfaces.
 
 - **Tasks:**
 
-- Initialize the Rust project using `cargo new`.
+- Initialise the Rust project using `cargo new`.
 - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
   `DepthEstimator`, `AmbiguityEstimator`).
 - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
@@ -1336,7 +1291,7 @@ and tuning its parameters.
 - Integrate loaders for the target datasets (`HotpotQA`, `AmbigQA`, etc.).
 - Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
   calibration (`ECE`) metrics.
-- Run the evaluation harness and analyze the results to fine-tune the `Sigma`
+- Run the evaluation harness and analyse the results to fine-tune the `Sigma`
   normalisation parameters and the weights within the heuristic models.
 - **Acceptance Criteria:**
 
@@ -1626,7 +1581,7 @@ August 17, 2025,
 [https://www.tandfonline.com/doi/full/10.1080/23311983.2024.2322231](https://www.tandfonline.com/doi/full/10.1080/23311983.2024.2322231)
 
 [^27] Modeling scope ambiguity resolution as pragmatic inference: Formalizing
-differences in child and adult behavior - UC Irvine, accessed on August 17,
+differences in child and adult behaviour - UC Irvine, accessed on August 17,
 2025,
 [https://sites.socsci.uci.edu/~lpearl/papers/SavinelliScontrasPearl2017_CogSciConf.pdf](https://sites.socsci.uci.edu/~lpearl/papers/SavinelliScontrasPearl2017_CogSciConf.pdf)
 

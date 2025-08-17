@@ -55,7 +55,7 @@ pub struct Trace {
 /// Trait for scoring the complexity of a query.
 pub trait ComplexityFn {
     /// Error type returned when scoring fails.
-    type Error;
+    type Error: std::error::Error + Send + Sync;
 
     /// Score the complexity of a query.
     ///
