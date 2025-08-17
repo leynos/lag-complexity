@@ -1,6 +1,6 @@
 # `lag_complexity`,: The Cognitive Clutch for Advanced AI Agents
 
-`lag_complexity`** is a high-performance, modular, and production-grade Rust
+`lag_complexity`**is a high-performance, modular, and production-grade Rust
 implementation of the Cognitive Load metric, CL(q), as defined in the
 Logic-Augmented Generation (LAG) research paper.**
 
@@ -83,7 +83,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let simple_query = "What is the capital of France?";
-    let complex_query = "What are the main differences between the economic policies of the UK and Japan since the 2008 financial crisis?";
+    let complex_query = concat!(
+        "What are the main differences between the economic policies ",
+        "of the UK and Japan since the 2008 financial crisis?",
+    );
 
     // Score the simple query
     match scorer.score(simple_query) {
@@ -166,4 +169,3 @@ This project adheres to the
 
 lag-complexity is distributed under the terms of the ISC licence. See
 [LICENSE](LICENSE) for details.
-

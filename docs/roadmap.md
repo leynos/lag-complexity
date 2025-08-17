@@ -6,10 +6,10 @@ This foundational phase establishes the crate's architecture and defines the
 primary public interfaces.
 
 - [ ] Initialise the Rust project via `cargo new`.
-- [ ] Define all public data structures (`Complexity`, `Trace`, `ScopingConfig`
-  and its sub-types) and derive `serde` traits for configuration types.
-- [ ] Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
-  `DepthEstimator`, `AmbiguityEstimator`).
+- [x] Define all public data structures (`Complexity`, `Trace`, `ScopingConfig`
+    and its sub-types) and derive `serde` traits for configuration types.
+- [x] Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
+    `DepthEstimator`, `AmbiguityEstimator`).
 - [ ] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
 - [ ] Create the stub for the `lagc` command-line interface binary using the
@@ -110,4 +110,3 @@ observable production deployment.
   security hooks) are implemented and tested.
 - [ ] **Acceptance Criteria**: The final project is ready for its first
   official release.
-
