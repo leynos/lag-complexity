@@ -193,6 +193,41 @@ pub trait ComplexityFn {
   creating golden-file tests (Section 5.3), debugging scoring anomalies, and
   powering stakeholder-facing demonstrations (Section 7).
 
+#### Scoring flow
+
+The sequence diagram below outlines the primary interactions when scoring a
+query.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant ComplexityFn
+  participant EmbeddingProvider
+  participant DepthEstimator
+  participant AmbiguityEstimator
+
+  Client->>ComplexityFn: score(query)
+  ComplexityFn->>EmbeddingProvider: embed(query)
+  EmbeddingProvider-->>ComplexityFn: Vec<f32> or Self::Error
+  alt embed error
+    ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
+  else embed ok
+    ComplexityFn->>DepthEstimator: estimate_depth(query)
+    DepthEstimator-->>ComplexityFn: f32 or Self::Error
+    alt depth error
+      ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
+    else depth ok
+      ComplexityFn->>AmbiguityEstimator: estimate_ambiguity(query)
+      AmbiguityEstimator-->>ComplexityFn: f32 or Self::Error
+      alt ambiguity error
+        ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
+      else all ok
+        ComplexityFn-->>Client: Ok(Complexity)
+      end
+    end
+  end
+```
+
 ### Provider Traits
 
 These traits are the key to the crate's modularity, allowing for the
