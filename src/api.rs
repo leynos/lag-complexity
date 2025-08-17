@@ -15,12 +15,38 @@ use serde::{Deserialize, Serialize};
 /// let c = Complexity::new(1.0, 2.0, 3.0);
 /// assert_eq!(c.total(), 6.0);
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Complexity {
     total: f32,
     scope: f32,
     depth: f32,
     ambiguity: f32,
+}
+
+impl<'de> Deserialize<'de> for Complexity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Parts {
+            scope: f32,
+            depth: f32,
+            ambiguity: f32,
+            #[serde(default)]
+            _total: Option<f32>, // ignored if present
+        }
+
+        let Parts { scope, depth, ambiguity, .. } = Parts::deserialize(deserializer)?;
+        #[expect(clippy::float_arithmetic, reason = "computing invariant total")]
+        let total = scope + depth + ambiguity;
+        Ok(Self {
+            total,
+            scope,
+            depth,
+            ambiguity,
+        })
+    }
 }
 
 impl Complexity {

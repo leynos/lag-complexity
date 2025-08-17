@@ -97,9 +97,8 @@ fn score_empty(test_context: TestContext) {
 fn dummy_trace_returns_trace_struct() {
     let dummy = Dummy;
     let query = "valid_query";
-    let trace = dummy
-        .trace(query)
-        .unwrap_or_else(|e| panic!("unexpected error: {e}"));
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let trace = dummy.trace(query).expect("unexpected error");
     assert_eq!(trace.query, query);
     assert_eq!(trace.complexity, Complexity::new(1.0, 1.0, 1.0));
 }

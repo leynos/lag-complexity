@@ -1,3 +1,5 @@
+//! Scoring configuration types and serialisation for semantic scope.
+
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the semantic scope component.
@@ -22,7 +24,8 @@ mod tests {
     #[rstest]
     fn serialise_variance() {
         let cfg = ScopingConfig::Variance(VarianceScopingConfig { window: 5 });
-        let json = serde_json::to_string(&cfg).unwrap_or_else(|e| panic!("serialize: {e}"));
+        #[expect(clippy::expect_used, reason = "test should fail loudly")]
+        let json = serde_json::to_string(&cfg).expect("serialise ScopingConfig to JSON");
         assert_eq!(json, r#"{"strategy":"variance","window":5}"#);
     }
 

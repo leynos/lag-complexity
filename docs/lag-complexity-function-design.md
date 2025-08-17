@@ -137,8 +137,10 @@ The fields of the `Complexity` struct are private to preserve the invariant
 that `total` always equals the sum of its components. Accessor methods expose
 each component so callers can trigger different actions based on which score is
 elevated—for example, a high `ambiguity` might prompt clarification, whereas a
-high `depth` suggests decomposition. The struct derives `serde::Serialize` for
-easy logging and transport of complexity data.
+high `depth` suggests decomposition. The struct derives `serde::Serialize` and
+implements `serde::Deserialize` manually to recompute `total` from the
+components, ignoring any inbound `total` field so the invariant holds when
+deserialising untrusted data.
 
 - `Error`: A comprehensive error enum will be defined using `thiserror` to
   provide structured and actionable error information.
@@ -196,17 +198,17 @@ sequenceDiagram
   participant AmbiguityEstimator
 
   Client->>ComplexityFn: score(query)
-  ComplexityFn->>EmbeddingProvider: embed(query)
+  ComplexityFn->>EmbeddingProvider: process(query)
   EmbeddingProvider-->>ComplexityFn: Box<[f32]> or Self::Error
-  alt embed error
+  alt provider error
     ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
-  else embed ok
-    ComplexityFn->>DepthEstimator: estimate(query)
+  else provider ok
+    ComplexityFn->>DepthEstimator: process(query)
     DepthEstimator-->>ComplexityFn: f32 or Self::Error
     alt depth error
       ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
     else depth ok
-      ComplexityFn->>AmbiguityEstimator: entropy_like(query)
+      ComplexityFn->>AmbiguityEstimator: process(query)
       AmbiguityEstimator-->>ComplexityFn: f32 or Self::Error
       alt ambiguity error
         ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
@@ -553,7 +555,7 @@ aggregated into the final CL(q) score.
   the 1st and 99th percentiles of the expected score distribution, rather than
   the absolute minimum and maximum. Any value below `p01` is clamped to 0, and
   any value above `p99` is clamped to 1.
-- `Sigma::ZScore { mean, std }`: This method standardizes scores by subtracting
+- `Sigma::ZScore { mean, std }`: This method standardises scores by subtracting
   the mean and dividing by the standard deviation of the expected distribution.
   The resulting Z-score is then typically passed through a sigmoid function to
   map it to the [0, 1] range. This approach is effective when the raw scores

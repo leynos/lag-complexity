@@ -1,3 +1,7 @@
+//! Provider traits for embeddings, depth, and ambiguity estimation.
+//!
+//! These traits define the contracts used by the scoring engine.
+
 /// Processes text to produce a structured output.
 ///
 /// Providers for embeddings, depth, and ambiguity all implement this trait via
