@@ -34,43 +34,42 @@ impl ComplexityFn for Dummy {
     }
 }
 
-#[fixture]
-fn dummy() -> Dummy {
-    Dummy
+/// Fixtures shared across BDD steps.
+///
+/// Each scenario receives an isolated instance to avoid shared mutable state.
+#[derive(Default)]
+struct TestContext {
+    dummy: Dummy,
+    result: RefCell<Option<Result<Complexity, DummyError>>>,
 }
 
 #[fixture]
-fn outcome() -> RefCell<Option<Result<Complexity, DummyError>>> {
-    RefCell::new(None)
+fn test_context() -> TestContext {
+    TestContext::default()
 }
 
 #[given("a dummy complexity function")]
-fn given_function() {}
+fn given_function(#[from(test_context)] context: &TestContext) {
+    let _ = context;
+}
 
 #[when("scoring {query}")]
-#[expect(clippy::needless_pass_by_value, reason = "step takes ownership")]
-fn when_scoring(
-    query: String,
-    #[from(dummy)] scorer: &Dummy,
-    #[from(outcome)] result: &RefCell<Option<Result<Complexity, DummyError>>>,
-) {
-    result.replace(Some(scorer.score(&query)));
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "BDD macro injects owned value"
+)]
+fn when_scoring(query: String, #[from(test_context)] context: &TestContext) {
+    *context.result.borrow_mut() = Some(context.dummy.score(&query));
 }
 
 #[when("scoring empty query")]
-fn when_scoring_empty(
-    #[from(dummy)] scorer: &Dummy,
-    #[from(outcome)] result: &RefCell<Option<Result<Complexity, DummyError>>>,
-) {
-    result.replace(Some(scorer.score("")));
+fn when_scoring_empty(#[from(test_context)] context: &TestContext) {
+    *context.result.borrow_mut() = Some(context.dummy.score(""));
 }
 
 #[then("the total score is {expected:f32}")]
-fn then_total(
-    #[from(outcome)] result: &RefCell<Option<Result<Complexity, DummyError>>>,
-    expected: f32,
-) {
-    if let Some(Ok(comp)) = result.borrow().as_ref() {
+fn then_total(#[from(test_context)] context: &TestContext, expected: f32) {
+    if let Some(Ok(comp)) = context.result.borrow().as_ref() {
         #[expect(clippy::float_arithmetic, reason = "test requires float arithmetic")]
         let diff = comp.total() - expected;
         assert!(diff.abs() < f32::EPSILON);
@@ -80,18 +79,18 @@ fn then_total(
 }
 
 #[then("an error is returned")]
-fn then_error(#[from(outcome)] result: &RefCell<Option<Result<Complexity, DummyError>>>) {
-    assert!(matches!(result.borrow().as_ref(), Some(Err(_))));
+fn then_error(#[from(test_context)] context: &TestContext) {
+    assert!(matches!(context.result.borrow().as_ref(), Some(Err(_))));
 }
 
 #[scenario(path = "tests/features/score.feature", index = 0)]
-fn score_valid(dummy: Dummy, outcome: RefCell<Option<Result<Complexity, DummyError>>>) {
-    let _ = (dummy, outcome);
+fn score_valid(test_context: TestContext) {
+    let _ = test_context;
 }
 
 #[scenario(path = "tests/features/score.feature", index = 1)]
-fn score_empty(dummy: Dummy, outcome: RefCell<Option<Result<Complexity, DummyError>>>) {
-    let _ = (dummy, outcome);
+fn score_empty(test_context: TestContext) {
+    let _ = test_context;
 }
 
 #[test]
