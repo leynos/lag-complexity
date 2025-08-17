@@ -92,10 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match scorer.score(simple_query) {
         Ok(complexity) => {
             println!("--- Score for: '{}' ---", simple_query);
-            println!("Total Complexity: {:.4}", complexity.total);
-            println!("  - Scope:     {:.4}", complexity.scope);
-            println!("  - Depth:     {:.4}", complexity.depth);
-            println!("  - Ambiguity: {:.4}", complexity.ambiguity);
+            println!("Total Complexity: {:.4}", complexity.total());
+            println!("  - Scope:     {:.4}", complexity.scope());
+            println!("  - Depth:     {:.4}", complexity.depth());
+            println!("  - Ambiguity: {:.4}", complexity.ambiguity());
         }
         Err(e) => eprintln!("Error scoring simple query: {}", e),
     }
@@ -106,13 +106,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match scorer.score(complex_query) {
         Ok(complexity) => {
             println!("--- Score for: '{}' ---", complex_query);
-            println!("Total Complexity: {:.4}", complexity.total);
-            println!("  - Scope:     {:.4}", complexity.scope);
-            println!("  - Depth:     {:.4}", complexity.depth);
-            println!("  - Ambiguity: {:.4}", complexity.ambiguity);
+            println!("Total Complexity: {:.4}", complexity.total());
+            println!("  - Scope:     {:.4}", complexity.scope());
+            println!("  - Depth:     {:.4}", complexity.depth());
+            println!("  - Ambiguity: {:.4}", complexity.ambiguity());
 
             // Use the score to make a decision
-            if config.is_split_recommended(complexity.total, 0) {
+            if config.is_split_recommended(complexity.total(), 0) {
                 println!("\nDecision: Complexity is high. Recommend decomposition.");
             } else {
                 println!("\nDecision: Complexity is low. Proceed with direct answer.");

@@ -13,14 +13,14 @@ use serde::{Deserialize, Serialize};
 /// use lag_complexity::api::Complexity;
 ///
 /// let c = Complexity::new(1.0, 2.0, 3.0);
-/// assert_eq!(c.total, 6.0);
+/// assert_eq!(c.total(), 6.0);
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Complexity {
-    pub total: f32,
-    pub scope: f32,
-    pub depth: f32,
-    pub ambiguity: f32,
+    total: f32,
+    scope: f32,
+    depth: f32,
+    ambiguity: f32,
 }
 
 impl Complexity {
@@ -36,6 +36,30 @@ impl Complexity {
             ambiguity,
         }
     }
+
+    /// Get the total complexity.
+    #[must_use]
+    pub fn total(&self) -> f32 {
+        self.total
+    }
+
+    /// Get the scope component.
+    #[must_use]
+    pub fn scope(&self) -> f32 {
+        self.scope
+    }
+
+    /// Get the depth component.
+    #[must_use]
+    pub fn depth(&self) -> f32 {
+        self.depth
+    }
+
+    /// Get the ambiguity component.
+    #[must_use]
+    pub fn ambiguity(&self) -> f32 {
+        self.ambiguity
+    }
 }
 
 /// Diagnostic trace for a complexity computation.
@@ -47,7 +71,7 @@ impl Complexity {
 ///
 /// let c = Complexity::new(0.0, 0.0, 0.0);
 /// let trace = Trace { query: "hi".into(), complexity: c.clone() };
-/// assert_eq!(trace.complexity.total, 0.0);
+/// assert_eq!(trace.complexity.total(), 0.0);
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trace {
@@ -58,7 +82,7 @@ pub struct Trace {
 /// Trait for scoring the complexity of a query.
 pub trait ComplexityFn {
     /// Error type returned when scoring fails.
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Score the complexity of a query.
     ///
@@ -88,7 +112,7 @@ mod tests {
         #[expect(clippy::float_arithmetic, reason = "test requires float arithmetic")]
         let expected = scope + depth + ambiguity;
         #[expect(clippy::float_arithmetic, reason = "test requires float arithmetic")]
-        let diff = c.total - expected;
+        let diff = c.total() - expected;
         assert!(diff.abs() < f32::EPSILON);
     }
 }

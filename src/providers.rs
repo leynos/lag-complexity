@@ -7,7 +7,7 @@ pub trait TextProcessor {
     /// Structured result returned by the processor.
     type Output;
     /// Error type returned when processing fails.
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Process the supplied text.
     ///
@@ -18,10 +18,10 @@ pub trait TextProcessor {
 }
 
 /// Provides vector embeddings.
-pub type EmbeddingProvider<E> = dyn TextProcessor<Output = Vec<f32>, Error = E>;
+pub type EmbeddingProvider<E> = dyn TextProcessor<Output = Box<[f32]>, Error = E> + Send + Sync;
 
 /// Estimates reasoning depth.
-pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
+pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E> + Send + Sync;
 
 /// Estimates ambiguity.
-pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
+pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E> + Send + Sync;

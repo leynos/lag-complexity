@@ -72,7 +72,7 @@ fn then_total(
 ) {
     if let Some(Ok(comp)) = result.borrow().as_ref() {
         #[expect(clippy::float_arithmetic, reason = "test requires float arithmetic")]
-        let diff = comp.total - expected;
+        let diff = comp.total() - expected;
         assert!(diff.abs() < f32::EPSILON);
     } else {
         panic!("result missing");

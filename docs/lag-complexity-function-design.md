@@ -126,21 +126,19 @@ The central data structures are designed for transparency and interoperability.
 
 ```rust
 pub struct Complexity {
-    pub total: f32,
-    pub scope: f32,
-    pub depth: f32,
-    pub ambiguity: f32,
+    total: f32,
+    scope: f32,
+    depth: f32,
+    ambiguity: f32,
 }
 ```
 
-The fields of the `Complexity` struct are intentionally public and the struct
-is marked with `serde::Serialize`. This transparency allows consuming systems
-to inspect the individual components of the score, not just the aggregated
-`total`. This is a critical feature for a sophisticated LAG pipeline, which
-might trigger different actions based on which component score is elevated. For
-example, a high `ambiguity` score could trigger a clarification prompt to the
-user, whereas a high `depth` score would trigger query decomposition.6
-Serialisation enables easy logging and transport of complexity data.
+The fields of the `Complexity` struct are private to preserve the invariant
+that `total` always equals the sum of its components. Accessor methods expose
+each component so callers can trigger different actions based on which score is
+elevated—for example, a high `ambiguity` might prompt clarification, whereas a
+high `depth` suggests decomposition. The struct derives `serde::Serialize` for
+easy logging and transport of complexity data.
 
 - `Error`: A comprehensive error enum will be defined using `thiserror` to
   provide structured and actionable error information.
@@ -166,7 +164,7 @@ complexity scoring engine.
 
 ```rust
 pub trait ComplexityFn {
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     fn score(&self, q: &str) -> Result<Complexity, Self::Error>;
     fn trace(&self, q: &str) -> Result<Trace, Self::Error>;
@@ -199,7 +197,7 @@ sequenceDiagram
 
   Client->>ComplexityFn: score(query)
   ComplexityFn->>EmbeddingProvider: embed(query)
-  EmbeddingProvider-->>ComplexityFn: Vec<f32> or Self::Error
+  EmbeddingProvider-->>ComplexityFn: Box<[f32]> or Self::Error
   alt embed error
     ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
   else embed ok
@@ -228,20 +226,24 @@ time.
 ```rust
 pub trait TextProcessor {
     type Output;
-    type Error: std::error::Error + Send + Sync;
+    type Error: std::error::Error + Send + Sync + 'static;
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
 
-pub type EmbeddingProvider<E> = dyn TextProcessor<Output = Vec<f32>, Error = E>;
-pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
-pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E>;
+pub type EmbeddingProvider<E> =
+    dyn TextProcessor<Output = Box<[f32]>, Error = E> + Send + Sync;
+pub type DepthEstimator<E> = dyn TextProcessor<Output = f32, Error = E> + Send + Sync;
+pub type AmbiguityEstimator<E> = dyn TextProcessor<Output = f32, Error = E> + Send + Sync;
 ```
 
 All provider methods return a `Result` to ensure that failures, such as a
 network timeout or a model loading error, are propagated cleanly through the
 system. The trait defines associated `Output` and `Error` types so concrete
 providers can expose domain-specific behaviour without forcing a single error
-enum on all implementations.
+enum on all implementations. Embeddings use `Box<[f32]>` to eliminate spare
+capacity, and provider trait objects are `Send + Sync` for cross-thread
+invocation. Errors must also be `'static` so trait objects can be moved between
+threads without lifetime issues.
 
 ### Configuration (ScoringConfig and sub-types)
 
@@ -1193,10 +1195,10 @@ fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
             println!("--- Trace for query: '{}' ---", trace.query);
-            println!("Final Complexity Score: {:.4}", trace.complexity.total);
-            println!("  - Scope:     {:.4}", trace.complexity.scope);
-            println!("  - Depth:     {:.4}", trace.complexity.depth);
-            println!("  - Ambiguity: {:.4}", trace.complexity.ambiguity);
+            println!("Final Complexity Score: {:.4}", trace.complexity.total());
+            println!("  - Scope:     {:.4}", trace.complexity.scope());
+            println!("  - Depth:     {:.4}", trace.complexity.depth());
+            println!("  - Ambiguity: {:.4}", trace.complexity.ambiguity());
         }
         Err(e) => eprintln!("Failed to generate trace: {e}"),
     }
@@ -1379,7 +1381,7 @@ as follows:
 2. **Assess Complexity:** The agent calls `complexity_scorer.score(&q_t)` to
    obtain the `Complexity` object.
 3. **Apply Split Condition:** The agent evaluates the split condition using the
-   configured schedule: `config.is_split_recommended(complexity.total, t)`.
+   configured schedule: `config.is_split_recommended(complexity.total(), t)`.
 4. **Branch Logic:**
 
 - **If **`true`** (Decompose):** The query's complexity exceeds the current
@@ -1478,262 +1480,3 @@ systems that are more robust, explainable, and aligned with the principles of
 structured human reasoning. Its successful implementation will represent a
 significant step toward creating AI that can not only answer questions but can
 also understand when a question requires deeper thought.
-
-## Works cited
-
-[^1] Quantifying Generalization Complexity for Large Language Models - arXiv,
-accessed on August 17, 2025,
-[https://arxiv.org/html/2410.01769v2](https://arxiv.org/html/2410.01769v2)
-
-[^2] LLM Cognition Workshop, accessed on August 17, 2025,
-[https://llm-cognition.github.io/](https://llm-cognition.github.io/)
-
-[^3] LAG: Logic-Augmented Generation from a Cartesian Perspective - arXiv,
-accessed on August 17, 2025,
-[https://arxiv.org/html/2508.05509v1](https://arxiv.org/html/2508.05509v1)
-
-[^4] (PDF) LAG: Logic-Augmented Generation from a Cartesian Perspective -
-ResearchGate, accessed on August 17, 2025,
-[https://www.researchgate.net/publication/394397276_LAG_Logic-Augmented_Generation_from_a_Cartesian_Perspective](https://www.researchgate.net/publication/394397276_LAG_Logic-Augmented_Generation_from_a_Cartesian_Perspective)
-
-[^5] Do LLMs Understand Ambiguity in Text? A Case Study in Open-world Question
-Answering, accessed on August 17, 2025,
-[https://arxiv.org/html/2411.12395v1](https://arxiv.org/html/2411.12395v1)
-
-[^6] LAG: Logic-Augmented Generation from a Cartesian Perspective - alphaXiv,
-accessed on August 17, 2025,
-[https://www.alphaxiv.org/overview/2508.05509v1](https://www.alphaxiv.org/overview/2508.05509v1)
-
-[^7] LAG: Logic-Augmented Generation from a Cartesian ... - arXiv, accessed on
-August 17, 2025,
-[https://www.arxiv.org/pdf/2508.05509](https://www.arxiv.org/pdf/2508.05509)
-
-[^8] Cognitive Architectures for Language Agents - arXiv, accessed on August
-17, 2025,
-[https://arxiv.org/html/2309.02427v3](https://arxiv.org/html/2309.02427v3)
-
-[^9] (PDF) Cognitive Architectures for Language Agents - ResearchGate, accessed
-on August 17, 2025,
-[https://www.researchgate.net/publication/373715148_Cognitive_Architectures_for_Language_Agents](https://www.researchgate.net/publication/373715148_Cognitive_Architectures_for_Language_Agents)
-
-[^10] Aviary: training language agents on challenging scientific tasks - arXiv,
-accessed on August 17, 2025,
-[https://arxiv.org/html/2412.21154v1](https://arxiv.org/html/2412.21154v1)
-
-[^11] {Cognitive Complexity} a new way of measuring ... - Sonar, accessed on
-August 17, 2025,
-[https://www.sonarsource.com/docs/CognitiveComplexity.pdf](https://www.sonarsource.com/docs/CognitiveComplexity.pdf)
-
-[^12] Cognitive complexity: an overview and evaluation - ResearchGate, accessed
-on August 17, 2025,
-[https://www.researchgate.net/publication/326562432_Cognitive_complexity_an_overview_and_evaluation](https://www.researchgate.net/publication/326562432_Cognitive_complexity_an_overview_and_evaluation)
-
-[^13] An Empirical Validation of Cognitive Complexity as a Measure of Source
-Code Understandability - arXiv, accessed on August 17, 2025,
-[https://arxiv.org/pdf/2007.12520](https://arxiv.org/pdf/2007.12520)
-
-[^14] Building Effective Large Language Model Agents - SMU Scholar, accessed on
-August 17, 2025,
-[https://scholar.smu.edu/cgi/viewcontent.cgi?article=1270&context=datasciencereview](https://scholar.smu.edu/cgi/viewcontent.cgi?article=1270&context=datasciencereview)
-
-[^15] LLM Agents | Prompt Engineering Guide, accessed on August 17, 2025,
-[https://www.promptingguide.ai/research/llm-agents](https://www.promptingguide.ai/research/llm-agents)
-
-[^16] CoALA: Awesome Language Agents - GitHub, accessed on August 17, 2025,
-[https://github.com/ysymyth/awesome-language-agents](https://github.com/ysymyth/awesome-language-agents)
-
-[^17] Rust Security Best Practices 2025 - Corgea - Home, accessed on August 17,
-2025,
-[https://corgea.com/Learn/rust-security-best-practices-2025](https://corgea.com/Learn/rust-security-best-practices-2025)
-
-[^18] API Security Best Practices | Curity, accessed on August 17, 2025,
-[https://curity.io/resources/learn/api-security-best-practices/](https://curity.io/resources/learn/api-security-best-practices/)
-
-[^19] Best Practices for API Key Safety | OpenAI Help Center, accessed on
-August 17, 2025,
-[https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety)
-
-[^20] Safest way to store api keys for production? (Tauri) : r/rust - Reddit,
-accessed on August 17, 2025,
-[https://www.reddit.com/r/rust/comments/1ia29hp/safest_way_to_store_api_keys_for_production_tauri/](https://www.reddit.com/r/rust/comments/1ia29hp/safest_way_to_store_api_keys_for_production_tauri/)
-
-[^21] best way to store api keys in rust - Reddit, accessed on August 17, 2025,
-[https://www.reddit.com/r/rust/comments/1aytfqx/best_way_to_store_api_keys_in_rust/](https://www.reddit.com/r/rust/comments/1aytfqx/best_way_to_store_api_keys_in_rust/)
-
-[^22] Why Does Language Complexity Resist Measurement? - Frontiers, accessed on
-August 17, 2025,
-[https://www.frontiersin.org/journals/communication/articles/10.3389/fcomm.2021.624855/full](https://www.frontiersin.org/journals/communication/articles/10.3389/fcomm.2021.624855/full)
-
-[^23] Language complexity - Wikipedia, accessed on August 17, 2025,
-[https://en.wikipedia.org/wiki/Language_complexity](https://en.wikipedia.org/wiki/Language_complexity)
-
-[^24] Mastering Syntactic Features in NLP - Number Analytics, accessed on
-August 17, 2025,
-[https://www.numberanalytics.com/blog/mastering-syntactic-features-in-nlp](https://www.numberanalytics.com/blog/mastering-syntactic-features-in-nlp)
-
-[^25] Scope Ambiguities in Large Language Models - ResearchGate, accessed on
-August 17, 2025,
-[https://www.researchgate.net/publication/381261694_Scope_Ambiguities_in_Large_Language_Models](https://www.researchgate.net/publication/381261694_Scope_Ambiguities_in_Large_Language_Models)
-
-[^26] Full article: Semantic scope ambiguity in gapping and non-constituent
-coordination: a generative analysis - Taylor & Francis Online, accessed on
-August 17, 2025,
-[https://www.tandfonline.com/doi/full/10.1080/23311983.2024.2322231](https://www.tandfonline.com/doi/full/10.1080/23311983.2024.2322231)
-
-[^27] Modeling scope ambiguity resolution as pragmatic inference: Formalizing
-differences in child and adult behaviour - UC Irvine, accessed on August 17,
-2025,
-[https://sites.socsci.uci.edu/~lpearl/papers/SavinelliScontrasPearl2017_CogSciConf.pdf](https://sites.socsci.uci.edu/~lpearl/papers/SavinelliScontrasPearl2017_CogSciConf.pdf)
-
-[^28] Analysing Anaphoric Ambiguity in Natural Language ... - CiteSeerX,
-accessed on August 17, 2025,
-[https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=d79c224f26261c3e0ae76acab4437673e5fde5fc](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=d79c224f26261c3e0ae76acab4437673e5fde5fc)
-
-[^29] Detecting Ambiguities in Requirements Documents Using Inspections -
-University of Waterloo, accessed on August 17, 2025,
-[https://cs.uwaterloo.ca/~dberry/FTP_SITE/reprints.journals.conferences/KamstiesBerryPaech2001DetectingAmbiguity.pdf](https://cs.uwaterloo.ca/~dberry/FTP_SITE/reprints.journals.conferences/KamstiesBerryPaech2001DetectingAmbiguity.pdf)
-
-[^30] (PDF) Ambiguity Identification and Measurement in Natural Language Texts
-
-- ResearchGate, accessed on August 17, 2025,
-[https://www.researchgate.net/publication/30530745_Ambiguity_Identification_and_Measurement_in_Natural_Language_Texts](https://www.researchgate.net/publication/30530745_Ambiguity_Identification_and_Measurement_in_Natural_Language_Texts)
-
-[^31] Comprehending Conceptual Anaphors - PMC, accessed on August 17, 2025,
-[https://pmc.ncbi.nlm.nih.gov/articles/PMC4241273/](https://pmc.ncbi.nlm.nih.gov/articles/PMC4241273/)
-
-[^32] Techniques for Anaphora Resolution - CS@Cornell, accessed on August 17,
-2025,
-[https://www.cs.cornell.edu/courses/cs674/2005sp/projects/tejaswini-deoskar.doc](https://www.cs.cornell.edu/courses/cs674/2005sp/projects/tejaswini-deoskar.doc)
-
-[^33] Automatic Pronominal Anaphora Resolution in English Texts - ACL
-Anthology, accessed on August 17, 2025,
-[https://aclanthology.org/O03-1007.pdf](https://aclanthology.org/O03-1007.pdf)
-
-[^34] DistilBERT - Hugging Face, accessed on August 17, 2025,
-[https://huggingface.co/docs/transformers/v4.36.1/model_doc/distilbert](https://huggingface.co/docs/transformers/v4.36.1/model_doc/distilbert)
-
-[^35] oxyapi/albert-moderation-001 - Hugging Face, accessed on August 17, 2025,
-[https://huggingface.co/oxyapi/albert-moderation-001](https://huggingface.co/oxyapi/albert-moderation-001)
-
-[^36] ONNX Pipeline Models: Text Classification - Oracle AI Vector Search
-User's Guide, accessed on August 17, 2025,
-[https://docs.oracle.com/en/database/oracle/oracle-database/23/vecse/onnx-pipeline-models-text-classification.html](https://docs.oracle.com/en/database/oracle/oracle-database/23/vecse/onnx-pipeline-models-text-classification.html)
-
-[^37] Show HN: WhiteLightning – ultra-lightweight ONNX text classifiers trained
-w LLMs | Hacker News, accessed on August 17, 2025,
-[https://news.ycombinator.com/item?id=44756930](https://news.ycombinator.com/item?id=44756930)
-
-[^38] AmbigQA, accessed on August 17, 2025,
-[https://nlp.cs.washington.edu/ambigqa/](https://nlp.cs.washington.edu/ambigqa/)
-
-[^39] AmbigQA: Answering Ambiguous Open-domain ... - ACL Anthology, accessed on
-August 17, 2025,
-[https://aclanthology.org/2020.emnlp-main.466.pdf](https://aclanthology.org/2020.emnlp-main.466.pdf)
-
-[^40] Moka — Rust caching library // [Lib.rs](http://Lib.rs), accessed on
-August 17, 2025, [https://lib.rs/crates/moka](https://lib.rs/crates/moka)
-
-[^41] moka - Rust - [Docs.rs](http://Docs.rs), accessed on August 17, 2025,
-[https://docs.rs/moka/latest/moka/](https://docs.rs/moka/latest/moka/)
-
-[^42] Choosing a concurrent map #113 - GitHub, accessed on August 17, 2025,
-[https://github.com/wvwwvwwv/scalable-concurrent-containers/discussions/113](https://github.com/wvwwvwwv/scalable-concurrent-containers/discussions/113)
-
-[^43] DashMap Vs. HashMap - help - The Rust Programming Language Forum,
-accessed on August 17, 2025,
-[https://users.rust-lang.org/t/dashmap-vs-hashmap/122953](https://users.rust-lang.org/t/dashmap-vs-hashmap/122953)
-
-[^44] DashMap — Rust concurrency library // [Lib.rs](http://Lib.rs), accessed
-on August 17, 2025,
-[https://lib.rs/crates/dashmap](https://lib.rs/crates/dashmap)
-
-[^45] metrics-rs/metrics: A metrics ecosystem for Rust. - GitHub, accessed on
-August 17, 2025,
-[https://github.com/metrics-rs/metrics](https://github.com/metrics-rs/metrics)
-
-[^46] metrics_prometheus - Rust - [Docs.rs](http://Docs.rs), accessed on August
-17, 2025,
-[https://docs.rs/metrics-prometheus](https://docs.rs/metrics-prometheus)
-
-[^47] Next steps with Tracing | Tokio - An asynchronous Rust runtime, accessed
-on August 17, 2025,
-[https://tokio.rs/tokio/topics/tracing-next-steps](https://tokio.rs/tokio/topics/tracing-next-steps)
-
-[^48] Best practice for storing and protecting private API keys in applications
-
-- Stack Overflow, accessed on August 17, 2025,
-[https://stackoverflow.com/questions/14570989/best-practice-for-storing-and-protecting-private-api-keys-in-applications](https://stackoverflow.com/questions/14570989/best-practice-for-storing-and-protecting-private-api-keys-in-applications)
-
-[^49] microsoft/presidio: An open-source framework for detecting, redacting,
-masking, and anonymizing sensitive data (PII) across text, images, and
-structured data. Supports NLP, pattern matching, and customizable pipelines. -
-GitHub, accessed on August 17, 2025,
-[https://github.com/microsoft/presidio](https://github.com/microsoft/presidio)
-
-[^50] pii-scrubber is an extensible go-library to identify and mask PII data
-from text and objects - GitHub, accessed on August 17, 2025,
-[https://github.com/aavaz-ai/pii-scrubber](https://github.com/aavaz-ai/pii-scrubber)
-
-[^51] Scrubbing Sensitive Data | Sentry for Rust, accessed on August 17, 2025,
-[https://docs.sentry.io/platforms/rust/data-management/sensitive-data/](https://docs.sentry.io/platforms/rust/data-management/sensitive-data/)
-
-[^52] HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question
-Answering, accessed on August 17, 2025,
-[https://aclanthology.org/D18-1259/](https://aclanthology.org/D18-1259/)
-
-[^53] HOTPOTQA: A Dataset for Diverse, Explainable Multi-hop Question ...,
-accessed on August 17, 2025,
-[https://nlp.stanford.edu/pubs/yang2018hotpotqa.pdf](https://nlp.stanford.edu/pubs/yang2018hotpotqa.pdf)
-
-[^54] What is the BEIR benchmark and how is it used? - Milvus, accessed on
-August 17, 2025,
-[https://milvus.io/ai-quick-reference/what-is-the-beir-benchmark-and-how-is-it-used](https://milvus.io/ai-quick-reference/what-is-the-beir-benchmark-and-how-is-it-used)
-
-[^55] Benchmarking IR Information Retrieval (BEIR) - Zilliz, accessed on August
-17, 2025, [https://zilliz.com/glossary/beir](https://zilliz.com/glossary/beir)
-
-[^56] Kendall rank correlation coefficient - Wikipedia, accessed on August 17,
-2025,
-[https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient](https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient)
-
-[^57] Calibration (statistics) - Wikipedia, accessed on August 17, 2025,
-[https://en.wikipedia.org/wiki/Calibration_(statistics)](https://en.wikipedia.org/wiki/Calibration_(statistics))
-
-[^58] Introduction - The `wasm-bindgen` Guide - Rust and WebAssembly, accessed
-on August 17, 2025,
-[https://rustwasm.github.io/docs/wasm-bindgen/](https://rustwasm.github.io/docs/wasm-bindgen/)
-
-[^59] Bindgen of Rust Functions | WasmEdge Developer Guides, accessed on August
-17, 2025,
-[https://wasmedge.org/docs/develop/rust/bindgen/](https://wasmedge.org/docs/develop/rust/bindgen/)
-
-[^60] Introduction - Rust and WebAssembly, accessed on August 17, 2025,
-[https://rustwasm.github.io/docs/book/](https://rustwasm.github.io/docs/book/)
-
-[^61] Introduction - PyO3 user guide, accessed on August 17, 2025,
-[https://pyo3.rs/](https://pyo3.rs/)
-
-[^62] Bridging Python & Rust: A Walkthrough of using Py03, accessed on August
-17, 2025,
-[https://sinon.github.io/bridging-python-and-rust/](https://sinon.github.io/bridging-python-and-rust/)
-
-[^63] Getting started - Command Line Applications in Rust, accessed on August
-17, 2025,
-[https://rust-cli.github.io/book/index.html](https://rust-cli.github.io/book/index.html)
-
-[^64] A Rust to-do list CLI app - Part 1 - The Digital Cat, accessed on August
-17, 2025,
-[https://www.thedigitalcatonline.com/blog/2024/02/14/a-rust-to-do-list-cli-app-part-1/](https://www.thedigitalcatonline.com/blog/2024/02/14/a-rust-to-do-list-cli-app-part-1/)
-
-[^65] AgentGroupChat-V2 : Divide-and-Conquer Is What LLM-Based Multi-Agent
-System Need, accessed on August 17, 2025,
-[https://arxiv.org/html/2506.15451v1](https://arxiv.org/html/2506.15451v1)
-
-[^66] ComplexityNet: Increasing Language Model Inference Efficiency by Learning
-Task Complexity - arXiv, accessed on August 17, 2025,
-[https://arxiv.org/html/2312.11511v3](https://arxiv.org/html/2312.11511v3)
-
-[^67] Navigating Complexity: Orchestrated Problem Solving with Multi-Agent LLMs
-
-- arXiv, accessed on August 17, 2025,
-[https://arxiv.org/html/2402.16713v1](https://arxiv.org/html/2402.16713v1)
