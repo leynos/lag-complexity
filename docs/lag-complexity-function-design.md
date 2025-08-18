@@ -970,7 +970,7 @@ from parallelism.
 Transparent and reproducible performance reporting is crucial for users and
 maintainers.
 
-- **Criterion reports:** The `criterion` framework automatically generates
+- **`criterion` reports:** The `criterion` framework automatically generates
   detailed HTML reports with statistical analysis of benchmark runs, which can
   be archived for historical comparison.
 - **Version-Controlled Summary:** A `BENCHMARKS.md` file will be maintained in
