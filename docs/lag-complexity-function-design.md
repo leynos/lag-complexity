@@ -1,8 +1,8 @@
 # Design proposal for the `lag_complexity` crate: a production-ready implementation of the LAG cognitive load metric
 
-## Introduction: Bridging Principled Reasoning and Production Systems
+## Introduction: bridging principled reasoning and production systems
 
-### Context and Motivation
+### Context and motivation
 
 Modern Large Language Models (LLMs) have demonstrated remarkable capabilities
 across a broad spectrum of natural language tasks, from text generation to
@@ -17,7 +17,7 @@ capture the underlying logical structure of complex queries, leading to the
 retrieval of fragmented or irrelevant context and subsequent propagation of
 errors through the reasoning chain.4
 
-### The LAG Paradigm
+### The LAG paradigm
 
 The Logic-Augmented Generation (LAG) paradigm offers a principled alternative
 to address these shortcomings.3 Inspired by Cartesian principles of methodical
@@ -30,7 +30,7 @@ strategies for tackling complex problems. This aligns with broader trends in AI
 toward building more sophisticated language agents that incorporate explicit
 mechanisms for planning, memory, and reasoning.8
 
-### The Role of CL(q)
+### The role of CL(q)
 
 The cornerstone of the LAG framework is its adaptive decomposition module,
 which intelligently determines _when_ a query is too complex for direct
@@ -45,7 +45,7 @@ proceed with direct generation or to initiate a recursive decomposition
 process, ensuring that each reasoning step is taken on a manageable,
 well-defined problem.
 
-### Crate Mission Statement
+### Crate mission statement
 
 This document outlines the design for the `lag_complexity` crate, a
 high-performance, modular, and production-grade Rust implementation of the
@@ -58,7 +58,7 @@ will leverage the language's strengths in performance, concurrency, and safety
 to deliver a reliable and efficient component suitable for demanding production
 environments.
 
-### Disambiguation of "Cognitive Complexity"
+### Disambiguation of "cognitive complexity"
 
 It is critical to establish a clear distinction at the outset. The cognitive
 complexity metric implemented in this crate is the _Cognitive Load_ for natural
@@ -93,7 +93,7 @@ Therefore, the creation of the
 foundational choice that enhances the testability, maintainability, and
 scalability of the entire AI ecosystem it serves.
 
-## 1. Crate Architecture and Public API
+## 1. Crate architecture and public API
 
 The architecture of the `lag_complexity` crate is designed for modularity,
 performance, and ergonomic use. It provides a clear separation of concerns
@@ -101,7 +101,7 @@ between the high-level API, the pluggable component providers, and the
 configuration, enabling developers to easily integrate and customise the
 complexity scoring logic.
 
-### Module Structure and Naming Conventions
+### Module structure and naming conventions
 
 The crate will follow standard Rust conventions, with a logical internal module
 structure to organise its components. All primary public-facing types will be
@@ -118,7 +118,7 @@ re-exported at the crate root for convenient access.
 - `lag_complexity::error`: Defines the crate's custom `Error` enum using the
   `thiserror` crate for ergonomic error handling.
 
-### Core Types Deep Dive
+### Core types deep dive
 
 The central data structures are designed for transparency and interoperability.
 
@@ -219,7 +219,7 @@ sequenceDiagram
   end
 ```
 
-### Provider Traits
+### Provider traits
 
 These traits are the key to the crate's modularity, allowing for the
 implementation of each complexity signal to be swapped at runtime or compile
@@ -311,7 +311,7 @@ pub struct Halting {
 }
 ```
 
-### Feature Flags
+### Feature flags
 
 Cargo's feature flag system will be used extensively to manage optional
 dependencies and conditional compilation, creating a highly flexible and lean
@@ -333,7 +333,7 @@ up API keys. This combination creates a secure-by-default yet
 powerful-out-of-the-box library that serves the needs of most users while
 guiding them toward safe and efficient deployment patterns.
 
-#### Table 1: Feature Flag Specification
+#### Table 1: Feature flag specification
 
 | Feature Flag      | Dependencies                                      | Purpose                                                                               | Default |
 | ----------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
@@ -346,7 +346,7 @@ guiding them toward safe and efficient deployment patterns.
 | `wasm`            | `wasm-bindgen`, `js-sys`                          | Builds a WebAssembly module for browser/JS environments.                              | Off     |
 | `cli`             | `clap`                                            | Builds the `lagc` command-line interface binary.                                      | On      |
 
-## 2. Component Signal Implementations
+## 2. Component signal implementations
 
 The crate will provide multiple, interchangeable implementations for each of
 the three core signals—Semantic Scope, Reasoning Steps, and Ambiguity. This
@@ -382,7 +382,7 @@ require a wider retrieval strategy.
   such as Welford's online algorithm. This avoids the catastrophic cancellation
   that can occur with the naive two-pass formula.
 
-#### Embedding Providers
+#### Embedding providers
 
 The quality of the Semantic Scope signal is entirely dependent on the quality
 of the underlying embedding, `ϕ(q)`. The crate will provide both remote and
@@ -446,7 +446,7 @@ and logical complexity.22
   counts of these features. The weights will be empirically tuned against a
   curated set of multi-hop questions.
 
-#### Model-Backed Options
+#### Model-backed options
 
 For higher accuracy, the crate will provide model-based estimators.
 
@@ -538,7 +538,7 @@ local provider, ensuring service continuity. This flexibility in managing the
 trade-offs between accuracy, latency, and cost is a hallmark of a
 production-oriented, industrial-grade system.
 
-#### Table 2: Provider Implementation Trade-offs (Depth & Ambiguity)
+#### Table 2: Provider implementation trade-offs (depth & ambiguity)
 
 | Provider Type       | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                             |
 | ------------------- | -------- | --------------- | ------------------ | --------------------------- | -------------------------------------------------------------------- |
@@ -546,14 +546,14 @@ production-oriented, industrial-grade system.
 | **ONNX Classifier** | Medium   | Low (~5-20ms)   | Low (local CPU)    | `ort` crate, model file     | Production systems needing a balance of speed and accuracy.          |
 | **External LLM**    | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Systems where accuracy is paramount and latency/cost are acceptable. |
 
-## 3. Configuration Deep Dive: Normalisation, Scheduling, and Halting
+## 3. Configuration deep dive: normalisation, scheduling, and halting
 
 Effective configuration is central to the `lag_complexity` crate's
 adaptability. The `ScoringConfig` structure provides fine-grained control over
 how raw signals are processed and interpreted, allowing the system to be tuned
 for specific domains and performance requirements.
 
-### Normalisation (Sigma)
+### Normalisation (sigma)
 
 The raw scores produced by the various providers—embedding variance, heuristic
 counts, or model outputs—exist on different, arbitrary scales. The `Sigma`
@@ -640,14 +640,14 @@ single, coherent interface for tuning the entire cognitive control loop of a
 LAG agent, from the initial decomposition decision to the final termination
 conditions.
 
-## 4. Production Engineering and Operations
+## 4. Production engineering and operations
 
 A library intended for production use in high-performance AI systems must be
 engineered for concurrency, efficiency, observability, and security. This
 section details the non-functional requirements and design choices that will
 ensure the `lag_complexity` crate is robust and operationally sound.
 
-### Concurrency and Parallelism
+### Concurrency and parallelism
 
 Rust's fearless concurrency model is a primary reason for its selection for
 this task. The crate will leverage this capability to maximise throughput.
@@ -669,7 +669,7 @@ this task. The crate will leverage this capability to maximise throughput.
    operations (like running heuristic estimators), significantly reducing the
    end-to-end latency for a single query.
 
-### Caching Strategy
+### Caching strategy
 
 The most computationally expensive operation in the scoring pipeline is
 typically embedding generation. An effective caching strategy is therefore
@@ -694,7 +694,7 @@ which are critical for managing the cache's memory footprint and data freshness.
   key distribution and fixed key size. The cache itself will be configurable
   for maximum number of entries and an optional time-to-live (TTL) for entries.
 
-### Observability (Metrics & Tracing)
+### Observability (metrics & tracing)
 
 To operate and debug the system in production, deep visibility into its
 behaviour is required. The crate will provide first-class support for modern
@@ -762,7 +762,7 @@ deterministic for a given input and configuration.
   configuration file, ensuring that the exact parameters used for evaluation
   are captured and reproducible.
 
-## 5. Comprehensive Testing and Evaluation Strategy
+## 5. Comprehensive testing and evaluation strategy
 
 A rigorous, multi-layered testing and evaluation strategy is essential to
 validate the correctness, robustness, and effectiveness of the `lag_complexity`
@@ -771,7 +771,7 @@ for behavioural invariants, integration tests for component composition, and a
 large-scale evaluation against academic datasets to measure real-world
 performance.
 
-### Unit Tests
+### Unit tests
 
 Located directly alongside the code they test (within `#[cfg(test)]` modules),
 unit tests will verify the correctness of individual functions and components
@@ -819,7 +819,7 @@ test writers might miss.
   (e.g., "versus", "in addition to") should generally lead to a non-decreasing
   `depth` score.
 
-### Integration Tests
+### Integration tests
 
 Located in the `tests/` directory, these tests will verify that the different
 components of the crate work correctly together.
@@ -841,7 +841,7 @@ components of the crate work correctly together.
   servers like `wiremock`) and that ONNX models can be loaded and executed
   successfully.
 
-### Dataset-Driven Evaluation
+### Dataset-driven evaluation
 
 To validate that the complexity scores are not just internally consistent but
 also correlate with real-world notions of complexity, a dedicated evaluation
@@ -893,7 +893,7 @@ simpler ones.
   for each version of the crate. This provides a transparent and reproducible
   record of the scorer's empirical validity.
 
-## 6. Performance Benchmarking Protocol
+## 6. Performance benchmarking protocol
 
 To ensure the `lag_complexity` crate meets the performance requirements of
 production AI systems, a systematic benchmarking protocol will be established.
@@ -954,7 +954,7 @@ simulating real-world usage patterns.
   of providers (e.g., full heuristic, heuristic + ONNX, full API) to provide
   users with clear performance expectations for each configuration.
 
-### Scalability Benchmarks
+### Scalability benchmarks
 
 A key advantage of the Rust implementation is its ability to leverage
 multi-core processors. These benchmarks will quantify the performance gains
@@ -981,7 +981,7 @@ maintainers.
   and software (Rust version, OS, crate feature flags) configuration used for
   the benchmark run, ensuring that the results are reproducible.
 
-## 7. Stakeholder Demonstration and Application
+## 7. Stakeholder demonstration and application
 
 To effectively communicate the value and functionality of the `lag_complexity`
 crate to a broader audience, including product managers, technical leadership,
@@ -989,7 +989,7 @@ and other stakeholders, a set of clear and compelling demonstrations will be
 developed. These demonstrations will translate the abstract concept of
 "cognitive load" into tangible, intuitive examples of improved system behaviour.
 
-### Live "Complexity Meter" (WASM Demo)
+### Live "complexity meter" (WASM demo)
 
 This interactive web-based demonstration will provide an immediate, hands-on
 experience of the complexity metric in action.
@@ -1018,7 +1018,7 @@ experience of the complexity metric in action.
   stakeholders to develop an intuitive "feel" for what kinds of questions are
   considered complex by the system.
 
-### Python Notebook Walkthroughs
+### Python notebook walkthroughs
 
 For a more narrative and comparative demonstration, a series of Jupyter
 notebooks will be created. These will leverage the Python bindings generated by
@@ -1071,7 +1071,7 @@ These demonstrations, powered by the crate's `wasm` and `python` bindings, will
 provide powerful tools for communicating its value beyond the immediate
 implementation team.
 
-## 8. Reference Implementation and Usage Patterns
+## 8. Reference implementation and usage patterns
 
 To ensure developers can quickly and correctly integrate the `lag_complexity`
 crate, the documentation will include clear, practical examples of its primary
@@ -1154,7 +1154,7 @@ compilation based on the `rayon` feature flag. It walks through the logical
 flow from raw provider outputs to the final, normalised, and weighted
 `Complexity` score.
 
-### Configuration from File
+### Configuration from file
 
 To promote best practices for configuration management, an example will show
 how to deserialise the `ScoringConfig` from a TOML file. This allows for easy
@@ -1223,14 +1223,14 @@ fn print_trace(scorer: &impl ComplexityFn, query: &str) {
 This example highlights how the `Trace` object exposes the original query and
 its component scores, aiding debugging without additional instrumentation.
 
-## 9. Phased Implementation and Project Roadmap
+## 9. Phased implementation and project roadmap
 
 To ensure a structured and predictable development process, the implementation
 of the `lag_complexity` crate will be divided into five distinct phases. Each
 phase has a clear set of deliverables and acceptance criteria, allowing for
 iterative progress and early validation of the core components.
 
-### Phase 0 — Scaffolding & Core API (Duration: 1 week)
+### Phase 0 — scaffolding & core API (duration: 1 week)
 
 This foundational phase focuses on establishing the crate's architecture and
 defining the primary public interfaces.
@@ -1254,7 +1254,7 @@ defining the primary public interfaces.
 - The `lagc` CLI application can be built and executed, though it will have no
   functional commands yet.
 
-### Phase 1 — Heuristic Baseline (Duration: 1-2 weeks)
+### Phase 1 — heuristic baseline (duration: 1-2 weeks)
 
 This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
@@ -1273,7 +1273,7 @@ relying on fast, lightweight heuristics.
 - The golden-file integration tests pass, establishing a baseline for
   regression testing.
 
-### Phase 2 — Model-Backed Providers & Performance (Duration: 2 weeks)
+### Phase 2 — model-backed providers & performance (duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
 optimising for performance.
@@ -1297,7 +1297,7 @@ optimising for performance.
 - Initial performance metrics (latency, throughput) are recorded in
   `BENCHMARKS.md`.
 
-### Phase 3 — Evaluation & Calibration (Duration: 1 week)
+### Phase 3 — evaluation & calibration (duration: 1 week)
 
 This phase is dedicated to empirically validating the scorer's effectiveness
 and tuning its parameters.
@@ -1318,7 +1318,7 @@ and tuning its parameters.
 - The calibrated parameters are finalized and committed as the default
   configuration.
 
-### Phase 4 — Bindings & Demos (Duration: 2 weeks)
+### Phase 4 — bindings & demos (duration: 2 weeks)
 
 This phase focuses on making the crate accessible from other ecosystems and
 creating compelling demonstrations.
@@ -1338,7 +1338,7 @@ creating compelling demonstrations.
 - The demonstration notebooks are complete and successfully showcase the
   crate's value.
 
-### Phase 5 — Production Hardening (Duration: 1 week)
+### Phase 5 — production hardening (duration: 1 week)
 
 The final phase adds the remaining features required for robust, secure, and
 observable production deployment.
@@ -1360,7 +1360,7 @@ observable production deployment.
   implemented and tested.
 - The final project is ready for its first official release.
 
-## 10. Integration into a Logic-Augmented Generation (LAG) System
+## 10. Integration into a logic-augmented generation (LAG) system
 
 The `lag_complexity` crate is not an end in itself; it is a critical enabling
 component for more advanced AI reasoning systems, specifically those built on
@@ -1368,7 +1368,7 @@ the Logic-Augmented Generation (LAG) paradigm. Its primary function is to serve
 as the "cognitive clutch" within an agent's decision-making loop, providing the
 necessary signal to switch between different modes of problem-solving.
 
-### The "Cognitive Clutch" Analogy
+### The "cognitive clutch" analogy
 
 In a vehicle, a clutch engages or disengages power from the engine to the
 transmission, allowing the driver to change gears. Similarly, the
@@ -1386,7 +1386,7 @@ decide which "gear" to use for processing it.
   breaks the problem down into smaller parts, and then tackles them
   systematically. This is slower but more robust and reliable.
 
-### Control Flow in a LAG Agent
+### Control flow in a LAG agent
 
 The integration of the crate into a LAG agent's control loop can be visualized
 as follows:
@@ -1414,7 +1414,7 @@ as follows:
    sub-questions are answered and a final answer can be synthesised, or a
    halting condition is met.
 
-### Integrating Halting Conditions
+### Integrating halting conditions
 
 The `lag_complexity` crate provides a unified configuration point for the
 agent's "Logical Terminator," a crucial safety mechanism to prevent infinite
@@ -1455,7 +1455,7 @@ modes, enabling the construction of agents that can dynamically adapt their
 problem-solving strategy to the complexity of the challenge, a hallmark of more
 advanced and robust artificial intelligence.
 
-## Conclusion: A Foundation for Principled and Performant AI Reasoning
+## Conclusion: a foundation for principled and performant AI reasoning
 
 This design proposal outlines a comprehensive blueprint for the
 `lag_complexity` Rust crate, a component engineered to be a cornerstone of
