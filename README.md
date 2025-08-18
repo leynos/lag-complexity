@@ -1,6 +1,6 @@
-# `lag_complexity`: The Cognitive Clutch for Advanced AI Agents
+# LAG Complexity: The Cognitive Clutch for Advanced AI Agents
 
-`lag_complexity` is a high-performance, modular, and production-grade Rust
+`lag-complexity` is a high-performance, modular, and production-grade Rust
 implementation of the Cognitive Load metric, CL(q), as defined in the
 Logic-Augmented Generation (LAG) research paper.
 
@@ -35,10 +35,10 @@ decisions about how to best approach a problem.
 
 ### Installation
 
-Add `lag_complexity` to your project's dependencies:
+Add `lag-complexity` to your project's dependencies:
 
 ```null
-cargo add lag_complexity
+cargo add lag-complexity
 
 ```
 
@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Features
 
-The `lag_complexity` crate is highly modular and uses feature flags to keep the
+The `lag-complexity` crate is highly modular and uses feature flags to keep the
 core library lean. You can opt into additional functionality as needed:
 
 | **Feature Flag**  | **Purpose**                                                                           | **Default** |
@@ -147,20 +147,14 @@ core library lean. You can opt into additional functionality as needed:
 To see the crate in action and get an intuitive feel for the complexity metric,
 check out our live demonstrations:
 
-- **Interactive Complexity Meter (WASM)**: [Link to live demo] - Type any
+- **Interactive Complexity Meter (WASM)**: [Coming soon!] - Type any
   question and see its cognitive load scores update in real-time, right in your
   browser!
-- **Jupyter Notebook Walkthroughs**: [Link to notebooks directory] - Explore
-  detailed, narrative examples showcasing how `lag_complexity` enables smarter,
+- **Jupyter Notebook Walkthroughs**: [Coming soon!] - Explore
+  detailed, narrative examples showcasing how `lag-complexity` enables smarter,
   safer agent behaviour.
 
 ## Contributing
-
-We welcome contributions from the community! Whether it's reporting a bug,
-proposing a new feature, or improving documentation, your help is valued.
-Please see our
-[Contributing Guidelines](https://www.google.com/search?q=./CONTRIBUTING.md)
-for more details on how to get started.
 
 This project adheres to the
 [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct).
