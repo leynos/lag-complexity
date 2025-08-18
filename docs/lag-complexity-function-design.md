@@ -1,4 +1,4 @@
-# Design Proposal for the ,`lag_complexity`, Crate: A Production-Ready Implementation of the LAG Cognitive Load Metric
+# Design proposal for the `lag_complexity` crate: a production-ready implementation of the LAG cognitive load metric
 
 ## Introduction: Bridging Principled Reasoning and Production Systems
 
@@ -21,7 +21,7 @@ errors through the reasoning chain.4
 
 The Logic-Augmented Generation (LAG) paradigm offers a principled alternative
 to address these shortcomings.3 Inspired by Cartesian principles of methodical
-problem-solving, LAG introduces a "reasoning-first" pipeline that prioritizes
+problem-solving, LAG introduces a "reasoning-first" pipeline that prioritises
 systematic question decomposition and dependency-aware resolution over
 immediate, brute-force retrieval.4 This approach represents a significant
 architectural shift, moving from purely semantic pattern matching toward a more
@@ -81,7 +81,7 @@ frameworks like Cognitive Architectures for Language Agents (CoALA), which
 advocate for distinct, interoperable components for memory, action, and
 decision-making.8 By isolating the complexity scoring logic, several
 engineering advantages are unlocked. The component can be independently
-benchmarked and optimized for performance, a critical requirement for a
+benchmarked and optimised for performance, a critical requirement for a
 function that may be on the hot path of every incoming query. Its internal
 implementations—the providers for each complexity signal—can be swapped out or
 upgraded without impacting the core logic of the consuming agent. This
@@ -98,13 +98,13 @@ scalability of the entire AI ecosystem it serves.
 The architecture of the `lag_complexity` crate is designed for modularity,
 performance, and ergonomic use. It provides a clear separation of concerns
 between the high-level API, the pluggable component providers, and the
-configuration, enabling developers to easily integrate and customize the
+configuration, enabling developers to easily integrate and customise the
 complexity scoring logic.
 
 ### Module Structure and Naming Conventions
 
 The crate will follow standard Rust conventions, with a logical internal module
-structure to organize its components. All primary public-facing types will be
+structure to organise its components. All primary public-facing types will be
 re-exported at the crate root for convenient access.
 
 - `lag_complexity::api`: Contains the core public traits (`ComplexityFn`) and
@@ -317,7 +317,7 @@ Cargo's feature flag system will be used extensively to manage optional
 dependencies and conditional compilation, creating a highly flexible and lean
 library.
 
-The selection of default features is a deliberate design choice prioritizing
+The selection of default features is a deliberate design choice prioritising
 security and ease of use. By disabling `provider-api` by default, the crate
 adheres to the principle of least privilege, preventing any unintended network
 activity unless explicitly opted into by the developer.17 This is a critical
@@ -353,20 +353,20 @@ the three core signals—Semantic Scope, Reasoning Steps, and Ambiguity. This
 tiered approach allows users to select the optimal trade-off between accuracy,
 latency, and computational cost for their specific application.
 
-### 2.1 Semantic Scope: ,`σ(Var(ϕ(q)))`
+### 2.1 Semantic scope: σ(Var(ϕ(q)))
 
 The Semantic Scope component measures the conceptual breadth of a query. A high
 scope suggests the query touches on multiple, disparate topics, which may
 require a wider retrieval strategy.
 
-#### Default Implementation (,`ScopeVariance`,)
+#### Default implementation (ScopeVariance)
 
 - **Formulaic Fidelity:** The default implementation will adhere precisely to
   the definition provided in the LAG paper: the variance across the dimensions
   of the query's embedding vector, `ϕ(q)`.6 The mathematical formula is
   `Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2`.
 
-  ```text
+  ```plaintext
   Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2
   ```
 
@@ -412,13 +412,13 @@ local options.
   like `all-MiniLM-L6-v2`. Clear instructions will be provided for downloading
   model weights and configuring the provider to use them.
 
-### 2.2 Reasoning Steps: ,`σ(Depth(q))`
+### 2.2 Reasoning steps: σ(Depth(q))
 
 This component estimates the number of latent inference steps required to
 answer a query. A high depth score is the primary trigger for query
 decomposition in a LAG system.
 
-#### Heuristic Baseline (,`DepthHeuristic`,)
+#### Heuristic baseline (DepthHeuristic)
 
 This implementation provides a very fast, dependency-free baseline for
 estimating reasoning depth. While not as accurate as a model-based approach, it
@@ -435,12 +435,12 @@ and logical complexity.22
 - **Comparative Structures:** It will detect phrases indicative of comparison,
   such as "compared to," "versus," "as opposed to," and the use of comparative
   adjectives ("more than," "less than").
-- **Dependency Chains:** It will penalize sequences of prepositional phrases,
+- **Dependency Chains:** It will penalise sequences of prepositional phrases,
   particularly possessive chains (e.g., "the name of the director of the sequel
   to the movie..."), which often signal nested entity relationships.
 - **Relative Clauses:** It will increment the score for clauses introduced by
   relative pronouns like "who," "which," "that," and "whose."
-- **Enumerations:** It will recognize explicit lists and enumerations (e.g.,
+- **Enumerations:** It will recognise explicit lists and enumerations (e.g.,
   "What are the differences between A, B, and C?").
 - **Aggregation:** The final heuristic score will be a weighted sum of the
   counts of these features. The weights will be empirically tuned against a
@@ -471,19 +471,19 @@ For higher accuracy, the crate will provide model-based estimators.
   LLM to explicitly break down the question and count the sub-questions. For
   example:
 
-  ```text
+  ```plaintext
   Prompt: Analyse the question "Which university did the CEO of the company that developed the original iPhone attend?" and
   state the number of reasoning steps required.
   Response: 2
   ```
 
-### 2.3 Ambiguity: ,`σ(H(q))`
+### 2.3 Ambiguity: σ(H(q))
 
 This component quantifies the semantic uncertainty in a query. A high ambiguity
 score suggests the query may have multiple valid interpretations and should be
 clarified before attempting to answer.
 
-#### Heuristic Baseline (,`AmbiguityHeuristic`,)
+#### Heuristic baseline (AmbiguityHeuristic)
 
 This provides a fast, lightweight signal for common sources of ambiguity in
 English text.25
@@ -501,14 +501,14 @@ English text.25
   ambiguous entities (e.g., "Mercury": planet, god, element, car brand; "Nile":
   river, band). An NER pre-pass (even a simple regex-based one) will identify
   these terms and increment the score.
-- **Ellipsis and Vagueness:** The score will be penalized for vague quantifiers
+- **Ellipsis and Vagueness:** The score will be penalised for vague quantifiers
   ("some," "a few," "several") and deictic terms ("here," "there," "then") that
   lack a concrete anchor in the query's context.
 - **Aggregation:** The scores from these risk factors will be combined into a
   single pseudo-entropy value. Laplace smoothing will be applied to ensure a
   stable, non-zero score even for queries with no detected ambiguity signals.
 
-#### Model-Backed Option (,`AmbiguityClassifierOnnx`,)
+#### Model-backed option (AmbiguityClassifierOnnx)
 
 - Enabled by the `onnx` feature, this provider uses a lightweight text
   classification model for more nuanced ambiguity detection.
@@ -583,12 +583,12 @@ range, typically [0, 1], so they can be meaningfully aggregated into the final
   effectiveness depends entirely on being calibrated against a dataset of
   queries that is representative of the target domain. The crate will ship with
   a set of default parameters calibrated on a general-purpose web question
-  dataset. However, the documentation will strongly emphasize that for optimal
+  dataset. However, the documentation will strongly emphasise that for optimal
   performance, users must perform their own calibration step using
   domain-specific data and the evaluation harness provided by the crate (see
   Section 5).
 
-### Split Scheduling (,`Schedule`, and ,`τ(t)`,)
+### Split scheduling (Schedule and τ(t))
 
 This component directly implements the adaptive decomposition logic from the
 LAG paper: `SplitCondition(q) = CL(q) > τ(t)`.6 The core concept is that the
@@ -613,7 +613,7 @@ threshold for decomposition,
 - `lambda`: The decay rate, controlling how quickly the threshold decreases
   with each step.
 
-### Halting Conditions (,`Halting`,)
+### Halting conditions (Halting)
 
 The `Halting` configuration provides the parameters for the "Logical
 Terminator," a critical safety and efficiency mechanism described in the LAG
@@ -650,7 +650,7 @@ ensure the `lag_complexity` crate is robust and operationally sound.
 ### Concurrency and Parallelism
 
 Rust's fearless concurrency model is a primary reason for its selection for
-this task. The crate will leverage this capability to maximize throughput.
+this task. The crate will leverage this capability to maximise throughput.
 
 - **Batch Processing:** The `ComplexityFn` trait will expose a
   `score_batch(&self, q: &[&str]) -> Vec<Result<Complexity, Error>>` method.
@@ -796,7 +796,7 @@ in isolation.
   (e.g., "it" without a clear antecedent) or known homonyms never decreases the
   ambiguity score.
 
-### Property Tests (,`proptest`,)
+### Property tests (proptest)
 
 Property-based testing, using the `proptest` crate, will be employed to test
 for invariants that must hold true for a wide range of arbitrary, automatically
@@ -911,7 +911,7 @@ Benchmarks will reside in the `benches/` directory and can be executed via
 ### Micro-benchmarks
 
 These benchmarks will isolate and measure the performance of individual,
-critical components to identify potential bottlenecks and guide optimization
+critical components to identify potential bottlenecks and guide optimisation
 efforts.
 
 - **Provider Latency:**
@@ -1171,8 +1171,8 @@ mad = 0.1
 
 [weights]
 scope = 1.0
-depth = 1.2 # Slightly emphasize reasoning steps
-ambiguity = 1.5 # Strongly emphasize ambiguity for safety
+depth = 1.2 # Slightly emphasise reasoning steps
+ambiguity = 1.5 # Strongly emphasise ambiguity for safety
 
 [schedule]
 type = "ExpDecay"
@@ -1276,7 +1276,7 @@ relying on fast, lightweight heuristics.
 ### Phase 2 — Model-Backed Providers & Performance (Duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
-optimizing for performance.
+optimising for performance.
 
 - **Tasks:**
 
@@ -1350,7 +1350,7 @@ observable production deployment.
 - Implement the `with_redaction_hook` method for PII scrubbing.
 - Write comprehensive `rustdoc` documentation for all public APIs, including
   detailed usage examples.
-- Finalize the `README.md` to include installation instructions, usage
+- Finalise the `README.md` to include installation instructions, usage
   examples, and links to benchmarks and evaluation reports.
 - **Acceptance Criteria:**
 
@@ -1439,7 +1439,7 @@ control flow.
 The development of this crate is a foundational step toward building more
 sophisticated language agents that are capable of metacognition—the ability to
 reason about their own reasoning process. Frameworks for advanced AI, such as
-Cognitive Architectures for Language Agents (CoALA), emphasize the need for
+Cognitive Architectures for Language Agents (CoALA), emphasise the need for
 agents to possess distinct modules for memory, action, and deliberative
 decision-making.8 The
 
