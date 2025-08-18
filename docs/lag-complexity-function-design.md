@@ -656,8 +656,8 @@ this task. The crate will leverage this capability to maximize throughput.
   `score_batch(&self, q: &[&str]) -> Vec<Result<Complexity, Error>>` method.
   Processing queries in batches is significantly more efficient, especially
   when using local models on GPUs or calling external APIs.
-- `rayon`**Integration:** When the `rayon` feature flag is enabled,
-  parallelism will be applied at two levels:
+- **`rayon` integration:** When the `rayon` feature flag is enabled,
+  parallelism is applied at two levels:
 
 1. **Inter-Query Parallelism:** The `score_batch` method will use
    `rayon::par_iter()` to process multiple queries in the batch concurrently
