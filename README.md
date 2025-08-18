@@ -2,7 +2,7 @@
 
 `lag-complexity` is a high-performance, modular, and production-grade Rust
 implementation of the Cognitive Load metric, CL(q), as defined in the
-Logic-Augmented Generation (LAG) research paper.**
+Logic-Augmented Generation (LAG) research paper.
 
 Modern Large Language Models (LLMs) excel at many tasks but often struggle with
 complex, multi-step questions, leading to "hallucination". The LAG paradigm
@@ -83,16 +83,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let simple_query = "What is the capital of France?";
-    let complex_query = "What are the main differences between the economic policies of the UK and Japan since the 2008 financial crisis?";
+    let complex_query = concat!(
+        "What are the main differences between the economic policies ",
+        "of the UK and Japan since the 2008 financial crisis?",
+    );
 
     // Score the simple query
     match scorer.score(simple_query) {
         Ok(complexity) => {
             println!("--- Score for: '{}' ---", simple_query);
-            println!("Total Complexity: {:.4}", complexity.total);
-            println!("  - Scope:     {:.4}", complexity.scope);
-            println!("  - Depth:     {:.4}", complexity.depth);
-            println!("  - Ambiguity: {:.4}", complexity.ambiguity);
+            println!("Total Complexity: {:.4}", complexity.total());
+            println!("  - Scope:     {:.4}", complexity.scope());
+            println!("  - Depth:     {:.4}", complexity.depth());
+            println!("  - Ambiguity: {:.4}", complexity.ambiguity());
         }
         Err(e) => eprintln!("Error scoring simple query: {}", e),
     }
@@ -103,13 +106,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match scorer.score(complex_query) {
         Ok(complexity) => {
             println!("--- Score for: '{}' ---", complex_query);
-            println!("Total Complexity: {:.4}", complexity.total);
-            println!("  - Scope:     {:.4}", complexity.scope);
-            println!("  - Depth:     {:.4}", complexity.depth);
-            println!("  - Ambiguity: {:.4}", complexity.ambiguity);
+            println!("Total Complexity: {:.4}", complexity.total());
+            println!("  - Scope:     {:.4}", complexity.scope());
+            println!("  - Depth:     {:.4}", complexity.depth());
+            println!("  - Ambiguity: {:.4}", complexity.ambiguity());
 
             // Use the score to make a decision
-            if config.is_split_recommended(complexity.total, 0) {
+            if config.is_split_recommended(complexity.total(), 0) {
                 println!("\nDecision: Complexity is high. Recommend decomposition.");
             } else {
                 println!("\nDecision: Complexity is low. Proceed with direct answer.");
@@ -160,4 +163,3 @@ This project adheres to the
 
 lag-complexity is distributed under the terms of the ISC licence. See
 [LICENSE](LICENSE) for details.
-

@@ -109,9 +109,10 @@ re-exported at the crate root for convenient access.
 
 - `lag_complexity::api`: Contains the core public traits (`ComplexityFn`) and
   data structures (`Complexity`, `Trace`).
-- `lag_complexity::providers`: Houses the trait definitions for pluggable
-  components (`EmbeddingProvider`, `DepthEstimator`, `AmbiguityEstimator`) and
-  their concrete implementations (e.g., `ApiEmbedding`, `DepthHeuristic`).
+- `lag_complexity::providers`: Houses the `TextProcessor` trait and type
+  aliases for pluggable components (`EmbeddingProvider`, `DepthEstimator`,
+  `AmbiguityEstimator`) along with their concrete implementations (e.g.,
+  `ApiEmbedding`, `DepthHeuristic`).
 - `lag_complexity::config`: Defines the configuration structs (`ScoringConfig`,
   `Sigma`, `Weights`, `Schedule`, `Halting`).
 - `lag_complexity::error`: Defines the crate's custom `Error` enum using the
@@ -123,34 +124,28 @@ The central data structures are designed for transparency and interoperability.
 
 - `Complexity`:
 
-Rust
-
-```null
-#
+```rust
 pub struct Complexity {
-    pub total: f32,
-    pub scope: f32,
-    pub depth: f32,
-    pub ambiguity: f32,
+    total: f32,
+    scope: f32,
+    depth: f32,
+    ambiguity: f32,
 }
-
 ```
 
-The fields of the `Complexity` struct are intentionally public and the struct
-is marked with `serde::Serialize`. This transparency allows consuming systems
-to inspect the individual components of the score, not just the aggregated
-`total`. This is a critical feature for a sophisticated LAG pipeline, which
-might trigger different actions based on which component score is elevated. For
-example, a high `ambiguity` score could trigger a clarification prompt to the
-user, whereas a high `depth` score would trigger query decomposition.6
-Serialization enables easy logging and transport of complexity data.
+The fields of the `Complexity` struct are private to preserve the invariant
+that `total` always equals the sum of its components. Accessor methods expose
+each component so callers can trigger different actions based on which score is
+elevated—for example, a high `ambiguity` might prompt clarification, whereas a
+high `depth` suggests decomposition. The struct derives `serde::Serialize` and
+implements `serde::Deserialize` manually to recompute `total` from the
+components, ignoring any inbound `total` field so the invariant holds when
+deserialising untrusted data.
+
 - `Error`: A comprehensive error enum will be defined using `thiserror` to
   provide structured and actionable error information.
 
-Rust
-
-```null
-#
+```rust
 pub enum Error {
     #[error("Configuration error: {0}")]
     Config(String),
@@ -160,37 +155,69 @@ pub enum Error {
     Inference(String),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    //... other error variants
+    // ... other error variants
 }
-
 ```
 
-### The ,`ComplexityFn`, Trait
+### The `ComplexityFn` trait
 
 This trait is the primary public API and the central abstraction for any
 complexity scoring engine.
 
-Rust
-
-```null
+```rust
 pub trait ComplexityFn {
-    fn score(&self, q: &str) -> Result<Complexity, Error>;
-    fn trace(&self, q: &str) -> Result<Trace, Error>;
-    //... builder methods for configuration
-}
+    type Error: std::error::Error + Send + Sync + 'static;
 
+    fn score(&self, q: &str) -> Result<Complexity, Self::Error>;
+    fn trace(&self, q: &str) -> Result<Trace, Self::Error>;
+}
 ```
 
 - The `score` method represents the hot path, designed for high-throughput,
   low-latency execution in production.
 - The `trace` method is designed for diagnostics, debugging, and
   explainability. It will return a `Trace` struct containing a wealth of
-  intermediate data: raw scores from each provider before normalization, the
-  specific normalization parameters that were applied, token counts, a list of
+  intermediate data: raw scores from each provider before normalisation, the
+  specific normalisation parameters that were applied, token counts, a list of
   detected heuristic patterns (e.g., conjunctions or ambiguous pronouns found),
   and the latency of each provider call. This detailed output is invaluable for
   creating golden-file tests (Section 5.3), debugging scoring anomalies, and
   powering stakeholder-facing demonstrations (Section 7).
+
+#### Scoring flow
+
+The sequence diagram below outlines the primary interactions when scoring a
+query.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant ComplexityFn
+  participant EmbeddingProvider
+  participant DepthEstimator
+  participant AmbiguityEstimator
+
+  Client->>ComplexityFn: score(query)
+  ComplexityFn->>EmbeddingProvider: process(query)
+  EmbeddingProvider-->>ComplexityFn: Box<[f32]> or Self::Error
+  alt provider error
+    ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
+  else provider ok
+    ComplexityFn->>DepthEstimator: process(query)
+    DepthEstimator-->>ComplexityFn: f32 or Self::Error
+    alt depth error
+      ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
+    else depth ok
+      ComplexityFn->>AmbiguityEstimator: process(query)
+      AmbiguityEstimator-->>ComplexityFn: f32 or Self::Error
+      alt ambiguity error
+        ComplexityFn-->>Client: Err(Self::Error or mapped crate::Error)
+      else all ok
+        ComplexityFn-->>Client: Ok(Complexity)
+      end
+    end
+  end
+```
 
 ### Provider Traits
 
@@ -198,87 +225,90 @@ These traits are the key to the crate's modularity, allowing for the
 implementation of each complexity signal to be swapped at runtime or compile
 time.
 
-Rust
-
-```null
-pub trait EmbeddingProvider {
-    fn embed(&self, text: &str) -> Result<Vec<f32>, Error>;
-}
-pub trait DepthEstimator {
-    fn estimate(&self, text: &str) -> Result<f32, Error>;
-}
-pub trait AmbiguityEstimator {
-    fn entropy_like(&self, text: &str) -> Result<f32, Error>;
+```rust
+pub trait TextProcessor {
+    /// Structured, thread-safe result.
+    type Output: Send + Sync + 'static;
+    /// Thread-safe error type.
+    type Error: std::error::Error + Send + Sync + 'static;
+    fn process(&self, input: &str) -> Result<Self::Output, Self::Error>;
 }
 
+pub type EmbeddingProvider<E> =
+    dyn TextProcessor<Output = Box<[f32]>, Error = E> + Send + Sync + 'static;
+pub type DepthEstimator<E> =
+    dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
+pub type AmbiguityEstimator<E> =
+    dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
 ```
 
 All provider methods return a `Result` to ensure that failures, such as a
 network timeout or a model loading error, are propagated cleanly through the
-system.
+system. The trait defines associated `Output` and `Error` types so concrete
+providers can expose domain-specific behaviour without forcing a single error
+enum on all implementations. Both associated types must be `Send`, `Sync`, and
+`'static` so they can cross thread boundaries and live in trait objects without
+borrowed data. Embeddings use `Box<[f32]>` to eliminate spare capacity, and
+provider trait objects are `Send + Sync` for cross-thread invocation. Errors
+must implement `std::error::Error` so callers can compose them with
+higher-level failure types.
 
-### Configuration (,`ScoringConfig`, and Sub-types)
+### Configuration (ScoringConfig and sub-types)
 
-The `ScoringConfig` struct and its components provide a centralized,
-declarative way to tune the behavior of the scoring engine. The entire
-structure will be deserializable from a TOML file using `serde`, allowing
-operators to adjust parameters in different environments (development, staging,
-production) without recompiling the application.
+The ScoringConfig struct and its components provide a centralised, declarative
+way to tune the behaviour of the scoring engine. The entire structure will be
+deserialisable from a TOML file using serde, allowing operators to adjust
+parameters in different environments (development, staging, production) without
+recompiling the application.
 
-- `ScoringConfig`: The top-level configuration object.
-- `Sigma`: An enum representing the normalization strategy. This provides
+- ScoringConfig: The top-level configuration object.
+- ScopingConfig: Configures how semantic scope is measured. The initial
+  variant, Variance, accepts a window size and all configuration types derive
+  Serialise/Deserialise for convenient loading.
+- Sigma: An enum representing the normalisation strategy. This provides
   statistical flexibility to adapt to different distributions of raw scores.
 
-Rust
-
-```null
+```rust
 pub enum Sigma {
     MinMax { p01: f32, p99: f32 },
     ZScore { mean: f32, std: f32 },
     Robust { median: f32, mad: f32 },
 }
-
 ```
+
 - `Weights`: A simple struct for re-weighting the final components of the
   `CL(q)` score. The default will be `1.0` for all components, directly
   matching the unweighted sum in the LAG paper's formula.6
 
-Rust
-
-```null
+```rust
 pub struct Weights {
     pub scope: f32,
     pub depth: f32,
     pub ambiguity: f32,
 }
-
 ```
+
 - `Schedule`: An enum that implements the decaying threshold logic, `τ(t)`, for
   the split condition. The primary variant directly models the paper's concept
   of a threshold that becomes more lenient as the reasoning process deepens.6
 
-Rust
-
-```null
+```rust
 pub enum Schedule {
     Constant(f32),
     ExpDecay { tau0: f32, lambda: f32 },
 }
-
 ```
+
 - `Halting`: A struct to hold the parameters for the agent-level "Logical
   Terminator." While the logic is implemented by the consuming agent, these
   parameters are configured alongside the rest of the complexity logic for
   coherence.
 
-Rust
-
-```null
+```rust
 pub struct Halting {
     pub gamma: f32, // Semantic redundancy threshold
     pub t_max: u8,  // Max decomposition steps
 }
-
 ```
 
 ### Feature Flags
@@ -303,7 +333,7 @@ up API keys. This combination creates a secure-by-default yet
 powerful-out-of-the-box library that serves the needs of most users while
 guiding them toward safe and efficient deployment patterns.
 
-**Table 1: Feature Flag Specification**
+#### Table 1: Feature Flag Specification
 
 | Feature Flag      | Dependencies                                      | Purpose                                                                               | Default |
 | ----------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
@@ -334,13 +364,18 @@ require a wider retrieval strategy.
 - **Formulaic Fidelity:** The default implementation will adhere precisely to
   the definition provided in the LAG paper: the variance across the dimensions
   of the query's embedding vector, `ϕ(q)`.6 The mathematical formula is
+  `Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2`.
 
-Var(v)=d1​∑i=1d​(vi​−vˉ)2, where v is the d-dimensional embedding vector. This
-direct translation ensures that the implementation is grounded in the source
-research.
+  ```text
+  Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2
+  ```
+
+  Here, `v` is the `d`-dimensional embedding vector. This expression is a
+  direct translation of the variance definition given in the source research.
+
 - **Generic Provider:** The `ScopeVariance` struct will be generic over any
-  type that implements the `EmbeddingProvider` trait, decoupling the variance
-  calculation from the source of the embedding itself.
+  type that satisfies the `EmbeddingProvider` alias of `TextProcessor`,
+  decoupling the variance calculation from the source of the embedding itself.
 - **Numerical Stability:** To prevent floating-point precision errors,
   especially with high-dimensional embeddings (e.g., 768 or 1024 dimensions),
   the variance calculation will use a numerically stable one-pass algorithm,
@@ -435,7 +470,12 @@ For higher accuracy, the crate will provide model-based estimators.
 - The prompt will be carefully engineered using a few-shot approach, asking the
   LLM to explicitly break down the question and count the sub-questions. For
   example:
-  `Prompt: Analyze the question "Which university did the CEO of the company that developed the original iPhone attend?" and state the number of reasoning steps required. Response: 2`.
+
+  ```text
+  Prompt: Analyse the question "Which university did the CEO of the company that developed the original iPhone attend?" and
+  state the number of reasoning steps required.
+  Response: 2
+  ```
 
 ### 2.3 Ambiguity: ,`σ(H(q))`
 
@@ -498,7 +538,7 @@ local provider, ensuring service continuity. This flexibility in managing the
 trade-offs between accuracy, latency, and cost is a hallmark of a
 production-oriented, industrial-grade system.
 
-**Table 2: Provider Implementation Trade-offs (Depth & Ambiguity)**
+#### Table 2: Provider Implementation Trade-offs (Depth & Ambiguity)
 
 | Provider Type       | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                             |
 | ------------------- | -------- | --------------- | ------------------ | --------------------------- | -------------------------------------------------------------------- |
@@ -506,19 +546,19 @@ production-oriented, industrial-grade system.
 | **ONNX Classifier** | Medium   | Low (~5-20ms)   | Low (local CPU)    | `ort` crate, model file     | Production systems needing a balance of speed and accuracy.          |
 | **External LLM**    | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Systems where accuracy is paramount and latency/cost are acceptable. |
 
-## 3. Configuration Deep Dive: Normalization, Scheduling, and Halting
+## 3. Configuration Deep Dive: Normalisation, Scheduling, and Halting
 
 Effective configuration is central to the `lag_complexity` crate's
 adaptability. The `ScoringConfig` structure provides fine-grained control over
 how raw signals are processed and interpreted, allowing the system to be tuned
 for specific domains and performance requirements.
 
-### Normalization (,`Sigma`,)
+### Normalisation (Sigma)
 
 The raw scores produced by the various providers—embedding variance, heuristic
 counts, or model outputs—exist on different, arbitrary scales. The purpose of
-the `Sigma` normalization module is to transform these raw scores into a
-consistent, comparable range, typically $$, so they can be meaningfully
+the Sigma normalisation module is to transform these raw scores into a
+consistent, comparable range, typically [0, 1], so they can be meaningfully
 aggregated into the final CL(q) score.
 
 - **Implementations:**
@@ -528,11 +568,11 @@ aggregated into the final CL(q) score.
   the 1st and 99th percentiles of the expected score distribution, rather than
   the absolute minimum and maximum. Any value below `p01` is clamped to 0, and
   any value above `p99` is clamped to 1.
-- `Sigma::ZScore { mean, std }`: This method standardizes scores by subtracting
+- `Sigma::ZScore { mean, std }`: This method standardises scores by subtracting
   the mean and dividing by the standard deviation of the expected distribution.
   The resulting Z-score is then typically passed through a sigmoid function to
-  map it to the $$ range. This approach is effective when the raw scores are
-  approximately normally distributed.
+  map it to the [0, 1] range. This approach is effective when the raw scores
+  are approximately normally distributed.
 - `Sigma::Robust { median, mad }`: For distributions with significant outliers
   or skew, this provides a more robust alternative to Z-scoring. It uses the
   median as the measure of central tendency and the Median Absolute Deviation
@@ -616,7 +656,7 @@ this task. The crate will leverage this capability to maximize throughput.
   `score_batch(&self, q: &[&str]) -> Vec<Result<Complexity, Error>>` method.
   Processing queries in batches is significantly more efficient, especially
   when using local models on GPUs or calling external APIs.
-- `rayon`** Integration:** When the `rayon` feature flag is enabled,
+- `rayon`**Integration:** When the `rayon` feature flag is enabled,
   parallelism will be applied at two levels:
 
 1. **Inter-Query Parallelism:** The `score_batch` method will use
@@ -646,6 +686,7 @@ essential for performance and cost reduction.
 Caffeine. It provides essential caching features out-of-the-box, such as
 size-based eviction (LRU/LFU policies) and time-based expiration (TTL/TTI),
 which are critical for managing the cache's memory footprint and data freshness.
+
 - **Implementation:** A `CachingEmbeddingProvider` decorator will be
   implemented. This struct will wrap an existing `EmbeddingProvider` and
   internally use a `moka::sync::Cache` to store results. The cache key will be
@@ -656,7 +697,7 @@ which are critical for managing the cache's memory footprint and data freshness.
 ### Observability (Metrics & Tracing)
 
 To operate and debug the system in production, deep visibility into its
-behavior is required. The crate will provide first-class support for modern
+behaviour is required. The crate will provide first-class support for modern
 observability practices.
 
 - **Frameworks:** It will use the `tracing` crate for structured, context-aware
@@ -716,7 +757,7 @@ deterministic for a given input and configuration.
 - **Seeding:** Any internal processes that rely on random number generation
   (e.g., certain model layers, stochastic preprocessing) will be explicitly
   seeded.
-- **Configuration Snapshotting:** The calibrated normalization parameters
+- **Configuration Snapshotting:** The calibrated normalisation parameters
   (`Sigma`) and heuristic weights will be stored in a version-controlled
   configuration file, ensuring that the exact parameters used for evaluation
   are captured and reproducible.
@@ -726,7 +767,7 @@ deterministic for a given input and configuration.
 A rigorous, multi-layered testing and evaluation strategy is essential to
 validate the correctness, robustness, and effectiveness of the `lag_complexity`
 crate. The strategy encompasses unit tests for isolated logic, property tests
-for behavioral invariants, integration tests for component composition, and a
+for behavioural invariants, integration tests for component composition, and a
 large-scale evaluation against academic datasets to measure real-world
 performance.
 
@@ -740,7 +781,7 @@ in isolation.
 
 - The variance calculation will be tested against known inputs and edge cases
   (e.g., zero-length vectors, vectors with all identical elements).
-- Each `Sigma` normalization implementation will be tested to ensure it
+- Each `Sigma` normalisation implementation will be tested to ensure it
   correctly scales inputs according to its formula and handles values outside
   the calibrated range gracefully (clipping).
 - The `Schedule::ExpDecay` logic will be tested to confirm that the threshold
@@ -787,16 +828,16 @@ components of the crate work correctly together.
   A set of approximately 50 curated queries representing a wide range of
   complexity types (single-hop, multi-hop, ambiguous, high-scope, simple, and
   nonsensical) will be stored in a "golden file." The integration test will
-  execute the `trace()` method for each query and serialize the detailed
+  execute the `trace()` method for each query and serialise the detailed
   `Trace` object to a snapshot file. This snapshot will be committed to version
   control. On subsequent test runs, the new output will be compared against the
   golden snapshot; any discrepancies will fail the test, immediately flagging
-  unintended changes in behavior from modifications to heuristics, models, or
-  normalization logic.
+  unintended changes in behaviour from modifications to heuristics, models, or
+  normalisation logic.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based
-  providers correctly serialize requests and deserialize responses (using mock
+  providers correctly serialise requests and deserialise responses (using mock
   servers like `wiremock`) and that ONNX models can be loaded and executed
   successfully.
 
@@ -818,13 +859,15 @@ academic datasets and report on its performance.
 
 **2WikiMultiHopQA**, and **MuSiQue**. The number of supporting facts or
 annotated reasoning hops will serve as the ground truth for reasoning depth.
+
 - **Ambiguity (**`ambiguity`**):** The ambiguity score will be validated
   against datasets designed to study ambiguity, such as **AmbigQA** 38 and
 
 **ASQA**. The ground truth will be the dataset's annotation indicating whether
 a question has multiple plausible interpretations.
+
 - **Semantic Scope (**`scope`**):** As there is no direct ground-truth label
-  for "scope," its behavior will be evaluated indirectly. Using diverse
+  for "scope," its behaviour will be evaluated indirectly. Using diverse
   datasets from the **BEIR benchmark** 54 and Semantic Textual Similarity (STS)
   tasks, the hypothesis is that a set of queries with high conceptual diversity
   (low average inter-query similarity) should produce a higher average scope
@@ -839,6 +882,7 @@ a question has multiple plausible interpretations.
 _rank_ questions by difficulty. A strong positive rank correlation indicates
 that the scorer is effective at distinguishing more complex queries from
 simpler ones.
+
 - **Classifier Calibration:** For any model-based classifiers (e.g.,
   `AmbiguityClassifierOnnx`), the **Expected Calibration Error (ECE)** will be
   reported.57 A low ECE indicates that the model's confidence in its
@@ -872,7 +916,7 @@ efforts.
 
 - **Provider Latency:**
 
-- `EmbeddingProvider::embed`: The latency of this method will be measured for
+- `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
   `candle` backends). This will quantify the performance trade-offs between
   remote API calls and local model inference.
@@ -885,7 +929,7 @@ efforts.
 - **Computational Overhead:**
 
 - The time taken for the variance calculation and the application of `Sigma`
-  normalization will be measured to ensure they contribute negligibly to the
+  normalisation will be measured to ensure they contribute negligibly to the
   overall latency.
 
 ### Macro-benchmarks
@@ -916,17 +960,17 @@ A key advantage of the Rust implementation is its ability to leverage
 multi-core processors. These benchmarks will quantify the performance gains
 from parallelism.
 
-- `rayon`** Speedup:** The `score_batch` method will be benchmarked with the
-  `rayon` feature enabled, running on 1, 2, 4, 8, and 16 threads. The results
-  will be used to calculate the speedup factor and assess how effectively the
-  implementation scales with additional CPU cores.
+- **Rayon speed-up:** Benchmark `score_batch` with the `rayon` feature enabled,
+  running on 1, 2, 4, 8, and 16 threads. The results will be used to calculate
+  the speed-up factor and assess how effectively the implementation scales with
+  additional CPU cores.
 
 ### Reporting
 
 Transparent and reproducible performance reporting is crucial for users and
 maintainers.
 
-- `criterion`** Reports:** The `criterion` framework automatically generates
+- **Criterion reports:** The `criterion` framework automatically generates
   detailed HTML reports with statistical analysis of benchmark runs, which can
   be archived for historical comparison.
 - **Version-Controlled Summary:** A `BENCHMARKS.md` file will be maintained in
@@ -943,7 +987,7 @@ To effectively communicate the value and functionality of the `lag_complexity`
 crate to a broader audience, including product managers, technical leadership,
 and other stakeholders, a set of clear and compelling demonstrations will be
 developed. These demonstrations will translate the abstract concept of
-"cognitive load" into tangible, intuitive examples of improved system behavior.
+"cognitive load" into tangible, intuitive examples of improved system behaviour.
 
 ### Live "Complexity Meter" (WASM Demo)
 
@@ -960,7 +1004,7 @@ experience of the complexity metric in action.
   area where a user can type or paste a question. As the user types, the input
   will be passed to the WASM module in real-time. The application will display:
 
-- A set of gauges or progress bars visualizing the normalized scores for
+- A set of gauges or progress bars visualizing the normalised scores for
   `total`, `scope`, `depth`, and `ambiguity`. These will update dynamically,
   providing instant feedback.
 - A color-coded overall complexity indicator (e.g., Green for Low, Yellow for
@@ -999,6 +1043,7 @@ the `pyo3` crate, enabled by the `python` feature flag.61
 1. "What book is the film 'Arrival' based on?"
 2. "Who is the author of that book?"
 3. "At which university did that author teach?"
+
 - The notebook will then show the system answering each sub-question
   sequentially, leading to a correct and fully supported final answer.
 - **Scenario 2: The Ambiguity Resolver**
@@ -1033,55 +1078,57 @@ crate, the documentation will include clear, practical examples of its primary
 usage patterns. These examples will serve as both a guide and a reference
 implementation for common configurations.
 
-### The ,`DefaultComplexity`, Engine
+### The `DefaultComplexity` engine
 
-A central example will demonstrate the composition of the default,
-general-purpose `ComplexityFn` implementation. This struct will hold references
-to the configured providers and the scoring configuration, acting as the
-primary engine for calculating complexity.
+A central example demonstrates the composition of the default, general-purpose
+`ComplexityFn` implementation. This struct holds references to the configured
+providers and the scoring configuration, acting as the primary engine for
+calculating complexity.
 
-Rust
-
-```null
-use lag_complexity::api::{Complexity, ComplexityFn, Error};
-use lag_complexity::providers::{EmbeddingProvider, DepthEstimator, AmbiguityEstimator};
+```rust
+use lag_complexity::api::{Complexity, ComplexityFn};
 use lag_complexity::config::ScoringConfig;
+use lag_complexity::providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
 
-pub struct DefaultComplexity<'a> {
-    emb: &'a dyn EmbeddingProvider,
-    depth: &'a dyn DepthEstimator,
-    amb: &'a dyn AmbiguityEstimator,
+pub struct DefaultComplexity<'a, EE, DE, AE> {
+    emb: &'a dyn EmbeddingProvider<EE>,
+    depth: &'a dyn DepthEstimator<DE>,
+    amb: &'a dyn AmbiguityEstimator<AE>,
     cfg: &'a ScoringConfig,
 }
 
 // Constructor and other methods omitted for brevity...
 
-impl<'a> ComplexityFn for DefaultComplexity<'a> {
-    fn score(&self, q: &str) -> Result<Complexity, Error> {
+impl<'a, EE, DE, AE> ComplexityFn for DefaultComplexity<'a, EE, DE, AE>
+where
+    EE: std::error::Error + Send + Sync,
+    DE: std::error::Error + Send + Sync,
+    AE: std::error::Error + Send + Sync,
+{
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+
+    fn score(&self, q: &str) -> Result<Complexity, Self::Error> {
         // Parallel execution path using `rayon`
         #[cfg(feature = "rayon")]
         let (e_res, d_res, a_res) = rayon::join(
-|
-| self.emb.embed(q),
-|
-| self.depth.estimate(q),
-|
-| self.amb.entropy_like(q),
+            || self.emb.process(q),
+            || self.depth.process(q),
+            || self.amb.process(q),
         );
 
         // Sequential execution path if `rayon` is disabled
         #[cfg(not(feature = "rayon"))]
         let (e_res, d_res, a_res) = (
-            self.emb.embed(q),
-            self.depth.estimate(q),
-            self.amb.entropy_like(q),
+            self.emb.process(q),
+            self.depth.process(q),
+            self.amb.process(q),
         );
 
         let embedding = e_res?;
         let raw_depth = d_res?;
         let raw_ambiguity = a_res?;
 
-        // Calculate variance and apply normalization
+        // Calculate variance and apply normalisation
         let variance = calculate_variance(&embedding);
         let scope = self.cfg.sigma.apply(variance);
         let depth = self.cfg.sigma.apply(raw_depth);
@@ -1097,28 +1144,26 @@ impl<'a> ComplexityFn for DefaultComplexity<'a> {
             ambiguity,
         })
     }
-    //... trace() implementation...
+    // ... trace() implementation ...
 }
-
 ```
 
 This example clearly illustrates the composition pattern, the use of
 `rayon::join` for concurrent provider execution, and the conditional
 compilation based on the `rayon` feature flag. It walks through the logical
-flow from raw provider outputs to the final, normalized, and weighted
+flow from raw provider outputs to the final, normalised, and weighted
 `Complexity` score.
 
 ### Configuration from File
 
 To promote best practices for configuration management, an example will show
-how to deserialize the `ScoringConfig` from a TOML file. This allows for easy
-tuning of the system's behavior without requiring code changes or recompilation.
+how to deserialise the `ScoringConfig` from a TOML file. This allows for easy
+tuning of the system's behaviour without requiring code changes or
+recompilation.
 
-`config.toml`** example:**
+`config.toml` example:
 
-Ini, TOML
-
-```null
+```toml
 [sigma]
 type = "Robust"
 median = 0.5
@@ -1142,9 +1187,7 @@ t_max = 5
 
 **Rust code to load the configuration:**
 
-Rust
-
-```null
+```rust
 use lag_complexity::config::ScoringConfig;
 use std::fs;
 
@@ -1156,47 +1199,29 @@ fn load_config(path: &str) -> Result<ScoringConfig, Box<dyn std::error::Error>> 
 
 ```
 
-### Using the ,`Trace`, Object for Diagnostics
+### Using the `Trace` object for diagnostics
 
 The `trace()` method is a powerful tool for debugging and understanding the
-scorer's behavior. An example will be provided to show how to invoke it and
-pretty-print its contents.
+scorer's behaviour. An example shows how to invoke it and inspect the component
+scores.
 
-Rust
-
-```null
+```rust
 fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
-            println!("--- Trace for query: '{}' ---", query);
-            println!("Final Complexity Score: {:.4}", trace.complexity.total);
-            println!("  - Scope:     {:.4}", trace.complexity.scope);
-            println!("  - Depth:     {:.4}", trace.complexity.depth);
-            println!("  - Ambiguity: {:.4}", trace.complexity.ambiguity);
-            println!("\n--- Intermediate Values ---");
-            println!("Raw Scope (Variance): {:.6}", trace.raw_scope);
-            println!("Raw Depth Score:      {:.4}", trace.raw_depth);
-            println!("Raw Ambiguity Score:  {:.4}", trace.raw_ambiguity);
-            println!("\n--- Heuristic Details ---");
-            println!("Detected Depth Patterns: {:?}", trace.depth_patterns);
-            println!("Detected Ambiguity Patterns: {:?}", trace.ambiguity_patterns);
-            println!("\n--- Performance ---");
-            println!("Embedding Provider Latency: {:?}", trace.embedding_latency);
-            println!("Depth Provider Latency:     {:?}", trace.depth_latency);
-            println!("Ambiguity Provider Latency: {:?}", trace.ambiguity_latency);
-            println!("---------------------------------");
+            println!("--- Trace for query: '{}' ---", trace.query);
+            println!("Final Complexity Score: {:.4}", trace.complexity.total());
+            println!("  - Scope:     {:.4}", trace.complexity.scope());
+            println!("  - Depth:     {:.4}", trace.complexity.depth());
+            println!("  - Ambiguity: {:.4}", trace.complexity.ambiguity());
         }
-        Err(e) => eprintln!("Failed to generate trace: {}", e),
+        Err(e) => eprintln!("Failed to generate trace: {e}"),
     }
 }
-
 ```
 
-This example highlights the richness of the `Trace` object, showing how it
-provides not just the final scores but also the raw inputs to the normalizer,
-the specific linguistic features that were triggered, and performance metrics
-for each component. This level of detail is essential for developers who need
-to diagnose why a particular query received an unexpected score.
+This example highlights how the `Trace` object exposes the original query and
+its component scores, aiding debugging without additional instrumentation.
 
 ## 9. Phased Implementation and Project Roadmap
 
@@ -1212,19 +1237,19 @@ defining the primary public interfaces.
 
 - **Tasks:**
 
-- Initialize the Rust project using `cargo new`.
+- Initialise the Rust project using `cargo new`.
 - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
   `DepthEstimator`, `AmbiguityEstimator`).
 - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
   its sub-types) and derive `serde` traits for configuration types.
 - Implement the mathematical logic for variance calculation and all `Sigma`
-  normalization strategies.
+  normalisation strategies.
 - Create the stub for the `lagc` command-line interface binary using the `clap`
   crate.63
 - **Acceptance Criteria:**
 
 - The crate and all its core types compile successfully.
-- A comprehensive suite of unit tests for the mathematical and normalization
+- A comprehensive suite of unit tests for the mathematical and normalisation
   logic passes.
 - The `lagc` CLI application can be built and executed, though it will have no
   functional commands yet.
@@ -1283,8 +1308,8 @@ and tuning its parameters.
 - Integrate loaders for the target datasets (`HotpotQA`, `AmbigQA`, etc.).
 - Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
   calibration (`ECE`) metrics.
-- Run the evaluation harness and analyze the results to fine-tune the `Sigma`
-  normalization parameters and the weights within the heuristic models.
+- Run the evaluation harness and analyse the results to fine-tune the `Sigma`
+  normalisation parameters and the weights within the heuristic models.
 - **Acceptance Criteria:**
 
 - The evaluation harness successfully generates a report (`EVALUATION.md`).
@@ -1371,7 +1396,7 @@ as follows:
 2. **Assess Complexity:** The agent calls `complexity_scorer.score(&q_t)` to
    obtain the `Complexity` object.
 3. **Apply Split Condition:** The agent evaluates the split condition using the
-   configured schedule: `config.is_split_recommended(complexity.total, t)`.
+   configured schedule: `config.is_split_recommended(complexity.total(), t)`.
 4. **Branch Logic:**
 
 - **If **`true`** (Decompose):** The query's complexity exceeds the current
@@ -1383,9 +1408,10 @@ as follows:
 - **If **`false`** (Resolve):** The query is deemed simple enough for direct
   resolution. The agent proceeds with its standard execution flow: retrieve
   context relevant to qt​ and generate an answer.
-5. **Synthesize and Repeat:** Once a sub-question is resolved, its answer is
+
+1. **Synthesise and Repeat:** Once a sub-question is resolved, its answer is
    added to the context for subsequent steps. The loop continues until all
-   sub-questions are answered and a final answer can be synthesized, or a
+   sub-questions are answered and a final answer can be synthesised, or a
    halting condition is met.
 
 ### Integrating Halting Conditions
@@ -1469,261 +1495,3 @@ systems that are more robust, explainable, and aligned with the principles of
 structured human reasoning. Its successful implementation will represent a
 significant step toward creating AI that can not only answer questions but can
 also understand when a question requires deeper thought.
-
-## Works cited
-
-[^1] Quantifying Generalization Complexity for Large Language Models - arXiv,
-   accessed on August 17, 2025,
-   [https://arxiv.org/html/2410.01769v2](https://arxiv.org/html/2410.01769v2)
-
-[^2] LLM Cognition Workshop, accessed on August 17, 2025,
-   [https://llm-cognition.github.io/](https://llm-cognition.github.io/)
-
-[^3] LAG: Logic-Augmented Generation from a Cartesian Perspective - arXiv,
-   accessed on August 17, 2025,
-   [https://arxiv.org/html/2508.05509v1](https://arxiv.org/html/2508.05509v1)
-
-[^4] (PDF) LAG: Logic-Augmented Generation from a Cartesian Perspective -
-   ResearchGate, accessed on August 17, 2025,
-   [https://www.researchgate.net/publication/394397276_LAG_Logic-Augmented_Generation_from_a_Cartesian_Perspective](https://www.researchgate.net/publication/394397276_LAG_Logic-Augmented_Generation_from_a_Cartesian_Perspective)
-
-[^5] Do LLMs Understand Ambiguity in Text? A Case Study in Open-world Question
-   Answering, accessed on August 17, 2025,
-   [https://arxiv.org/html/2411.12395v1](https://arxiv.org/html/2411.12395v1)
-
-[^6] LAG: Logic-Augmented Generation from a Cartesian Perspective - alphaXiv,
-   accessed on August 17, 2025,
-   [https://www.alphaxiv.org/overview/2508.05509v1](https://www.alphaxiv.org/overview/2508.05509v1)
-
-[^7] LAG: Logic-Augmented Generation from a Cartesian ... - arXiv, accessed on
-   August 17, 2025,
-   [https://www.arxiv.org/pdf/2508.05509](https://www.arxiv.org/pdf/2508.05509)
-
-[^8] Cognitive Architectures for Language Agents - arXiv, accessed on August 17,
-   2025,
-   [https://arxiv.org/html/2309.02427v3](https://arxiv.org/html/2309.02427v3)
-
-[^9] (PDF) Cognitive Architectures for Language Agents - ResearchGate, accessed
-   on August 17, 2025,
-   [https://www.researchgate.net/publication/373715148_Cognitive_Architectures_for_Language_Agents](https://www.researchgate.net/publication/373715148_Cognitive_Architectures_for_Language_Agents)
-
-[^10] Aviary: training language agents on challenging scientific tasks - arXiv,
-    accessed on August 17, 2025,
-    [https://arxiv.org/html/2412.21154v1](https://arxiv.org/html/2412.21154v1)
-
-[^11] {Cognitive Complexity} a new way of measuring ... - Sonar, accessed on
-    August 17, 2025,
-    [https://www.sonarsource.com/docs/CognitiveComplexity.pdf](https://www.sonarsource.com/docs/CognitiveComplexity.pdf)
-
-[^12] Cognitive complexity: an overview and evaluation - ResearchGate, accessed
-    on August 17, 2025,
-    [https://www.researchgate.net/publication/326562432_Cognitive_complexity_an_overview_and_evaluation](https://www.researchgate.net/publication/326562432_Cognitive_complexity_an_overview_and_evaluation)
-
-[^13] An Empirical Validation of Cognitive Complexity as a Measure of Source Code
-    Understandability - arXiv, accessed on August 17, 2025,
-    [https://arxiv.org/pdf/2007.12520](https://arxiv.org/pdf/2007.12520)
-
-[^14] Building Effective Large Language Model Agents - SMU Scholar, accessed on
-    August 17, 2025,
-    [https://scholar.smu.edu/cgi/viewcontent.cgi?article=1270&context=datasciencereview](https://scholar.smu.edu/cgi/viewcontent.cgi?article=1270&context=datasciencereview)
-
-[^15] LLM Agents | Prompt Engineering Guide, accessed on August 17, 2025,
-    [https://www.promptingguide.ai/research/llm-agents](https://www.promptingguide.ai/research/llm-agents)
-
-[^16] CoALA: Awesome Language Agents - GitHub, accessed on August 17, 2025,
-    [https://github.com/ysymyth/awesome-language-agents](https://github.com/ysymyth/awesome-language-agents)
-
-[^17] Rust Security Best Practices 2025 - Corgea - Home, accessed on August 17,
-    2025,
-    [https://corgea.com/Learn/rust-security-best-practices-2025](https://corgea.com/Learn/rust-security-best-practices-2025)
-
-[^18] API Security Best Practices | Curity, accessed on August 17, 2025,
-    [https://curity.io/resources/learn/api-security-best-practices/](https://curity.io/resources/learn/api-security-best-practices/)
-
-[^19] Best Practices for API Key Safety | OpenAI Help Center, accessed on August
-    17, 2025,
-    [https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety)
-
-[^20] Safest way to store api keys for production? (Tauri) : r/rust - Reddit,
-    accessed on August 17, 2025,
-    [https://www.reddit.com/r/rust/comments/1ia29hp/safest_way_to_store_api_keys_for_production_tauri/](https://www.reddit.com/r/rust/comments/1ia29hp/safest_way_to_store_api_keys_for_production_tauri/)
-
-[^21] best way to store api keys in rust - Reddit, accessed on August 17, 2025,
-    [https://www.reddit.com/r/rust/comments/1aytfqx/best_way_to_store_api_keys_in_rust/](https://www.reddit.com/r/rust/comments/1aytfqx/best_way_to_store_api_keys_in_rust/)
-
-[^22] Why Does Language Complexity Resist Measurement? - Frontiers, accessed on
-    August 17, 2025,
-    [https://www.frontiersin.org/journals/communication/articles/10.3389/fcomm.2021.624855/full](https://www.frontiersin.org/journals/communication/articles/10.3389/fcomm.2021.624855/full)
-
-[^23] Language complexity - Wikipedia, accessed on August 17, 2025,
-    [https://en.wikipedia.org/wiki/Language_complexity](https://en.wikipedia.org/wiki/Language_complexity)
-
-[^24] Mastering Syntactic Features in NLP - Number Analytics, accessed on August
-    17, 2025,
-    [https://www.numberanalytics.com/blog/mastering-syntactic-features-in-nlp](https://www.numberanalytics.com/blog/mastering-syntactic-features-in-nlp)
-
-[^25] Scope Ambiguities in Large Language Models - ResearchGate, accessed on
-    August 17, 2025,
-    [https://www.researchgate.net/publication/381261694_Scope_Ambiguities_in_Large_Language_Models](https://www.researchgate.net/publication/381261694_Scope_Ambiguities_in_Large_Language_Models)
-
-[^26] Full article: Semantic scope ambiguity in gapping and non-constituent
-    coordination: a generative analysis - Taylor & Francis Online, accessed on
-    August 17, 2025,
-    [https://www.tandfonline.com/doi/full/10.1080/23311983.2024.2322231](https://www.tandfonline.com/doi/full/10.1080/23311983.2024.2322231)
-
-[^27] Modeling scope ambiguity resolution as pragmatic inference: Formalizing
-    differences in child and adult behavior - UC Irvine, accessed on August 17,
-    2025,
-    [https://sites.socsci.uci.edu/~lpearl/papers/SavinelliScontrasPearl2017_CogSciConf.pdf](https://sites.socsci.uci.edu/~lpearl/papers/SavinelliScontrasPearl2017_CogSciConf.pdf)
-
-[^28] Analysing Anaphoric Ambiguity in Natural Language ... - CiteSeerX, accessed
-    on August 17, 2025,
-    [https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=d79c224f26261c3e0ae76acab4437673e5fde5fc](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=d79c224f26261c3e0ae76acab4437673e5fde5fc)
-
-[^29] Detecting Ambiguities in Requirements Documents Using Inspections -
-    University of Waterloo, accessed on August 17, 2025,
-    [https://cs.uwaterloo.ca/~dberry/FTP_SITE/reprints.journals.conferences/KamstiesBerryPaech2001DetectingAmbiguity.pdf](https://cs.uwaterloo.ca/~dberry/FTP_SITE/reprints.journals.conferences/KamstiesBerryPaech2001DetectingAmbiguity.pdf)
-
-[^30] (PDF) Ambiguity Identification and Measurement in Natural Language Texts -
-    ResearchGate, accessed on August 17, 2025,
-    [https://www.researchgate.net/publication/30530745_Ambiguity_Identification_and_Measurement_in_Natural_Language_Texts](https://www.researchgate.net/publication/30530745_Ambiguity_Identification_and_Measurement_in_Natural_Language_Texts)
-
-[^31] Comprehending Conceptual Anaphors - PMC, accessed on August 17, 2025,
-    [https://pmc.ncbi.nlm.nih.gov/articles/PMC4241273/](https://pmc.ncbi.nlm.nih.gov/articles/PMC4241273/)
-
-[^32] Techniques for Anaphora Resolution - CS@Cornell, accessed on August 17,
-    2025,
-    [https://www.cs.cornell.edu/courses/cs674/2005sp/projects/tejaswini-deoskar.doc](https://www.cs.cornell.edu/courses/cs674/2005sp/projects/tejaswini-deoskar.doc)
-
-[^33] Automatic Pronominal Anaphora Resolution in English Texts - ACL Anthology,
-    accessed on August 17, 2025,
-    [https://aclanthology.org/O03-1007.pdf](https://aclanthology.org/O03-1007.pdf)
-
-[^34] DistilBERT - Hugging Face, accessed on August 17, 2025,
-    [https://huggingface.co/docs/transformers/v4.36.1/model_doc/distilbert](https://huggingface.co/docs/transformers/v4.36.1/model_doc/distilbert)
-
-[^35] oxyapi/albert-moderation-001 - Hugging Face, accessed on August 17, 2025,
-    [https://huggingface.co/oxyapi/albert-moderation-001](https://huggingface.co/oxyapi/albert-moderation-001)
-
-[^36] ONNX Pipeline Models: Text Classification - Oracle AI Vector Search User's
-    Guide, accessed on August 17, 2025,
-    [https://docs.oracle.com/en/database/oracle/oracle-database/23/vecse/onnx-pipeline-models-text-classification.html](https://docs.oracle.com/en/database/oracle/oracle-database/23/vecse/onnx-pipeline-models-text-classification.html)
-
-[^37] Show HN: WhiteLightning – ultra-lightweight ONNX text classifiers trained w
-    LLMs | Hacker News, accessed on August 17, 2025,
-    [https://news.ycombinator.com/item?id=44756930](https://news.ycombinator.com/item?id=44756930)
-
-[^38] AmbigQA, accessed on August 17, 2025,
-    [https://nlp.cs.washington.edu/ambigqa/](https://nlp.cs.washington.edu/ambigqa/)
-
-[^39] AmbigQA: Answering Ambiguous Open-domain ... - ACL Anthology, accessed on
-    August 17, 2025,
-    [https://aclanthology.org/2020.emnlp-main.466.pdf](https://aclanthology.org/2020.emnlp-main.466.pdf)
-
-[^40] Moka — Rust caching library // [Lib.rs](http://Lib.rs), accessed on August
-    17, 2025, [https://lib.rs/crates/moka](https://lib.rs/crates/moka)
-
-[^41] moka - Rust - [Docs.rs](http://Docs.rs), accessed on August 17, 2025,
-    [https://docs.rs/moka/latest/moka/](https://docs.rs/moka/latest/moka/)
-
-[^42] Choosing a concurrent map #113 - GitHub, accessed on August 17, 2025,
-    [https://github.com/wvwwvwwv/scalable-concurrent-containers/discussions/113](https://github.com/wvwwvwwv/scalable-concurrent-containers/discussions/113)
-
-[^43] DashMap Vs. HashMap - help - The Rust Programming Language Forum, accessed
-    on August 17, 2025,
-    [https://users.rust-lang.org/t/dashmap-vs-hashmap/122953](https://users.rust-lang.org/t/dashmap-vs-hashmap/122953)
-
-[^44] DashMap — Rust concurrency library // [Lib.rs](http://Lib.rs), accessed on
-    August 17, 2025,
-    [https://lib.rs/crates/dashmap](https://lib.rs/crates/dashmap)
-
-[^45] metrics-rs/metrics: A metrics ecosystem for Rust. - GitHub, accessed on
-    August 17, 2025,
-    [https://github.com/metrics-rs/metrics](https://github.com/metrics-rs/metrics)
-
-[^46] metrics_prometheus - Rust - [Docs.rs](http://Docs.rs), accessed on August
-    17, 2025,
-    [https://docs.rs/metrics-prometheus](https://docs.rs/metrics-prometheus)
-
-[^47] Next steps with Tracing | Tokio - An asynchronous Rust runtime, accessed on
-    August 17, 2025,
-    [https://tokio.rs/tokio/topics/tracing-next-steps](https://tokio.rs/tokio/topics/tracing-next-steps)
-
-[^48] Best practice for storing and protecting private API keys in applications -
-    Stack Overflow, accessed on August 17, 2025,
-    [https://stackoverflow.com/questions/14570989/best-practice-for-storing-and-protecting-private-api-keys-in-applications](https://stackoverflow.com/questions/14570989/best-practice-for-storing-and-protecting-private-api-keys-in-applications)
-
-[^49] microsoft/presidio: An open-source framework for detecting, redacting,
-    masking, and anonymizing sensitive data (PII) across text, images, and
-    structured data. Supports NLP, pattern matching, and customizable
-    pipelines. - GitHub, accessed on August 17, 2025,
-    [https://github.com/microsoft/presidio](https://github.com/microsoft/presidio)
-
-[^50] pii-scrubber is an extensible go-library to identify and mask PII data from
-    text and objects - GitHub, accessed on August 17, 2025,
-    [https://github.com/aavaz-ai/pii-scrubber](https://github.com/aavaz-ai/pii-scrubber)
-
-[^51] Scrubbing Sensitive Data | Sentry for Rust, accessed on August 17, 2025,
-    [https://docs.sentry.io/platforms/rust/data-management/sensitive-data/](https://docs.sentry.io/platforms/rust/data-management/sensitive-data/)
-
-[^52] HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering,
-    accessed on August 17, 2025,
-    [https://aclanthology.org/D18-1259/](https://aclanthology.org/D18-1259/)
-
-[^53] HOTPOTQA: A Dataset for Diverse, Explainable Multi-hop Question ...,
-    accessed on August 17, 2025,
-    [https://nlp.stanford.edu/pubs/yang2018hotpotqa.pdf](https://nlp.stanford.edu/pubs/yang2018hotpotqa.pdf)
-
-[^54] What is the BEIR benchmark and how is it used? - Milvus, accessed on August
-    17, 2025,
-    [https://milvus.io/ai-quick-reference/what-is-the-beir-benchmark-and-how-is-it-used](https://milvus.io/ai-quick-reference/what-is-the-beir-benchmark-and-how-is-it-used)
-
-[^55] Benchmarking IR Information Retrieval (BEIR) - Zilliz, accessed on August
-    17, 2025,
-    [https://zilliz.com/glossary/beir](https://zilliz.com/glossary/beir)
-
-[^56] Kendall rank correlation coefficient - Wikipedia, accessed on August 17,
-    2025,
-    [https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient](https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient)
-
-[^57] Calibration (statistics) - Wikipedia, accessed on August 17, 2025,
-    [https://en.wikipedia.org/wiki/Calibration_(statistics)](https://en.wikipedia.org/wiki/Calibration_(statistics))
-
-[^58] Introduction - The `wasm-bindgen` Guide - Rust and WebAssembly, accessed on
-    August 17, 2025,
-    [https://rustwasm.github.io/docs/wasm-bindgen/](https://rustwasm.github.io/docs/wasm-bindgen/)
-
-[^59] Bindgen of Rust Functions | WasmEdge Developer Guides, accessed on August
-    17, 2025,
-    [https://wasmedge.org/docs/develop/rust/bindgen/](https://wasmedge.org/docs/develop/rust/bindgen/)
-
-[^60] Introduction - Rust and WebAssembly, accessed on August 17, 2025,
-    [https://rustwasm.github.io/docs/book/](https://rustwasm.github.io/docs/book/)
-
-[^61] Introduction - PyO3 user guide, accessed on August 17, 2025,
-    [https://pyo3.rs/](https://pyo3.rs/)
-
-[^62] Bridging Python & Rust: A Walkthrough of using Py03, accessed on August 17,
-    2025,
-    [https://sinon.github.io/bridging-python-and-rust/](https://sinon.github.io/bridging-python-and-rust/)
-
-[^63] Getting started - Command Line Applications in Rust, accessed on August 17,
-    2025,
-    [https://rust-cli.github.io/book/index.html](https://rust-cli.github.io/book/index.html)
-
-[^64] A Rust to-do list CLI app - Part 1 - The Digital Cat, accessed on August
-    17, 2025,
-    [https://www.thedigitalcatonline.com/blog/2024/02/14/a-rust-to-do-list-cli-app-part-1/](https://www.thedigitalcatonline.com/blog/2024/02/14/a-rust-to-do-list-cli-app-part-1/)
-
-[^65] AgentGroupChat-V2 : Divide-and-Conquer Is What LLM-Based Multi-Agent System
-    Need, accessed on August 17, 2025,
-    [https://arxiv.org/html/2506.15451v1](https://arxiv.org/html/2506.15451v1)
-
-[^66] ComplexityNet: Increasing Language Model Inference Efficiency by Learning
-    Task Complexity - arXiv, accessed on August 17, 2025,
-    [https://arxiv.org/html/2312.11511v3](https://arxiv.org/html/2312.11511v3)
-
-[^67] Navigating Complexity: Orchestrated Problem Solving with Multi-Agent LLMs -
-    arXiv, accessed on August 17, 2025,
-    [https://arxiv.org/html/2402.16713v1](https://arxiv.org/html/2402.16713v1)
-
