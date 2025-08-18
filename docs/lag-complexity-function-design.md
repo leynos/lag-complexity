@@ -333,7 +333,7 @@ up API keys. This combination creates a secure-by-default yet
 powerful-out-of-the-box library that serves the needs of most users while
 guiding them toward safe and efficient deployment patterns.
 
-#### Table 1: Feature flag specification
+#### Table 1: feature flag specification
 
 | Feature Flag      | Dependencies                                      | Purpose                                                                               | Default |
 | ----------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
@@ -538,7 +538,7 @@ local provider, ensuring service continuity. This flexibility in managing the
 trade-offs between accuracy, latency, and cost is a hallmark of a
 production-oriented, industrial-grade system.
 
-#### Table 2: Provider implementation trade-offs (depth & ambiguity)
+#### Table 2: provider implementation trade-offs (depth & ambiguity)
 
 | Provider Type       | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                             |
 | ------------------- | -------- | --------------- | ------------------ | --------------------------- | -------------------------------------------------------------------- |
