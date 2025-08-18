@@ -559,7 +559,7 @@ The raw scores produced by the various providers—embedding variance, heuristic
 counts, or model outputs—exist on different, arbitrary scales. The `Sigma`
 normalisation module transforms these raw scores into a consistent, comparable
 range, typically [0, 1], so they can be meaningfully aggregated into the final
-CL(q) score.
+`CL(q)` score.
 
 - **Implementations:**
 
