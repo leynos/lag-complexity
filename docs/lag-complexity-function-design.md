@@ -556,10 +556,10 @@ for specific domains and performance requirements.
 ### Normalisation (Sigma)
 
 The raw scores produced by the various providers—embedding variance, heuristic
-counts, or model outputs—exist on different, arbitrary scales. The purpose of
-the Sigma normalisation module is to transform these raw scores into a
-consistent, comparable range, typically [0, 1], so they can be meaningfully
-aggregated into the final CL(q) score.
+counts, or model outputs—exist on different, arbitrary scales. The `Sigma`
+normalisation module transforms these raw scores into a consistent, comparable
+range, typically [0, 1], so they can be meaningfully aggregated into the final
+`CL(q)` score.
 
 - **Implementations:**
 
