@@ -960,10 +960,10 @@ A key advantage of the Rust implementation is its ability to leverage
 multi-core processors. These benchmarks will quantify the performance gains
 from parallelism.
 
-- **Rayon speed-up:** Benchmark `score_batch` with the `rayon` feature enabled,
-  running on 1, 2, 4, 8, and 16 threads. The results will be used to calculate
-  the speed-up factor and assess how effectively the implementation scales with
-  additional CPU cores.
+- **`rayon` speed-up:** The `score_batch` method will be benchmarked with the
+  `rayon` feature enabled, running on 1, 2, 4, 8, and 16 threads. The results
+  will be used to calculate the speed-up factor and assess how effectively the
+  implementation scales with additional CPU cores.
 
 ### Reporting
 
