@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 
 serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -47,4 +48,3 @@ rstest = "0.26.1"
 rstest-bdd = { git = "https://github.com/leynos/rstest-bdd.git", rev = "7a298dafa1b0c43b4aa711f180732234ad999e86" }
 rstest-bdd-macros = { git = "https://github.com/leynos/rstest-bdd.git", rev = "7a298dafa1b0c43b4aa711f180732234ad999e86" }
 serde_json = "1.0"
-thiserror = "1.0"
