@@ -1144,9 +1144,17 @@ where
 
         // Calculate variance and apply normalization
         let variance = calculate_variance(&embedding);
-        let scope = self.cfg.sigma.apply(variance);
-        let depth = self.cfg.sigma.apply(raw_depth);
-        let ambiguity = self.cfg.sigma.apply(raw_ambiguity);
+        let scope = self
+            .cfg
+            .sigma
+            .apply(variance)
+            .unwrap_or_default();
+        let depth = self.cfg.sigma.apply(raw_depth).unwrap_or_default();
+        let ambiguity = self
+            .cfg
+            .sigma
+            .apply(raw_ambiguity)
+            .unwrap_or_default();
 
         // Apply weights and construct the final result
         let total = self.cfg.weights.sum(scope, depth, ambiguity);
