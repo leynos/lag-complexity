@@ -1,15 +1,9 @@
 //! BDD tests for Sigma normalisation strategies.
 
-use lag_complexity::Sigma;
+use lag_complexity::{Sigma, tests::support::approx_eq};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::cell::RefCell;
-
-mod support;
-use support::approx_eq as approx_eq_with_tol;
-fn approx_eq(a: f32, b: f32) -> bool {
-    approx_eq_with_tol(a, b, 1e-4)
-}
 
 #[derive(Default)]
 struct SigmaContext {
@@ -71,7 +65,7 @@ fn then_result(expected: f32, #[from(sigma_context)] ctx: &SigmaContext) {
         .as_ref()
         .copied()
         .unwrap_or_else(|| panic!("result to be set"));
-    assert!(approx_eq(result, expected));
+    assert!(approx_eq(result, expected, 1e-4));
 }
 
 #[scenario(path = "tests/features/sigma.feature", index = 0)]
@@ -80,21 +74,26 @@ fn minmax_in_range(sigma_context: SigmaContext) {
 }
 
 #[scenario(path = "tests/features/sigma.feature", index = 1)]
-fn minmax_clamped(sigma_context: SigmaContext) {
+fn minmax_clamped_below(sigma_context: SigmaContext) {
     let _ = sigma_context;
 }
 
 #[scenario(path = "tests/features/sigma.feature", index = 2)]
-fn zscore_zero_std(sigma_context: SigmaContext) {
+fn minmax_clamped_above(sigma_context: SigmaContext) {
     let _ = sigma_context;
 }
 
 #[scenario(path = "tests/features/sigma.feature", index = 3)]
-fn robust_standard(sigma_context: SigmaContext) {
+fn zscore_zero_std(sigma_context: SigmaContext) {
     let _ = sigma_context;
 }
 
 #[scenario(path = "tests/features/sigma.feature", index = 4)]
+fn robust_standard(sigma_context: SigmaContext) {
+    let _ = sigma_context;
+}
+
+#[scenario(path = "tests/features/sigma.feature", index = 5)]
 fn robust_zero_mad(sigma_context: SigmaContext) {
     let _ = sigma_context;
 }

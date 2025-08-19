@@ -47,6 +47,15 @@ pub enum Sigma {
 impl Sigma {
     /// Apply the normalisation strategy to a raw value.
     ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use lag_complexity::Sigma;
+    /// let sigma = Sigma::ZScore { mean: 0.0, std: 1.0 };
+    /// let y = sigma.apply(1.0);
+    /// assert!(y > 0.5 && y < 1.0);
+    /// ```
+    ///
     /// # Panics
     ///
     /// Panics if a [`MinMax`] sigma has `p99` not greater than `p01`.
@@ -56,7 +65,7 @@ impl Sigma {
             Self::MinMax { p01, p99 } => {
                 #[expect(clippy::float_arithmetic, reason = "percentile difference check")]
                 let range = p99 - p01;
-                assert!(range.abs() >= NEAR_ZERO, "p99 must be greater than p01");
+                assert!(range >= NEAR_ZERO, "p99 must be greater than p01");
                 #[expect(clippy::float_arithmetic, reason = "linear scaling")]
                 {
                     ((value - p01) / range).clamp(0.0, 1.0)
@@ -90,12 +99,8 @@ impl Sigma {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::support::approx_eq;
     use rstest::rstest;
-
-    #[expect(clippy::float_arithmetic, reason = "tolerance comparison")]
-    fn approx_eq(a: f32, b: f32) -> bool {
-        (a - b).abs() < 1e-6
-    }
 
     const ROBUST_EXPECTED: f32 = 0.662_507_95;
 
@@ -111,7 +116,7 @@ mod tests {
             p99: 10.0,
         };
         let result = sigma.apply(input);
-        assert!(approx_eq(result, expected));
+        assert!(approx_eq(result, expected, 1e-6));
     }
 
     #[rstest]
@@ -121,7 +126,7 @@ mod tests {
             std: 1.0,
         };
         let result = sigma.apply(1.0);
-        assert!(approx_eq(result, sigmoid(1.0)));
+        assert!(approx_eq(result, sigmoid(1.0), 1e-6));
     }
 
     #[rstest]
@@ -131,7 +136,7 @@ mod tests {
             std: 0.0,
         };
         let result = sigma.apply(1.0);
-        assert!(approx_eq(result, 0.5));
+        assert!(approx_eq(result, 0.5, 1e-6));
     }
 
     #[rstest]
@@ -141,7 +146,7 @@ mod tests {
             mad: 1.0,
         };
         let result = sigma.apply(1.0);
-        assert!(approx_eq(result, ROBUST_EXPECTED));
+        assert!(approx_eq(result, ROBUST_EXPECTED, 1e-6));
     }
 
     #[rstest]
@@ -151,6 +156,49 @@ mod tests {
             mad: 0.0,
         };
         let result = sigma.apply(1.0);
-        assert!(approx_eq(result, 0.5));
+        assert!(approx_eq(result, 0.5, 1e-6));
+    }
+
+    #[rstest]
+    #[should_panic(expected = "p99 must be greater than p01")]
+    fn minmax_inverted_range_panics() {
+        let sigma = Sigma::MinMax {
+            p01: 10.0,
+            p99: 0.0,
+        };
+        let _ = sigma.apply(5.0);
+    }
+
+    #[rstest]
+    #[should_panic(expected = "p99 must be greater than p01")]
+    #[expect(clippy::float_arithmetic, reason = "test inputs requiring floats")]
+    fn minmax_near_zero_range_panics() {
+        let sigma = Sigma::MinMax {
+            p01: 0.0,
+            p99: NEAR_ZERO / 10.0,
+        };
+        let _ = sigma.apply(5.0);
+    }
+
+    #[rstest]
+    #[expect(clippy::float_arithmetic, reason = "test inputs requiring floats")]
+    fn zscore_near_zero_std() {
+        let sigma = Sigma::ZScore {
+            mean: 0.0,
+            std: NEAR_ZERO / 10.0,
+        };
+        let result = sigma.apply(1.0);
+        assert!(approx_eq(result, 0.5, 1e-6));
+    }
+
+    #[rstest]
+    #[expect(clippy::float_arithmetic, reason = "test inputs requiring floats")]
+    fn robust_near_zero_mad() {
+        let sigma = Sigma::Robust {
+            median: 0.0,
+            mad: NEAR_ZERO / 10.0,
+        };
+        let result = sigma.apply(1.0);
+        assert!(approx_eq(result, 0.5, 1e-6));
     }
 }

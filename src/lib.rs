@@ -13,6 +13,8 @@ pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextP
 pub use sigma::Sigma;
 pub use variance::VarianceError;
 
+pub mod tests;
+
 /// Returns a greeting for the library.
 ///
 /// # Examples

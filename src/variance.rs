@@ -20,6 +20,9 @@ pub enum VarianceError {
 /// The function returns an error if the slice is empty. For a single value the
 /// variance is defined as zero.
 ///
+/// Non-finite inputs propagate: if any element is `NaN` or infinite the result
+/// is `NaN`.
+///
 /// # Examples
 ///
 /// ```
@@ -62,11 +65,8 @@ pub fn variance(values: &[f32]) -> Result<f32, VarianceError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::support::approx_eq;
     use rstest::rstest;
-    #[expect(clippy::float_arithmetic, reason = "tolerance comparison")]
-    fn approx_eq(a: f32, b: f32) -> bool {
-        (a - b).abs() < 1e-6
-    }
 
     const TWO_THIRDS: f32 = 0.666_666_7;
 
@@ -86,6 +86,20 @@ mod tests {
     #[expect(clippy::expect_used, reason = "test should fail loudly")]
     fn variance_three_values() {
         let result = variance(&[1.0, 2.0, 3.0]).expect("variance of three values");
-        assert!(approx_eq(result, TWO_THIRDS));
+        assert!(approx_eq(result, TWO_THIRDS, 1e-6));
+    }
+
+    #[rstest]
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    fn variance_nan() {
+        let result = variance(&[f32::NAN]).expect("variance with NaN");
+        assert!(result.is_nan());
+    }
+
+    #[rstest]
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    fn variance_infinite() {
+        let result = variance(&[f32::INFINITY, 1.0]).expect("variance with infinity");
+        assert!(result.is_nan());
     }
 }

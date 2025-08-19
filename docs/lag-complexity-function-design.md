@@ -384,6 +384,8 @@ require a wider retrieval strategy.
 - **Empty Inputs:** Supplying an empty embedding vector is considered an error
   and results in a dedicated `VarianceError::Empty`. This guards against silent
   NaNs and ensures caller intent is explicit.
+- **Non-finite Inputs:** `NaN` or infinite values yield `NaN`. Callers should
+  sanitise embeddings if such values are not expected.
 
 #### Embedding Providers
 
