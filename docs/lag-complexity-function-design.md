@@ -381,6 +381,11 @@ require a wider retrieval strategy.
   the variance calculation will use a numerically stable one-pass algorithm,
   such as Welford's online algorithm. This avoids the catastrophic cancellation
   that can occur with the naive two-pass formula.
+- **Empty Inputs:** Supplying an empty embedding vector is considered an error
+  and results in a dedicated `VarianceError::Empty`. This guards against silent
+  NaNs and ensures caller intent is explicit.
+- **Non-finite Inputs:** `NaN` or infinite values yield `NaN`. Callers should
+  sanitise embeddings if such values are not expected.
 
 #### Embedding providers
 
@@ -578,6 +583,15 @@ range, typically [0, 1], so they can be meaningfully aggregated into the final
   median as the measure of central tendency and the Median Absolute Deviation
   (MAD) as the measure of dispersion, both of which are less sensitive to
   extreme values.
+
+The sigmoid used by both `ZScore` and `Robust` is the standard logistic
+function. When either the standard deviation or MAD fall below `NEAR_ZERO`
+(`1e-6`) the strategies default to `0.5`, ensuring deterministic behaviour
+without division-by-zero errors. The `MinMax` variant asserts `p99` exceeds
+`p01` to surface misconfiguration, and the `Robust` variant scales the MAD by
+`MAD_SCALING_FACTOR` (`1.4826`) to approximate the standard deviation under a
+normal distribution.
+
 - **Calibration is Critical:** The parameters for each `Sigma` variant (`p01`,
   `p99`, `mean`, `std`, `median`, `mad`) are not universal constants. Their
   effectiveness depends entirely on being calibrated against a dataset of

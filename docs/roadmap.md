@@ -10,13 +10,13 @@ primary public interfaces.
     and its subtypes) and derive `serde` traits for configuration types.
 - [x] Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
     `DepthEstimator`, `AmbiguityEstimator`).
-- [ ] Implement the mathematical logic for variance calculation and all `Sigma`
+- [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
 - [ ] Create the stub for the `lagc` command-line interface binary using the
   `clap` crate.
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
-- [ ] **Acceptance Criteria**: A comprehensive suite of unit tests for the
+- [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
   mathematical and normalisation logic passes.
 - [ ] **Acceptance Criteria**: The `lagc` CLI application can be built and run,
   though it will have no functional commands yet.

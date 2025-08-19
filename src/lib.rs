@@ -4,10 +4,16 @@
 pub mod api;
 pub mod config;
 pub mod providers;
+pub mod sigma;
+pub mod variance;
 
 pub use api::{Complexity, ComplexityFn, Trace};
 pub use config::{ScopingConfig, VarianceScopingConfig};
 pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};
+pub use sigma::Sigma;
+pub use variance::VarianceError;
+
+pub mod tests;
 
 /// Returns a greeting for the library.
 ///
