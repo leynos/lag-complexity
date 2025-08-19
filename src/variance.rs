@@ -34,7 +34,6 @@ pub enum VarianceError {
 ///
 /// Returns [`VarianceError::Empty`] if `values` contains no elements.
 #[expect(
-    clippy::float_arithmetic,
     clippy::cast_possible_truncation,
     reason = "variance calculation accumulates in f64 then converts to f32"
 )]
@@ -47,6 +46,7 @@ pub fn variance(values: &[f32]) -> Result<f32, VarianceError> {
     let mut m2 = 0.0f64;
     let mut count = 0f64;
 
+    #[expect(clippy::float_arithmetic, reason = "variance accumulation")]
     for &x in values {
         count += 1.0;
         let delta = f64::from(x) - mean;
@@ -55,6 +55,7 @@ pub fn variance(values: &[f32]) -> Result<f32, VarianceError> {
         m2 += delta * delta2;
     }
 
+    #[expect(clippy::float_arithmetic, reason = "final division")]
     Ok((m2 / count) as f32)
 }
 
@@ -62,7 +63,6 @@ pub fn variance(values: &[f32]) -> Result<f32, VarianceError> {
 mod tests {
     use super::*;
     use rstest::rstest;
-
     #[expect(clippy::float_arithmetic, reason = "tolerance comparison")]
     fn approx_eq(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-6

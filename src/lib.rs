@@ -11,7 +11,7 @@ pub use api::{Complexity, ComplexityFn, Trace};
 pub use config::{ScopingConfig, VarianceScopingConfig};
 pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};
 pub use sigma::Sigma;
-pub use variance::{VarianceError, variance};
+pub use variance::VarianceError;
 
 /// Returns a greeting for the library.
 ///

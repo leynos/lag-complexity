@@ -9,8 +9,15 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Values with an absolute magnitude below this are treated as zero.
+const NEAR_ZERO: f32 = 1e-6;
+
+/// Scales the Median Absolute Deviation to approximate the standard deviation
+/// of a normal distribution.
+const MAD_SCALING_FACTOR: f32 = 1.4826;
+
 /// Logistic sigmoid function mapping any real number to `[0, 1]`.
-#[expect(clippy::float_arithmetic, reason = "sigmoid requires float arithmetic")]
+#[expect(clippy::float_arithmetic, reason = "sigmoid uses floats")]
 #[inline]
 #[must_use]
 fn sigmoid(x: f32) -> f32 {
@@ -19,53 +26,67 @@ fn sigmoid(x: f32) -> f32 {
 
 /// Strategy for normalising raw scores.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "strategy", rename_all = "snake_case")]
+#[serde(tag = "strategy", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Sigma {
     /// Linear scaling using percentile estimates. Values outside the `[p01, p99]`
     /// range are clamped.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `p99` is not greater than `p01`.
     MinMax { p01: f32, p99: f32 },
     /// Standard Z-score normalisation with mean and standard deviation. A
     /// sigmoid is applied to map the Z-score to `[0, 1]`.
     ZScore { mean: f32, std: f32 },
     /// Robust normalisation based on the median and MAD. The MAD is scaled by
-    /// `1.4826` to approximate the standard deviation of a normal distribution.
+    /// [`MAD_SCALING_FACTOR`] to approximate the standard deviation of a normal
+    /// distribution.
     Robust { median: f32, mad: f32 },
 }
 
 impl Sigma {
     /// Apply the normalisation strategy to a raw value.
-    #[expect(
-        clippy::float_arithmetic,
-        reason = "normalisation requires float arithmetic"
-    )]
+    ///
+    /// # Panics
+    ///
+    /// Panics if a [`MinMax`] sigma has `p99` not greater than `p01`.
     #[must_use]
     pub fn apply(&self, value: f32) -> f32 {
         match *self {
             Self::MinMax { p01, p99 } => {
-                if (p99 - p01).abs() < f32::EPSILON {
-                    0.5
-                } else {
-                    ((value - p01) / (p99 - p01)).clamp(0.0, 1.0)
+                #[expect(clippy::float_arithmetic, reason = "percentile difference check")]
+                let range = p99 - p01;
+                assert!(range.abs() >= NEAR_ZERO, "p99 must be greater than p01");
+                #[expect(clippy::float_arithmetic, reason = "linear scaling")]
+                {
+                    ((value - p01) / range).clamp(0.0, 1.0)
                 }
             }
             Self::ZScore { mean, std } => {
-                if std.abs() < f32::EPSILON {
+                if std.abs() < NEAR_ZERO {
                     0.5
                 } else {
-                    sigmoid((value - mean) / std)
+                    #[expect(clippy::float_arithmetic, reason = "z-score normalisation")]
+                    {
+                        sigmoid((value - mean) / std)
+                    }
                 }
             }
             Self::Robust { median, mad } => {
-                if mad.abs() < f32::EPSILON {
+                if mad.abs() < NEAR_ZERO {
                     0.5
                 } else {
-                    let scale = mad * 1.4826; // Approximate std dev for normal dist
-                    sigmoid((value - median) / scale)
+                    #[expect(clippy::float_arithmetic, reason = "robust scaling")]
+                    {
+                        let scale = mad * MAD_SCALING_FACTOR;
+                        sigmoid((value - median) / scale)
+                    }
                 }
             }
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
