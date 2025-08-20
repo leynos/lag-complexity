@@ -58,23 +58,19 @@ impl Sigma {
     pub fn apply(&self, value: f32) -> Option<f32> {
         match *self {
             Self::MinMax { p01, p99 } => {
-                if !p01.is_finite() || !p99.is_finite() || p99 <= p01 {
-                    return None;
-                }
-                #[expect(clippy::float_arithmetic, reason = "linear scaling")]
-                Some(((value - p01) / (p99 - p01)).clamp(0.0, 1.0))
+                (p01.is_finite() && p99.is_finite() && p99 > p01).then(|| {
+                    #[expect(clippy::float_arithmetic, reason = "linear scaling")]
+                    ((value - p01) / (p99 - p01)).clamp(0.0, 1.0)
+                })
             }
             Self::ZScore { mean, std } => normalise(value, mean, std),
-            Self::Robust { median, mad } => {
-                if !mad.is_finite() {
-                    return None;
-                }
-                #[expect(clippy::float_arithmetic, reason = "scale adjustment")]
-                {
-                    let scale = mad * MAD_SCALING_FACTOR;
-                    normalise(value, median, scale)
-                }
-            }
+            Self::Robust { median, mad } => mad
+                .is_finite()
+                .then(|| {
+                    #[expect(clippy::float_arithmetic, reason = "scale adjustment")]
+                    normalise(value, median, mad * MAD_SCALING_FACTOR)
+                })
+                .flatten(),
         }
     }
 }
@@ -108,7 +104,10 @@ mod tests {
     #[case(-5.0, Some(0.0))]
     #[case(15.0, Some(1.0))]
     fn minmax_cases(#[case] input: f32, #[case] expected: Option<f32>) {
-        let sigma = Sigma::MinMax { p01: 0.0, p99: 10.0 };
+        let sigma = Sigma::MinMax {
+            p01: 0.0,
+            p99: 10.0,
+        };
         let result = sigma.apply(input);
         match (result, expected) {
             (Some(res), Some(exp)) => assert!(approx_eq(res, exp, 1e-6)),
@@ -119,7 +118,10 @@ mod tests {
 
     #[rstest]
     fn zscore_standard() {
-        let sigma = Sigma::ZScore { mean: 0.0, std: 1.0 };
+        let sigma = Sigma::ZScore {
+            mean: 0.0,
+            std: 1.0,
+        };
         let result = sigma.apply(1.0).unwrap_or_else(|| panic!("expected value"));
         assert!(approx_eq(result, sigmoid(1.0), 1e-6));
     }
@@ -135,7 +137,10 @@ mod tests {
 
     #[rstest]
     fn robust_standard() {
-        let sigma = Sigma::Robust { median: 0.0, mad: 1.0 };
+        let sigma = Sigma::Robust {
+            median: 0.0,
+            mad: 1.0,
+        };
         let result = sigma.apply(1.0).unwrap_or_else(|| panic!("expected value"));
         assert!(approx_eq(result, ROBUST_EXPECTED, 1e-6));
     }
