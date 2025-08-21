@@ -34,12 +34,12 @@ pub enum Sigma {
     MinMax { p01: f32, p99: f32 },
     /// Standard Z-score normalisation with mean and standard deviation. A
     /// sigmoid is applied to map the Z-score to `[0, 1]`. Returns [`None`] when
-    /// the standard deviation is zero or non-finite.
+    /// the standard deviation is zero, non-positive, or non-finite.
     ZScore { mean: f32, std: f32 },
     /// Robust normalisation based on the median and MAD. The MAD is scaled by
     /// [`MAD_SCALING_FACTOR`] to approximate the standard deviation of a
-    /// normal distribution. Returns [`None`] when the MAD is zero or
-    /// non-finite.
+    /// normal distribution. Returns [`None`] when the MAD is zero,
+    /// non-positive, or non-finite.
     Robust { median: f32, mad: f32 },
 }
 
@@ -53,7 +53,7 @@ impl Sigma {
     /// let sigma = Sigma::ZScore { mean: 0.0, std: 1.0 };
     /// let y = sigma
     ///     .apply(1.0)
-    ///     .expect("expected Some for finite, non-zero std");
+    ///     .expect("expected Some for finite, positive std");
     /// assert!(y > 0.5 && y < 1.0);
     /// ```
     #[must_use]
@@ -76,13 +76,14 @@ impl Sigma {
 }
 
 /// Map `(value - centre) / scale` through a sigmoid.
-/// Returns [`None`] if `scale` is non-finite or near zero to avoid undefined
-/// behaviour.
+/// Returns [`None`] if `scale` is non-finite or not strictly positive to avoid
+/// undefined behaviour.
 #[inline]
 #[must_use]
 #[expect(clippy::float_arithmetic, reason = "normalisation uses floats")]
 fn normalise(value: f32, centre: f32, scale: f32) -> Option<f32> {
-    if !scale.is_finite() || scale.abs() < NEAR_ZERO {
+    // Reject non-finite and non-positive scales to avoid inverted mappings.
+    if !scale.is_finite() || scale <= NEAR_ZERO {
         None
     } else {
         Some(sigmoid((value - centre) / scale))
