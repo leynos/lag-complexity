@@ -51,26 +51,26 @@ impl Sigma {
     /// ```rust
     /// use lag_complexity::Sigma;
     /// let sigma = Sigma::ZScore { mean: 0.0, std: 1.0 };
-    /// let y = sigma.apply(1.0).unwrap();
+    /// let y = sigma
+    ///     .apply(1.0)
+    ///     .expect("expected Some for finite, non-zero std");
     /// assert!(y > 0.5 && y < 1.0);
     /// ```
     #[must_use]
     pub fn apply(&self, value: f32) -> Option<f32> {
-        match *self {
+        match self {
             Self::MinMax { p01, p99 } => {
+                let (p01, p99) = (*p01, *p99);
                 (p01.is_finite() && p99.is_finite() && p99 > p01).then(|| {
                     #[expect(clippy::float_arithmetic, reason = "linear scaling")]
                     ((value - p01) / (p99 - p01)).clamp(0.0, 1.0)
                 })
             }
-            Self::ZScore { mean, std } => normalise(value, mean, std),
-            Self::Robust { median, mad } => mad
-                .is_finite()
-                .then(|| {
-                    #[expect(clippy::float_arithmetic, reason = "scale adjustment")]
-                    normalise(value, median, mad * MAD_SCALING_FACTOR)
-                })
-                .flatten(),
+            Self::ZScore { mean, std } => normalise(value, *mean, *std),
+            Self::Robust { median, mad } => mad.is_finite().then_some(*mad).and_then(|m| {
+                #[expect(clippy::float_arithmetic, reason = "scale adjustment")]
+                normalise(value, *median, m * MAD_SCALING_FACTOR)
+            }),
         }
     }
 }
@@ -122,7 +122,8 @@ mod tests {
             mean: 0.0,
             std: 1.0,
         };
-        let result = sigma.apply(1.0).unwrap_or_else(|| panic!("expected value"));
+        #[expect(clippy::expect_used, reason = "tests unwrap known Some")]
+        let result = sigma.apply(1.0).expect("expected value");
         assert!(approx_eq(result, sigmoid(1.0), 1e-6));
     }
 
@@ -141,7 +142,8 @@ mod tests {
             median: 0.0,
             mad: 1.0,
         };
-        let result = sigma.apply(1.0).unwrap_or_else(|| panic!("expected value"));
+        #[expect(clippy::expect_used, reason = "tests unwrap known Some")]
+        let result = sigma.apply(1.0).expect("expected value");
         assert!(approx_eq(result, ROBUST_EXPECTED, 1e-6));
     }
 

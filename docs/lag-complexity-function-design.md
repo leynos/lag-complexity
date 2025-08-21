@@ -1144,17 +1144,11 @@ where
 
         // Calculate variance and apply normalization
         let variance = calculate_variance(&embedding);
-        let scope = self
-            .cfg
-            .sigma
-            .apply(variance)
-            .unwrap_or_default();
-        let depth = self.cfg.sigma.apply(raw_depth).unwrap_or_default();
-        let ambiguity = self
-            .cfg
-            .sigma
-            .apply(raw_ambiguity)
-            .unwrap_or_default();
+        // Define a clear fallback policy for invalid or degenerate scales.
+        // Example: default to 0.0 and record telemetry (logging omitted here).
+        let scope = self.cfg.sigma.apply(variance).unwrap_or_else(|| 0.0);
+        let depth = self.cfg.sigma.apply(raw_depth).unwrap_or_else(|| 0.0);
+        let ambiguity = self.cfg.sigma.apply(raw_ambiguity).unwrap_or_else(|| 0.0);
 
         // Apply weights and construct the final result
         let total = self.cfg.weights.sum(scope, depth, ambiguity);
