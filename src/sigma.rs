@@ -28,19 +28,18 @@ fn sigmoid(x: f32) -> f32 {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "strategy", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Sigma {
-    /// Linear scaling using percentile estimates. Values outside the `[p01, p99]`
-    /// range are clamped.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `p99` is not greater than `p01`.
+    /// Linear scaling using percentile estimates. Values outside the
+    /// `[p01, p99]` range are clamped. Returns [`None`] when `p99 <= p01` or
+    /// either percentile is non-finite.
     MinMax { p01: f32, p99: f32 },
     /// Standard Z-score normalisation with mean and standard deviation. A
-    /// sigmoid is applied to map the Z-score to `[0, 1]`.
+    /// sigmoid is applied to map the Z-score to `[0, 1]`. Returns [`None`] when
+    /// the standard deviation is zero, non-positive, or non-finite.
     ZScore { mean: f32, std: f32 },
     /// Robust normalisation based on the median and MAD. The MAD is scaled by
-    /// [`MAD_SCALING_FACTOR`] to approximate the standard deviation of a normal
-    /// distribution.
+    /// [`MAD_SCALING_FACTOR`] to approximate the standard deviation of a
+    /// normal distribution. Returns [`None`] when the MAD is zero,
+    /// non-positive, or non-finite.
     Robust { median: f32, mad: f32 },
 }
 
@@ -52,47 +51,42 @@ impl Sigma {
     /// ```rust
     /// use lag_complexity::Sigma;
     /// let sigma = Sigma::ZScore { mean: 0.0, std: 1.0 };
-    /// let y = sigma.apply(1.0);
+    /// let y = sigma
+    ///     .apply(1.0)
+    ///     .expect("expected Some for finite, positive std");
     /// assert!(y > 0.5 && y < 1.0);
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if a [`MinMax`] sigma has `p99` not greater than `p01`.
     #[must_use]
-    pub fn apply(&self, value: f32) -> f32 {
-        match *self {
+    pub fn apply(&self, value: f32) -> Option<f32> {
+        match self {
             Self::MinMax { p01, p99 } => {
-                #[expect(clippy::float_arithmetic, reason = "percentile difference check")]
-                let range = p99 - p01;
-                assert!(range >= NEAR_ZERO, "p99 must be greater than p01");
-                #[expect(clippy::float_arithmetic, reason = "linear scaling")]
-                {
-                    ((value - p01) / range).clamp(0.0, 1.0)
-                }
+                let (p01, p99) = (*p01, *p99);
+                (p01.is_finite() && p99.is_finite() && p99 > p01).then(|| {
+                    #[expect(clippy::float_arithmetic, reason = "linear scaling")]
+                    ((value - p01) / (p99 - p01)).clamp(0.0, 1.0)
+                })
             }
-            Self::ZScore { mean, std } => {
-                if std.abs() < NEAR_ZERO {
-                    0.5
-                } else {
-                    #[expect(clippy::float_arithmetic, reason = "z-score normalisation")]
-                    {
-                        sigmoid((value - mean) / std)
-                    }
-                }
-            }
-            Self::Robust { median, mad } => {
-                if mad.abs() < NEAR_ZERO {
-                    0.5
-                } else {
-                    #[expect(clippy::float_arithmetic, reason = "robust scaling")]
-                    {
-                        let scale = mad * MAD_SCALING_FACTOR;
-                        sigmoid((value - median) / scale)
-                    }
-                }
-            }
+            Self::ZScore { mean, std } => normalise(value, *mean, *std),
+            Self::Robust { median, mad } => mad.is_finite().then_some(*mad).and_then(|m| {
+                #[expect(clippy::float_arithmetic, reason = "scale adjustment")]
+                normalise(value, *median, m * MAD_SCALING_FACTOR)
+            }),
         }
+    }
+}
+
+/// Map `(value - centre) / scale` through a sigmoid.
+/// Returns [`None`] if `scale` is non-finite or not strictly positive to avoid
+/// undefined behaviour.
+#[inline]
+#[must_use]
+#[expect(clippy::float_arithmetic, reason = "normalisation uses floats")]
+fn normalise(value: f32, centre: f32, scale: f32) -> Option<f32> {
+    // Reject non-finite and non-positive scales to avoid inverted mappings.
+    if !scale.is_finite() || scale <= NEAR_ZERO {
+        None
+    } else {
+        Some(sigmoid((value - centre) / scale))
     }
 }
 
@@ -105,18 +99,22 @@ mod tests {
     const ROBUST_EXPECTED: f32 = 0.662_507_95;
 
     #[rstest]
-    #[case(0.0, 0.0)]
-    #[case(5.0, 0.5)]
-    #[case(10.0, 1.0)]
-    #[case(-5.0, 0.0)]
-    #[case(15.0, 1.0)]
-    fn minmax_cases(#[case] input: f32, #[case] expected: f32) {
+    #[case(0.0, Some(0.0))]
+    #[case(5.0, Some(0.5))]
+    #[case(10.0, Some(1.0))]
+    #[case(-5.0, Some(0.0))]
+    #[case(15.0, Some(1.0))]
+    fn minmax_cases(#[case] input: f32, #[case] expected: Option<f32>) {
         let sigma = Sigma::MinMax {
             p01: 0.0,
             p99: 10.0,
         };
         let result = sigma.apply(input);
-        assert!(approx_eq(result, expected, 1e-6));
+        match (result, expected) {
+            (Some(res), Some(exp)) => assert!(approx_eq(res, exp, 1e-6)),
+            (None, None) => (),
+            _ => panic!("unexpected result"),
+        }
     }
 
     #[rstest]
@@ -125,7 +123,8 @@ mod tests {
             mean: 0.0,
             std: 1.0,
         };
-        let result = sigma.apply(1.0);
+        #[expect(clippy::expect_used, reason = "tests unwrap known Some")]
+        let result = sigma.apply(1.0).expect("expected value");
         assert!(approx_eq(result, sigmoid(1.0), 1e-6));
     }
 
@@ -135,8 +134,7 @@ mod tests {
             mean: 0.0,
             std: 0.0,
         };
-        let result = sigma.apply(1.0);
-        assert!(approx_eq(result, 0.5, 1e-6));
+        assert!(sigma.apply(1.0).is_none());
     }
 
     #[rstest]
@@ -145,7 +143,8 @@ mod tests {
             median: 0.0,
             mad: 1.0,
         };
-        let result = sigma.apply(1.0);
+        #[expect(clippy::expect_used, reason = "tests unwrap known Some")]
+        let result = sigma.apply(1.0).expect("expected value");
         assert!(approx_eq(result, ROBUST_EXPECTED, 1e-6));
     }
 
@@ -155,29 +154,15 @@ mod tests {
             median: 0.0,
             mad: 0.0,
         };
-        let result = sigma.apply(1.0);
-        assert!(approx_eq(result, 0.5, 1e-6));
+        assert!(sigma.apply(1.0).is_none());
     }
-
     #[rstest]
-    #[should_panic(expected = "p99 must be greater than p01")]
-    fn minmax_inverted_range_panics() {
+    fn minmax_invalid_range() {
         let sigma = Sigma::MinMax {
             p01: 10.0,
             p99: 0.0,
         };
-        let _ = sigma.apply(5.0);
-    }
-
-    #[rstest]
-    #[should_panic(expected = "p99 must be greater than p01")]
-    #[expect(clippy::float_arithmetic, reason = "test inputs requiring floats")]
-    fn minmax_near_zero_range_panics() {
-        let sigma = Sigma::MinMax {
-            p01: 0.0,
-            p99: NEAR_ZERO / 10.0,
-        };
-        let _ = sigma.apply(5.0);
+        assert!(sigma.apply(5.0).is_none());
     }
 
     #[rstest]
@@ -187,8 +172,7 @@ mod tests {
             mean: 0.0,
             std: NEAR_ZERO / 10.0,
         };
-        let result = sigma.apply(1.0);
-        assert!(approx_eq(result, 0.5, 1e-6));
+        assert!(sigma.apply(1.0).is_none());
     }
 
     #[rstest]
@@ -198,7 +182,6 @@ mod tests {
             median: 0.0,
             mad: NEAR_ZERO / 10.0,
         };
-        let result = sigma.apply(1.0);
-        assert!(approx_eq(result, 0.5, 1e-6));
+        assert!(sigma.apply(1.0).is_none());
     }
 }

@@ -585,12 +585,11 @@ range, typically [0, 1], so they can be meaningfully aggregated into the final
   extreme values.
 
 The sigmoid used by both `ZScore` and `Robust` is the standard logistic
-function. When either the standard deviation or MAD fall below `NEAR_ZERO`
-(`1e-6`) the strategies default to `0.5`, ensuring deterministic behaviour
-without division-by-zero errors. The `MinMax` variant asserts `p99` exceeds
-`p01` to surface misconfiguration, and the `Robust` variant scales the MAD by
-`MAD_SCALING_FACTOR` (`1.4826`) to approximate the standard deviation under a
-normal distribution.
+function. `Sigma::apply` returns [`None`] when the standard deviation or MAD is
+non-finite or not strictly positive, avoiding undefined behaviour. The `MinMax`
+variant returns [`None`] when either percentile is non-finite or `p99` does not
+exceed `p01`. `Robust` scales the MAD by `MAD_SCALING_FACTOR` (`1.4826`) to
+approximate the standard deviation under a normal distribution.
 
 - **Calibration is Critical:** The parameters for each `Sigma` variant (`p01`,
   `p99`, `mean`, `std`, `median`, `mad`) are not universal constants. Their
@@ -1144,9 +1143,11 @@ where
 
         // Calculate variance and apply normalization
         let variance = calculate_variance(&embedding);
-        let scope = self.cfg.sigma.apply(variance);
-        let depth = self.cfg.sigma.apply(raw_depth);
-        let ambiguity = self.cfg.sigma.apply(raw_ambiguity);
+        // Define a clear fallback policy for invalid or degenerate scales.
+        // Example: default to 0.0 and record telemetry (logging omitted here).
+        let scope = self.cfg.sigma.apply(variance).unwrap_or_else(|| 0.0);
+        let depth = self.cfg.sigma.apply(raw_depth).unwrap_or_else(|| 0.0);
+        let ambiguity = self.cfg.sigma.apply(raw_ambiguity).unwrap_or_else(|| 0.0);
 
         // Apply weights and construct the final result
         let total = self.cfg.weights.sum(scope, depth, ambiguity);
