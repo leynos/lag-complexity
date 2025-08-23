@@ -12,13 +12,13 @@ primary public interfaces.
     `DepthEstimator`, `AmbiguityEstimator`).
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
-- [ ] Create the stub for the `lagc` command-line interface binary using the
-  `clap` crate.
+- [x] Create the stub for the `lagc` command-line interface binary using the
+  `ortho-config` crate.
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
   mathematical and normalisation logic passes.
-- [ ] **Acceptance Criteria**: The `lagc` CLI application can be built and run,
+- [x] **Acceptance Criteria**: The `lagc` CLI application can be built and run,
   though it will have no functional commands yet.
 
 ## Phase 1 — Heuristic Baseline (Duration: 1–2 weeks)

@@ -2,12 +2,14 @@
 //! Re-exports public types and traits.
 
 pub mod api;
+pub mod cli;
 pub mod config;
 pub mod providers;
 pub mod sigma;
 pub mod variance;
 
 pub use api::{Complexity, ComplexityFn, Trace};
+pub use cli::LagcArgs;
 pub use config::{ScopingConfig, VarianceScopingConfig};
 pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};
 pub use sigma::Sigma;
