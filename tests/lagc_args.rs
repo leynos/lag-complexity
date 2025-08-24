@@ -6,8 +6,8 @@ use rstest::rstest;
 #[case(vec!["lagc"], false)]
 #[case(vec!["lagc", "--dry-run=true"], true)]
 fn load_parses_dry_run(#[case] argv: Vec<&str>, #[case] expected: bool) {
-    let cfg = LagcArgs::load_from_iter(argv)
-        .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
+    let cfg =
+        LagcArgs::load_from_iter(argv).unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
     assert_eq!(cfg.dry_run, expected);
 }
 

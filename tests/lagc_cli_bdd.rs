@@ -1,9 +1,9 @@
 //! Behaviour tests for the `lagc` CLI.
 
+use assert_cmd::Command;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::cell::RefCell;
-use assert_cmd::Command;
 use std::process::Output;
 
 #[derive(Default)]
@@ -17,7 +17,9 @@ fn cli_context() -> CliContext {
 }
 
 #[given("the lagc binary")]
-fn given_binary(#[from(cli_context)] ctx: &CliContext) { let _ = ctx; }
+fn given_binary(#[from(cli_context)] ctx: &CliContext) {
+    let _ = ctx;
+}
 
 #[when("running with \"{args}\"")]
 #[expect(
@@ -27,7 +29,7 @@ fn given_binary(#[from(cli_context)] ctx: &CliContext) { let _ = ctx; }
 #[expect(clippy::expect_used, reason = "tests should fail loudly")]
 fn when_running(args: String, #[from(cli_context)] ctx: &CliContext) {
     let output = Command::cargo_bin("lagc")
-        .unwrap_or_else(|e| panic!("failed to locate lagc binary: {e}"))
+        .expect("failed to locate lagc binary")
         .args(args.split_whitespace())
         .output()
         .expect("failed to run lagc");
@@ -49,7 +51,11 @@ fn then_error(#[from(cli_context)] ctx: &CliContext) {
 }
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 0)]
-fn dry_run(cli_context: CliContext) { let _ = cli_context; }
+fn dry_run(cli_context: CliContext) {
+    let _ = cli_context;
+}
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 1)]
-fn invalid_flag(cli_context: CliContext) { let _ = cli_context; }
+fn invalid_flag(cli_context: CliContext) {
+    let _ = cli_context;
+}
