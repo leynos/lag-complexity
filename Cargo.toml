@@ -7,6 +7,22 @@ edition = "2024"
 
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
+ortho_config = { git = "https://github.com/leynos/ortho-config.git", rev = "adfe967eb95c03c8711a350ac555ea193f81bc40" }
+clap = { version = "4.5", features = ["derive"] }
+figment = { version = "0.10", default-features = false, features = ["env"] }
+uncased = "0.9"
+xdg = "3"
+serde_json = "1.0"
+figment-json5 = { version = "0.1", optional = true }
+json5 = { version = "0.4", optional = true }
+serde_yaml = { version = "0.9", optional = true }
+toml = { version = "0.8", optional = true }
+
+[features]
+default = ["toml"]
+json5 = ["dep:figment-json5", "dep:json5"]
+yaml = ["figment/yaml", "dep:serde_yaml"]
+toml = ["figment/toml", "dep:toml"]
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -47,4 +63,4 @@ float_arithmetic = "deny"
 rstest = "0.26.1"
 rstest-bdd = { git = "https://github.com/leynos/rstest-bdd.git", rev = "7a298dafa1b0c43b4aa711f180732234ad999e86" }
 rstest-bdd-macros = { git = "https://github.com/leynos/rstest-bdd.git", rev = "7a298dafa1b0c43b4aa711f180732234ad999e86" }
-serde_json = "1.0"
+assert_cmd = "2.0"

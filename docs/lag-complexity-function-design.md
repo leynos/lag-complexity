@@ -344,7 +344,7 @@ guiding them toward safe and efficient deployment patterns.
 | `rayon`           | `rayon`                                           | Enables parallel execution for batch scoring and concurrent provider calls.           | On      |
 | `python`          | `pyo3`                                            | Builds Python bindings for the crate.                                                 | Off     |
 | `wasm`            | `wasm-bindgen`, `js-sys`                          | Builds a WebAssembly module for browser/JS environments.                              | Off     |
-| `cli`             | `clap`                                            | Builds the `lagc` command-line interface binary.                                      | On      |
+| `cli`             | `ortho_config`                                    | Builds the `lagc` command-line interface binary.                                      | On      |
 
 ## 2. Component signal implementations
 
@@ -1259,8 +1259,9 @@ defining the primary public interfaces.
   its sub-types) and derive `serde` traits for configuration types.
 - Implement the mathematical logic for variance calculation and all `Sigma`
   normalization strategies.
-- Create the stub for the `lagc` command-line interface binary using the `clap`
-  crate.63
+- Create the stub for the `lagc` command-line interface binary using the
+  `ortho-config` crate, which layers command-line arguments, environment
+  variables and configuration files without extra boilerplate.
 - **Acceptance Criteria:**
 
 - The crate and all its core types compile successfully.
