@@ -1,19 +1,43 @@
 use lag_complexity::cli::LagcArgs;
 use ortho_config::OrthoConfig;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use serial_test::serial;
 use std::env;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
-fn set_var(key: &str, val: &str) {
-    // Safety: tests manipulate process-wide environment serially.
-    unsafe { env::set_var(key, val) };
+#[fixture]
+fn temp_toml_file() -> NamedTempFile {
+    NamedTempFile::new().unwrap_or_else(|e| panic!("create temp file: {e}"))
 }
 
-fn remove_var(key: &str) {
-    // Safety: tests manipulate process-wide environment serially.
-    unsafe { env::remove_var(key) };
+fn write_toml_content(file: &mut NamedTempFile, content: &str) {
+    writeln!(file, "{content}").unwrap_or_else(|e| panic!("write config: {e}"));
+}
+
+fn get_config_path(file: &NamedTempFile) -> &str {
+    file.path().to_str().unwrap_or_else(|| panic!("path str"))
+}
+
+struct EnvVarGuard {
+    key: String,
+}
+
+impl EnvVarGuard {
+    fn new(key: &str, val: &str) -> Self {
+        // Safety: tests manipulate process-wide environment serially.
+        unsafe { env::set_var(key, val) };
+        Self {
+            key: key.to_owned(),
+        }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        // Safety: tests manipulate process-wide environment serially.
+        unsafe { env::remove_var(&self.key) };
+    }
 }
 
 #[rstest]
@@ -41,64 +65,56 @@ fn load_rejects_invalid_bool(#[case] value: &str) {
 #[rstest]
 #[serial]
 fn env_var_parsing_sets_dry_run() {
-    set_var("LAGC_DRY_RUN", "true");
+    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "true");
     let cfg =
         LagcArgs::load_from_env().unwrap_or_else(|e| panic!("unexpected env parse error: {e}"));
     assert!(cfg.dry_run);
-    remove_var("LAGC_DRY_RUN");
 }
 
 #[rstest]
 #[serial]
 fn env_var_parsing_invalid_bool() {
-    set_var("LAGC_DRY_RUN", "notabool");
+    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "notabool");
     let result = LagcArgs::load_from_env();
     assert!(result.is_err());
-    remove_var("LAGC_DRY_RUN");
 }
 
 #[rstest]
-fn config_file_parsing_sets_dry_run() {
-    let mut file = NamedTempFile::new().unwrap_or_else(|e| panic!("create temp file: {e}"));
-    writeln!(file, "dry_run = true").unwrap_or_else(|e| panic!("write config: {e}"));
-    let path = file.path().to_str().unwrap_or_else(|| panic!("path str"));
+fn config_file_parsing_sets_dry_run(mut temp_toml_file: NamedTempFile) {
+    write_toml_content(&mut temp_toml_file, "dry_run = true");
+    let path = get_config_path(&temp_toml_file);
     let cfg = LagcArgs::load_from_config(path)
         .unwrap_or_else(|e| panic!("unexpected config parse error: {e}"));
     assert!(cfg.dry_run);
 }
 
 #[rstest]
-fn config_file_parsing_invalid_bool() {
-    let mut file = NamedTempFile::new().unwrap_or_else(|e| panic!("create temp file: {e}"));
-    writeln!(file, "dry_run = notabool").unwrap_or_else(|e| panic!("write config: {e}"));
-    let path = file.path().to_str().unwrap_or_else(|| panic!("path str"));
+fn config_file_parsing_invalid_bool(mut temp_toml_file: NamedTempFile) {
+    write_toml_content(&mut temp_toml_file, "dry_run = notabool");
+    let path = get_config_path(&temp_toml_file);
     let result = LagcArgs::load_from_config(path);
     assert!(result.is_err());
 }
 
 #[rstest]
 #[serial]
-fn precedence_cli_over_env_and_config() {
-    set_var("LAGC_DRY_RUN", "false");
-    let mut file = NamedTempFile::new().unwrap_or_else(|e| panic!("create temp file: {e}"));
-    writeln!(file, "dry_run = false").unwrap_or_else(|e| panic!("write config: {e}"));
-    let path = file.path().to_str().unwrap_or_else(|| panic!("path str"));
+fn precedence_cli_over_env_and_config(mut temp_toml_file: NamedTempFile) {
+    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "false");
+    write_toml_content(&mut temp_toml_file, "dry_run = false");
+    let path = get_config_path(&temp_toml_file);
     let argv = vec!["lagc", "--dry-run=true", "--config-path", path];
     let cfg =
         LagcArgs::load_from_iter(argv).unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
     assert!(cfg.dry_run);
-    remove_var("LAGC_DRY_RUN");
 }
 
 #[rstest]
 #[serial]
-fn precedence_env_over_config() {
-    set_var("LAGC_DRY_RUN", "true");
-    let mut file = NamedTempFile::new().unwrap_or_else(|e| panic!("create temp file: {e}"));
-    writeln!(file, "dry_run = false").unwrap_or_else(|e| panic!("write config: {e}"));
-    let path = file.path().to_str().unwrap_or_else(|| panic!("path str"));
+fn precedence_env_over_config(mut temp_toml_file: NamedTempFile) {
+    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "true");
+    write_toml_content(&mut temp_toml_file, "dry_run = false");
+    let path = get_config_path(&temp_toml_file);
     let cfg = LagcArgs::load_from_env_and_config(path)
         .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
     assert!(cfg.dry_run);
-    remove_var("LAGC_DRY_RUN");
 }
