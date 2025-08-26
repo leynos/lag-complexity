@@ -1260,7 +1260,7 @@ defining the primary public interfaces.
 - Implement the mathematical logic for variance calculation and all `Sigma`
   normalization strategies.
 - Create the stub for the `lagc` command-line interface binary using the
-  `ortho_config` crate (published as `ortho-config` on crates.io)\
+  `ortho_config` crate (published as `ortho-config` on crates.io)
   [^hyphen-underscore], which layers command-line arguments, environment
   variables (prefixed with `LAGC_`) and configuration files without extra
   boilerplate.

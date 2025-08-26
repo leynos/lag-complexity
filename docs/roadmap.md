@@ -12,9 +12,8 @@ primary public interfaces.
     `DepthEstimator`, `AmbiguityEstimator`).
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
-- [x] Create the stub for the `lagc` command-line interface binary using the
-  `ortho_config` crate (published as `ortho-config` on crates.io)
-  [^hyphen-underscore].
+- [x] Create the stub for the `lagc` CLI binary using `ortho_config`
+  (published as `ortho-config` on crates.io) [^hyphen-underscore].
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the

@@ -3,12 +3,12 @@
 //! files.
 
 use figment::{
-    Error as FigmentError, Figment,
-    providers::{Format, Toml},
+    Figment,
+    providers::{Env, Format, Toml},
 };
 use ortho_config::OrthoError;
 use serde::Deserialize;
-use std::{env, path::PathBuf};
+use std::path::PathBuf;
 
 /// Command-line arguments for the `lagc` binary.
 ///
@@ -19,12 +19,28 @@ use std::{env, path::PathBuf};
 ///
 /// # Examples
 ///
+/// Parse flags directly:
 /// ```
 /// use lag_complexity::cli::LagcArgs;
 /// use ortho_config::OrthoConfig;
 ///
 /// let args = LagcArgs::load_from_iter(["lagc", "--dry-run=true"])
 ///     .expect("load args from CLI iterator");
+/// assert!(args.dry_run);
+/// ```
+///
+/// Load from a configuration file:
+/// ```
+/// use lag_complexity::cli::LagcArgs;
+/// use ortho_config::OrthoConfig;
+/// use std::io::Write;
+/// use tempfile::NamedTempFile;
+///
+/// let mut file = NamedTempFile::new().expect("create temp file");
+/// writeln!(file, "dry_run = true").expect("write config");
+/// let path = file.path().to_str().expect("path str");
+/// let args = LagcArgs::load_from_iter(["lagc", "--config-path", path])
+///     .expect("load args from config path");
 /// assert!(args.dry_run);
 /// ```
 #[derive(Debug, Deserialize, ortho_config::OrthoConfig)]
@@ -36,7 +52,7 @@ pub struct LagcArgs {
     pub dry_run: bool,
 
     /// Optional path to a configuration file.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub config_path: Option<PathBuf>,
 }
 
@@ -47,22 +63,10 @@ impl LagcArgs {
     ///
     /// Returns an [`OrthoError`] if any variable cannot be parsed.
     pub fn load_from_env() -> Result<Self, OrthoError> {
-        match env::var("LAGC_DRY_RUN") {
-            Ok(v) => {
-                let dry_run = v
-                    .parse::<bool>()
-                    .map_err(|e| OrthoError::gathering(FigmentError::from(e.to_string())))?;
-                Ok(Self {
-                    dry_run,
-                    config_path: None,
-                })
-            }
-            Err(env::VarError::NotPresent) => Ok(Self {
-                dry_run: false,
-                config_path: None,
-            }),
-            Err(e) => Err(OrthoError::gathering(FigmentError::from(e.to_string()))),
-        }
+        Figment::new()
+            .merge(Env::prefixed("LAGC_"))
+            .extract()
+            .map_err(Into::into)
     }
 
     /// Load configuration from a file path.
@@ -83,12 +87,10 @@ impl LagcArgs {
     ///
     /// Returns an [`OrthoError`] if either source contains invalid values.
     pub fn load_from_env_and_config(path: &str) -> Result<Self, OrthoError> {
-        let mut cfg = Self::load_from_config(path)?;
-        if let Ok(v) = env::var("LAGC_DRY_RUN") {
-            cfg.dry_run = v
-                .parse::<bool>()
-                .map_err(|e| OrthoError::gathering(FigmentError::from(e.to_string())))?;
-        }
-        Ok(cfg)
+        Figment::new()
+            .merge(Toml::file(path))
+            .merge(Env::prefixed("LAGC_"))
+            .extract()
+            .map_err(Into::into)
     }
 }
