@@ -9,11 +9,13 @@ fn main() -> Result<()> {
     // Load configuration from CLI, environment, and config files. Future
     // subcommands will branch from these parsed arguments.
     let _cfg = <LagcArgs as ortho_config::OrthoConfig>::load().map_err(|e| {
-        if e.to_string().contains("invalid value") {
-            eyre::eyre!("invalid boolean: {e}")
-        } else {
-            e.into()
+        // Prefer typed matching over substring checks for robustness.
+        if let ortho_config::OrthoError::CliParsing(clap_err) = &e
+            && clap_err.kind() == clap::error::ErrorKind::InvalidValue
+        {
+            return eyre::eyre!("invalid boolean: {clap_err}");
         }
+        e.into()
     })?;
     Ok(())
 }

@@ -112,12 +112,12 @@ fn then_stderr_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
     clippy::needless_pass_by_value,
     reason = "BDD macro injects owned value"
 )]
-#[expect(clippy::print_stderr, reason = "diagnose test failures")]
+#[expect(clippy::print_stdout, reason = "diagnose test failures")]
 fn then_stdout_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
     let out = ctx.output.get().expect("missing output");
     let stdout = String::from_utf8_lossy(&out.stdout);
     if !stdout.contains(&text) {
-        eprintln!("stdout:\n{stdout}");
+        println!("stdout:\n{stdout}");
     }
     assert!(stdout.contains(&text));
 }

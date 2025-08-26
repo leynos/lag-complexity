@@ -4,11 +4,11 @@
 
 use figment::{
     Figment,
-    providers::{Env, Format, Toml},
+    providers::{Env, Format, Json, Toml, Yaml},
 };
 use ortho_config::OrthoError;
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Command-line arguments for the `lagc` binary.
 ///
@@ -31,7 +31,7 @@ use std::path::PathBuf;
 ///
 /// # Loading from a TOML file
 ///
-/// ```
+/// ```no_run
 /// use lag_complexity::cli::LagcArgs;
 /// use ortho_config::OrthoConfig;
 ///
@@ -67,11 +67,11 @@ impl LagcArgs {
             .map_err(Into::into)
     }
 
-    /// Load configuration from a file path.
+    /// Load configuration from a TOML file path.
     ///
     /// # Errors
     ///
-    /// Returns an [`OrthoError`] if the file cannot be read or parsed.
+    /// Returns an [`OrthoError`] if the file cannot be read or parsed as TOML.
     pub fn load_from_config(path: &str) -> Result<Self, OrthoError> {
         Figment::new()
             .merge(Toml::file(path))
@@ -79,7 +79,31 @@ impl LagcArgs {
             .map_err(Into::into)
     }
 
-    /// Load configuration from environment variables and a file path.
+    /// Load configuration from a path, selecting a provider by extension.
+    ///
+    /// Supported formats: `.toml`, `.yaml`/`.yml`, `.json`. Unknown extensions
+    /// default to TOML.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`OrthoError`] if the file cannot be read or parsed in the
+    /// chosen format.
+    pub fn load_from_path(path: &Path) -> Result<Self, OrthoError> {
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase);
+        let figment = match ext.as_deref() {
+            Some("yaml" | "yml") => Figment::new().merge(Yaml::file(path)),
+            Some("json") => Figment::new().merge(Json::file(path)),
+            _ => Figment::new().merge(Toml::file(path)),
+        };
+        figment.extract().map_err(Into::into)
+    }
+
+    /// Load configuration from environment variables and a TOML file path.
+    ///
+    /// Environment values take precedence over the file.
     ///
     /// # Errors
     ///

@@ -335,16 +335,16 @@ guiding them toward safe and efficient deployment patterns.
 
 #### Table 1: feature flag specification
 
-| Feature Flag      | Dependencies                                        | Purpose                                                                               | Default |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
-| `provider-api`    | `reqwest`, `tokio`                                  | Enables providers that call external HTTP APIs for embeddings or LLM-based estimates. | Off     |
-| `provider-tch`    | `tch`                                               | Enables local transformer models via the `tch` crate (LibTorch backend).              | Off     |
-| `provider-candle` | `candle-core`, `candle-nn`, `candle-transformers`   | Enables local transformer models via the pure-Rust `candle` framework.                | On      |
-| `onnx`            | `ort`                                               | Enables ONNX Runtime for lightweight classifier models.                               | On      |
-| `rayon`           | `rayon`                                             | Enables parallel execution for batch scoring and concurrent provider calls.           | On      |
-| `python`          | `pyo3`                                              | Builds Python bindings for the crate.                                                 | Off     |
-| `wasm`            | `wasm-bindgen`, `js-sys`                            | Builds a WebAssembly module for browser/JS environments.                              | Off     |
-| `cli`             | `ortho_config`, `clap`, `figment`, `uncased`, `xdg` | Builds the `lagc` command-line interface binary.                                      | On      |
+| Feature Flag      | Dependencies                                                | Purpose                                                                               | Default |
+| ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
+| `provider-api`    | `reqwest`, `tokio`                                          | Enables providers that call external HTTP APIs for embeddings or LLM-based estimates. | Off     |
+| `provider-tch`    | `tch`                                                       | Enables local transformer models via the `tch` crate (LibTorch backend).              | Off     |
+| `provider-candle` | `candle-core`, `candle-nn`, `candle-transformers`           | Enables local transformer models via the pure-Rust `candle` framework.                | On      |
+| `onnx`            | `ort`                                                       | Enables ONNX Runtime for lightweight classifier models.                               | On      |
+| `rayon`           | `rayon`                                                     | Enables parallel execution for batch scoring and concurrent provider calls.           | On      |
+| `python`          | `pyo3`                                                      | Builds Python bindings for the crate.                                                 | Off     |
+| `wasm`            | `wasm-bindgen`, `js-sys`                                    | Builds a WebAssembly module for browser/JS environments.                              | Off     |
+| `cli`             | `ortho_config`, `clap`, `figment`, `uncased`, `xdg`, `eyre` | Builds the `lagc` command-line interface binary.                                      | On      |
 
 ## 2. Component signal implementations
 

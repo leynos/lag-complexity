@@ -21,7 +21,7 @@ toml = { version = "0.8", optional = true }
 
 [features]
 default = ["toml", "cli"]
-cli = ["dep:ortho_config", "dep:clap", "dep:figment", "dep:uncased", "dep:xdg", "dep:eyre"]
+cli = ["dep:ortho_config", "dep:clap", "dep:figment", "dep:uncased", "dep:xdg", "dep:eyre", "figment/json"]
 json5 = ["cli", "dep:figment-json5", "dep:json5"]
 yaml = ["cli", "figment/yaml", "dep:serde_yaml"]
 toml = ["cli", "figment/toml", "dep:toml"]
