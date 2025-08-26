@@ -1260,8 +1260,9 @@ defining the primary public interfaces.
 - Implement the mathematical logic for variance calculation and all `Sigma`
   normalization strategies.
 - Create the stub for the `lagc` command-line interface binary using the
-  `ortho-config` crate, which layers command-line arguments, environment
-  variables and configuration files without extra boilerplate.
+  `ortho-config` crate (v0.5.0-alpha2 from crates.io), which layers
+  command-line arguments, environment variables and configuration files without
+  extra boilerplate.
 - **Acceptance Criteria:**
 
 - The crate and all its core types compile successfully.

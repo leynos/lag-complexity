@@ -251,6 +251,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
+name = "dunce"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -545,12 +551,14 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ortho_config"
-version = "0.3.0"
-source = "git+https://github.com/leynos/ortho-config.git?rev=adfe967eb95c03c8711a350ac555ea193f81bc40#adfe967eb95c03c8711a350ac555ea193f81bc40"
+version = "0.5.0-alpha2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75bd38d3ab2439bb3d29c188fa807e000fbc25e9d720c6117c199d1a97c7a946"
 dependencies = [
  "clap",
  "clap-dispatch",
  "directories",
+ "dunce",
  "figment",
  "ortho_config_macros",
  "serde",
@@ -563,8 +571,9 @@ dependencies = [
 
 [[package]]
 name = "ortho_config_macros"
-version = "0.3.0"
-source = "git+https://github.com/leynos/ortho-config.git?rev=adfe967eb95c03c8711a350ac555ea193f81bc40#adfe967eb95c03c8711a350ac555ea193f81bc40"
+version = "0.5.0-alpha2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1afa9a9c8e9213c5464bcc09eec873fbe0407b0a9288f9ef120323b6b2c44c01"
 dependencies = [
  "proc-macro2",
  "quote",
