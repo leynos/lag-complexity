@@ -20,4 +20,4 @@ Feature: lagc CLI stub
     Given the lagc binary
     When running with "--dry-run=maybe"
     Then it exits with an error
-    And stderr contains "invalid value"
+    And stderr contains "invalid boolean"

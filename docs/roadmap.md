@@ -13,7 +13,7 @@ primary public interfaces.
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
 - [x] Create the stub for the `lagc` command-line interface binary using the
-  `ortho_config` crate (published as `ortho-config` on crates.io)\
+  `ortho_config` crate (published as `ortho-config` on crates.io)
   [^hyphen-underscore].
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.

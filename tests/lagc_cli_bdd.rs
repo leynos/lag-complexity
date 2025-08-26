@@ -29,16 +29,16 @@ fn given_binary(#[from(cli_context)] ctx: &CliContext) {
     reason = "BDD macro injects owned value"
 )]
 fn given_env(pairs: String, #[from(cli_context)] ctx: &CliContext) {
-    let map = pairs
-        .split(',')
-        .filter_map(|kv| {
-            let mut iter = kv.splitn(2, '=');
-            match (iter.next(), iter.next()) {
-                (Some(k), Some(v)) => Some((k.trim().to_owned(), v.trim().to_owned())),
-                _ => None,
-            }
-        })
-        .collect();
+    let mut map = HashMap::new();
+    for (i, raw) in pairs.split(',').enumerate() {
+        let (k, v) = raw.split_once('=').unwrap_or_else(|| {
+            panic!("invalid env pair at index {i}: '{raw}' (expected key=value)")
+        });
+        let k = k.trim();
+        let v = v.trim();
+        assert!(!k.is_empty(), "empty env key at index {i}");
+        map.insert(k.to_owned(), v.to_owned());
+    }
     ctx.env
         .set(map)
         .unwrap_or_else(|_| panic!("env already set"));
@@ -66,27 +66,27 @@ fn when_running_empty(#[from(cli_context)] ctx: &CliContext) {
     when_running(String::new(), ctx);
 }
 
-#[then("it exits successfully")]
-#[expect(clippy::expect_used, reason = "tests should fail loudly")]
 #[expect(clippy::print_stderr, reason = "diagnose test failures")]
-fn then_success(#[from(cli_context)] ctx: &CliContext) {
-    let out = ctx.output.get().expect("missing output");
-    if !out.status.success() {
+fn dump_on(predicate: bool, out: &Output) {
+    if !predicate {
         eprintln!("stdout:\n{}", String::from_utf8_lossy(&out.stdout));
         eprintln!("stderr:\n{}", String::from_utf8_lossy(&out.stderr));
     }
+}
+
+#[then("it exits successfully")]
+#[expect(clippy::expect_used, reason = "tests should fail loudly")]
+fn then_success(#[from(cli_context)] ctx: &CliContext) {
+    let out = ctx.output.get().expect("missing output");
+    dump_on(out.status.success(), out);
     assert!(out.status.success());
 }
 
 #[then("it exits with an error")]
 #[expect(clippy::expect_used, reason = "tests should fail loudly")]
-#[expect(clippy::print_stderr, reason = "diagnose test failures")]
 fn then_error(#[from(cli_context)] ctx: &CliContext) {
     let out = ctx.output.get().expect("missing output");
-    if out.status.success() {
-        eprintln!("stdout:\n{}", String::from_utf8_lossy(&out.stdout));
-        eprintln!("stderr:\n{}", String::from_utf8_lossy(&out.stderr));
-    }
+    dump_on(!out.status.success(), out);
     assert!(!out.status.success());
 }
 
@@ -104,6 +104,22 @@ fn then_stderr_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
         eprintln!("stderr:\n{stderr}");
     }
     assert!(stderr.contains(&text));
+}
+
+#[then("stdout contains \"{text}\"")]
+#[expect(clippy::expect_used, reason = "tests should fail loudly")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "BDD macro injects owned value"
+)]
+#[expect(clippy::print_stderr, reason = "diagnose test failures")]
+fn then_stdout_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
+    let out = ctx.output.get().expect("missing output");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    if !stdout.contains(&text) {
+        eprintln!("stdout:\n{stdout}");
+    }
+    assert!(stdout.contains(&text));
 }
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 0)]
