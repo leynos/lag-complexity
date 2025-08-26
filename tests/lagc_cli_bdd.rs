@@ -1,10 +1,12 @@
 //! Behaviour tests for the `lagc` CLI.
+#![cfg(feature = "cli")]
 
 use assert_cmd::Command;
 use once_cell::unsync::OnceCell;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::collections::HashMap;
+use std::env;
 use std::process::Output;
 
 #[derive(Default)]
@@ -37,7 +39,9 @@ fn given_env(pairs: String, #[from(cli_context)] ctx: &CliContext) {
         let k = k.trim();
         let v = v.trim();
         assert!(!k.is_empty(), "empty env key at index {i}");
-        map.insert(k.to_owned(), v.to_owned());
+        if let Some(prev) = map.insert(k.to_owned(), v.to_owned()) {
+            panic!("duplicate env key '{k}' at index {i} (previous value: '{prev}')");
+        }
     }
     ctx.env
         .set(map)
@@ -54,6 +58,14 @@ fn when_running(args: String, #[from(cli_context)] ctx: &CliContext) {
     let parsed_args = shlex::split(&args)
         .unwrap_or_else(|| args.split_whitespace().map(ToOwned::to_owned).collect());
     let mut cmd = Command::cargo_bin("lagc").expect("failed to locate lagc binary");
+    // Remove any host-provided LAGC_ variables for deterministic behaviour.
+    for (k, _) in env::vars() {
+        if k.starts_with("LAGC_") {
+            cmd.env_remove(&k);
+        }
+    }
+    // Disable colour to stabilise output across environments.
+    cmd.env("NO_COLOR", "1");
     if let Some(env) = ctx.env.get() {
         cmd.envs(env);
     }
@@ -112,12 +124,12 @@ fn then_stderr_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
     clippy::needless_pass_by_value,
     reason = "BDD macro injects owned value"
 )]
-#[expect(clippy::print_stdout, reason = "diagnose test failures")]
+#[expect(clippy::print_stderr, reason = "diagnose test failures")]
 fn then_stdout_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
     let out = ctx.output.get().expect("missing output");
     let stdout = String::from_utf8_lossy(&out.stdout);
     if !stdout.contains(&text) {
-        println!("stdout:\n{stdout}");
+        eprintln!("stdout:\n{stdout}");
     }
     assert!(stdout.contains(&text));
 }

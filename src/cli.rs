@@ -103,11 +103,10 @@ impl LagcArgs {
 
     /// Load configuration from environment variables and a TOML file path.
     ///
-    /// Environment values take precedence over the file.
-    ///
     /// # Errors
     ///
     /// Returns an [`OrthoError`] if either source contains invalid values.
+    /// Environment takes precedence over file values.
     pub fn load_from_env_and_config(path: &str) -> Result<Self, OrthoError> {
         Figment::new()
             .merge(Toml::file(path))

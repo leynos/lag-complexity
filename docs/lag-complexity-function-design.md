@@ -1263,7 +1263,7 @@ defining the primary public interfaces.
   `ortho_config` crate (published as `ortho-config` on crates.io)
   [^hyphen-underscore], which layers command-line arguments, environment
   variables (prefixed with `LAGC_`) and configuration files without extra
-  boilerplate.
+  boilerplate. Environment values override file values.
 - **Acceptance Criteria:**
 
 - The crate and all its core types compile successfully.
