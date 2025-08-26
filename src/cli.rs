@@ -29,18 +29,15 @@ use std::path::PathBuf;
 /// assert!(args.dry_run);
 /// ```
 ///
-/// Load from a configuration file:
+/// # Loading from a TOML file
+///
 /// ```
 /// use lag_complexity::cli::LagcArgs;
 /// use ortho_config::OrthoConfig;
-/// use std::io::Write;
-/// use tempfile::NamedTempFile;
 ///
-/// let mut file = NamedTempFile::new().expect("create temp file");
-/// writeln!(file, "dry_run = true").expect("write config");
-/// let path = file.path().to_str().expect("path str");
-/// let args = LagcArgs::load_from_iter(["lagc", "--config-path", path])
-///     .expect("load args from config path");
+/// // With a config.toml file containing: dry_run = true
+/// let args = LagcArgs::load_from_config("config.toml")
+///     .expect("load args from TOML file");
 /// assert!(args.dry_run);
 /// ```
 #[derive(Debug, Deserialize, ortho_config::OrthoConfig)]
@@ -53,6 +50,7 @@ pub struct LagcArgs {
 
     /// Optional path to a configuration file.
     #[serde(skip)]
+    #[ortho_config(cli_long = "config-path")]
     pub config_path: Option<PathBuf>,
 }
 
