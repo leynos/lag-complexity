@@ -2,6 +2,7 @@
 //! Re-exports public types and traits.
 
 pub mod api;
+#[cfg(feature = "cli")]
 pub mod cli;
 pub mod config;
 pub mod providers;
@@ -9,6 +10,7 @@ pub mod sigma;
 pub mod variance;
 
 pub use api::{Complexity, ComplexityFn, Trace};
+#[cfg(feature = "cli")]
 pub use cli::LagcArgs;
 pub use config::{ScopingConfig, VarianceScopingConfig};
 pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};

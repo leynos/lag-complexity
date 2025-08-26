@@ -13,7 +13,8 @@ primary public interfaces.
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
 - [x] Create the stub for the `lagc` command-line interface binary using the
-  `ortho-config` crate (v0.5.0-alpha2 from crates.io).
+  `ortho_config` crate (published as `ortho-config` on crates.io)\
+  [^hyphen-underscore].
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
@@ -110,3 +111,7 @@ observable production deployment.
   security hooks) are implemented and tested.
 - [ ] **Acceptance Criteria**: The final project is ready for its first
   official release.
+
+[^hyphen-underscore]: Cargo converts hyphens to underscores for import paths.
+                      The package is `ortho-config` on crates.io and is
+                      imported as `ortho_config` in code.
