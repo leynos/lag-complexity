@@ -4,7 +4,7 @@
 
 use figment::{
     Figment,
-    providers::{Env, Format, Json, Toml, Yaml},
+    providers::{Env, Json, Toml, Yaml},
 };
 use ortho_config::OrthoError;
 use serde::Deserialize;
@@ -74,7 +74,7 @@ impl LagcArgs {
     /// Returns an [`OrthoError`] if the file cannot be read or parsed as TOML.
     pub fn load_from_config(path: &str) -> Result<Self, OrthoError> {
         Figment::new()
-            .merge(Toml::file(path))
+            .merge(<Toml as figment::providers::Format>::file(path))
             .extract()
             .map_err(Into::into)
     }
@@ -94,9 +94,11 @@ impl LagcArgs {
             .and_then(|e| e.to_str())
             .map(str::to_ascii_lowercase);
         let figment = match ext.as_deref() {
-            Some("yaml" | "yml") => Figment::new().merge(Yaml::file(path)),
-            Some("json") => Figment::new().merge(Json::file(path)),
-            _ => Figment::new().merge(Toml::file(path)),
+            Some("yaml" | "yml") => {
+                Figment::new().merge(<Yaml as figment::providers::Format>::file(path))
+            }
+            Some("json") => Figment::new().merge(<Json as figment::providers::Format>::file(path)),
+            _ => Figment::new().merge(<Toml as figment::providers::Format>::file(path)),
         };
         figment.extract().map_err(Into::into)
     }
@@ -109,7 +111,7 @@ impl LagcArgs {
     /// Environment takes precedence over file values.
     pub fn load_from_env_and_config(path: &str) -> Result<Self, OrthoError> {
         Figment::new()
-            .merge(Toml::file(path))
+            .merge(<Toml as figment::providers::Format>::file(path))
             .merge(Env::prefixed("LAGC_"))
             .extract()
             .map_err(Into::into)

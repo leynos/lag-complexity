@@ -102,6 +102,14 @@ fn then_error(#[from(cli_context)] ctx: &CliContext) {
     assert!(!out.status.success());
 }
 
+#[then("it exits with code {code}")]
+#[expect(clippy::expect_used, reason = "tests should fail loudly")]
+fn then_exit_code(code: i32, #[from(cli_context)] ctx: &CliContext) {
+    let out = ctx.output.get().expect("missing output");
+    dump_on(out.status.code() == Some(code), out);
+    assert_eq!(out.status.code(), Some(code));
+}
+
 #[then("stderr contains \"{text}\"")]
 #[expect(clippy::expect_used, reason = "tests should fail loudly")]
 #[expect(
