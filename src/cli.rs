@@ -23,7 +23,7 @@ use std::{env, path::PathBuf};
 /// use lag_complexity::cli::LagcArgs;
 /// use ortho_config::OrthoConfig;
 ///
-/// let args = LagcArgs::load_from_iter(["lagc", "--dry-run"])
+/// let args = LagcArgs::load_from_iter(["lagc", "--dry-run=true"])
 ///     .expect("load args from CLI iterator");
 /// assert!(args.dry_run);
 /// ```
