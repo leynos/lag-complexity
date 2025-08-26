@@ -19,8 +19,9 @@ primary public interfaces.
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
   mathematical and normalisation logic passes.
-- [x] **Acceptance Criteria**: The `lagc` CLI application can be built and run,
-  though it will have no functional commands yet.
+- [x] **Acceptance Criteria**: The `lagc` CLI application can be built and run
+  (verify with: `cargo run --bin lagc -- --help`), though it will have no
+  functional commands yet.
 
 ## Phase 1 — Heuristic Baseline (Duration: 1–2 weeks)
 

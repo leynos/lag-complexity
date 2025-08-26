@@ -12,6 +12,7 @@ clap = { version = "4.5", features = ["derive"], optional = true }
 figment = { version = "0.10", default-features = false, features = ["env"], optional = true }
 uncased = { version = "0.9", optional = true }
 xdg = { version = "3", optional = true }
+eyre = { version = "0.6", optional = true }
 serde_json = "1.0"
 figment-json5 = { version = "0.1", optional = true }
 json5 = { version = "0.4", optional = true }
@@ -20,7 +21,7 @@ toml = { version = "0.8", optional = true }
 
 [features]
 default = ["toml", "cli"]
-cli = ["dep:ortho_config", "dep:clap", "dep:figment", "dep:uncased", "dep:xdg"]
+cli = ["dep:ortho_config", "dep:clap", "dep:figment", "dep:uncased", "dep:xdg", "dep:eyre"]
 json5 = ["cli", "dep:figment-json5", "dep:json5"]
 yaml = ["cli", "figment/yaml", "dep:serde_yaml"]
 toml = ["cli", "figment/toml", "dep:toml"]

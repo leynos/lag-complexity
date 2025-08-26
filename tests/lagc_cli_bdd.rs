@@ -23,13 +23,20 @@ fn given_binary(#[from(cli_context)] ctx: &CliContext) {
     let _ = ctx;
 }
 
-#[given("these environment variables")]
-fn given_env(datatable: Vec<Vec<String>>, #[from(cli_context)] ctx: &CliContext) {
-    let map = datatable
-        .into_iter()
-        .filter_map(|row| match (row.first(), row.get(1)) {
-            (Some(k), Some(v)) => Some((k.clone(), v.clone())),
-            _ => None,
+#[given("env \"{pairs}\"")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "BDD macro injects owned value"
+)]
+fn given_env(pairs: String, #[from(cli_context)] ctx: &CliContext) {
+    let map = pairs
+        .split(',')
+        .filter_map(|kv| {
+            let mut iter = kv.splitn(2, '=');
+            match (iter.next(), iter.next()) {
+                (Some(k), Some(v)) => Some((k.trim().to_owned(), v.trim().to_owned())),
+                _ => None,
+            }
         })
         .collect();
     ctx.env
@@ -83,17 +90,38 @@ fn then_error(#[from(cli_context)] ctx: &CliContext) {
     assert!(!out.status.success());
 }
 
+#[then("stderr contains \"{text}\"")]
+#[expect(clippy::expect_used, reason = "tests should fail loudly")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "BDD macro injects owned value"
+)]
+#[expect(clippy::print_stderr, reason = "diagnose test failures")]
+fn then_stderr_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
+    let out = ctx.output.get().expect("missing output");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    if !stderr.contains(&text) {
+        eprintln!("stderr:\n{stderr}");
+    }
+    assert!(stderr.contains(&text));
+}
+
 #[scenario(path = "tests/features/lagc_cli.feature", index = 0)]
 fn dry_run(cli_context: CliContext) {
     let _ = cli_context;
 }
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 1)]
-fn invalid_flag(cli_context: CliContext) {
+fn dry_run_disabled(cli_context: CliContext) {
     let _ = cli_context;
 }
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 2)]
 fn env_dry_run(cli_context: CliContext) {
+    let _ = cli_context;
+}
+
+#[scenario(path = "tests/features/lagc_cli.feature", index = 3)]
+fn invalid_flag(cli_context: CliContext) {
     let _ = cli_context;
 }

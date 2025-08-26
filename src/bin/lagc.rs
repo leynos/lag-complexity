@@ -1,9 +1,13 @@
-use lag_complexity::cli::LagcArgs;
-use ortho_config::{OrthoConfig, OrthoError};
+//! CLI entrypoint for `lagc`. Loads configuration from CLI flags,
+//! environment variables (prefix `LAGC`), and optional config files via
+//! `ortho_config`.
 
-fn main() -> Result<(), OrthoError> {
+use eyre::Result;
+use lag_complexity::cli::LagcArgs;
+
+fn main() -> Result<()> {
     // Load configuration from CLI, environment, and config files. Future
     // subcommands will branch from these parsed arguments.
-    let _cfg = LagcArgs::load()?;
+    let _cfg = <LagcArgs as ortho_config::OrthoConfig>::load()?;
     Ok(())
 }
