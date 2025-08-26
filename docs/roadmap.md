@@ -12,14 +12,15 @@ primary public interfaces.
     `DepthEstimator`, `AmbiguityEstimator`).
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalisation strategies.
-- [ ] Create the stub for the `lagc` command-line interface binary using the
-  `clap` crate.
+- [x] Create the stub for the `lagc` CLI binary using `ortho_config`
+  (published as `ortho-config` on crates.io) [^hyphen-underscore].
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
   mathematical and normalisation logic passes.
-- [ ] **Acceptance Criteria**: The `lagc` CLI application can be built and run,
-  though it will have no functional commands yet.
+- [x] **Acceptance Criteria**: The `lagc` CLI application can be built and run
+  (verify with: `cargo run --bin lagc -- --help`), though it will have no
+  functional commands yet.
 
 ## Phase 1 — Heuristic Baseline (Duration: 1–2 weeks)
 
@@ -110,3 +111,7 @@ observable production deployment.
   security hooks) are implemented and tested.
 - [ ] **Acceptance Criteria**: The final project is ready for its first
   official release.
+
+[^hyphen-underscore]: Cargo converts hyphens to underscores for import paths.
+                      The package is `ortho-config` on crates.io and is
+                      imported as `ortho_config` in code.

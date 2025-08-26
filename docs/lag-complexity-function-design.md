@@ -335,16 +335,16 @@ guiding them toward safe and efficient deployment patterns.
 
 #### Table 1: feature flag specification
 
-| Feature Flag      | Dependencies                                      | Purpose                                                                               | Default |
-| ----------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
-| `provider-api`    | `reqwest`, `tokio`                                | Enables providers that call external HTTP APIs for embeddings or LLM-based estimates. | Off     |
-| `provider-tch`    | `tch`                                             | Enables local transformer models via the `tch` crate (LibTorch backend).              | Off     |
-| `provider-candle` | `candle-core`, `candle-nn`, `candle-transformers` | Enables local transformer models via the pure-Rust `candle` framework.                | On      |
-| `onnx`            | `ort`                                             | Enables ONNX Runtime for lightweight classifier models.                               | On      |
-| `rayon`           | `rayon`                                           | Enables parallel execution for batch scoring and concurrent provider calls.           | On      |
-| `python`          | `pyo3`                                            | Builds Python bindings for the crate.                                                 | Off     |
-| `wasm`            | `wasm-bindgen`, `js-sys`                          | Builds a WebAssembly module for browser/JS environments.                              | Off     |
-| `cli`             | `clap`                                            | Builds the `lagc` command-line interface binary.                                      | On      |
+| Feature Flag      | Dependencies                                                | Purpose                                                                               | Default |
+| ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------- |
+| `provider-api`    | `reqwest`, `tokio`                                          | Enables providers that call external HTTP APIs for embeddings or LLM-based estimates. | Off     |
+| `provider-tch`    | `tch`                                                       | Enables local transformer models via the `tch` crate (LibTorch backend).              | Off     |
+| `provider-candle` | `candle-core`, `candle-nn`, `candle-transformers`           | Enables local transformer models via the pure-Rust `candle` framework.                | On      |
+| `onnx`            | `ort`                                                       | Enables ONNX Runtime for lightweight classifier models.                               | On      |
+| `rayon`           | `rayon`                                                     | Enables parallel execution for batch scoring and concurrent provider calls.           | On      |
+| `python`          | `pyo3`                                                      | Builds Python bindings for the crate.                                                 | Off     |
+| `wasm`            | `wasm-bindgen`, `js-sys`                                    | Builds a WebAssembly module for browser/JS environments.                              | Off     |
+| `cli`             | `ortho_config`, `clap`, `figment`, `uncased`, `xdg`, `eyre` | Builds the `lagc` command-line interface binary.                                      | On      |
 
 ## 2. Component signal implementations
 
@@ -1259,8 +1259,12 @@ defining the primary public interfaces.
   its sub-types) and derive `serde` traits for configuration types.
 - Implement the mathematical logic for variance calculation and all `Sigma`
   normalization strategies.
-- Create the stub for the `lagc` command-line interface binary using the `clap`
-  crate.63
+- Create the stub for the `lagc` command-line interface binary using the
+  `ortho_config` crate (published as `ortho-config` on crates.io)
+  [^hyphen-underscore], which layers command-line arguments, environment
+  variables (prefixed with `LAGC_`), and configuration files without extra
+  boilerplate. Precedence is: command-line arguments > environment variables
+  > configuration files.
 - **Acceptance Criteria:**
 
 - The crate and all its core types compile successfully.
@@ -1510,3 +1514,7 @@ systems that are more robust, explainable, and aligned with the principles of
 structured human reasoning. Its successful implementation will represent a
 significant step toward creating AI that can not only answer questions but can
 also understand when a question requires deeper thought.
+
+[^hyphen-underscore]: Cargo converts hyphens to underscores for import paths.
+                      The package is `ortho-config` on crates.io and is
+                      imported as `ortho_config` in code.
