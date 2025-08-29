@@ -1,10 +1,12 @@
 //! BDD tests for `AmbiguityHeuristic`.
 
+use lag_complexity::TextProcessor;
 use lag_complexity::heuristics::{AmbiguityHeuristic, AmbiguityHeuristicError};
-use lag_complexity::providers::TextProcessor;
+mod support;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::cell::RefCell;
+use support::approx_eq;
 
 #[derive(Default)]
 struct TestContext {
@@ -37,13 +39,24 @@ fn when_evaluating_empty(#[from(test_context)] ctx: &TestContext) {
 }
 
 #[then("the ambiguity score is {expected:f32}")]
+#[expect(clippy::expect_used, reason = "test asserts presence")]
 fn then_score(#[from(test_context)] ctx: &TestContext, expected: f32) {
-    assert_eq!(ctx.result.borrow().as_ref(), Some(&Ok(expected)));
+    let actual = *ctx
+        .result
+        .borrow()
+        .as_ref()
+        .expect("expected result")
+        .as_ref()
+        .expect("expected score");
+    assert!(approx_eq(actual, expected, 1e-6));
 }
 
 #[then("an ambiguity error is returned")]
 fn then_error(#[from(test_context)] ctx: &TestContext) {
-    assert!(matches!(ctx.result.borrow().as_ref(), Some(Err(_))));
+    assert!(matches!(
+        ctx.result.borrow().as_ref(),
+        Some(Err(AmbiguityHeuristicError::Empty))
+    ));
 }
 
 #[scenario(path = "tests/features/ambiguity_heuristic.feature", index = 0)]

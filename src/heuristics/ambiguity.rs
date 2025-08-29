@@ -40,15 +40,12 @@ impl TextProcessor for AmbiguityHeuristic {
         if trimmed.is_empty() {
             return Err(AmbiguityHeuristicError::Empty);
         }
+        let tokens = normalize_tokens(trimmed);
         let lower = trimmed.to_lowercase();
-        let tokens = normalize_tokens(&lower);
-        let pronouns = weighted_count(tokens.iter().cloned(), PRONOUNS, 1);
-        let ambiguous = weighted_count(
-            tokens.iter().cloned().map(|t| singularise(&t)),
-            AMBIGUOUS_ENTITIES,
-            2,
-        );
-        let vague = weighted_count(tokens.iter().cloned(), VAGUE_WORDS, 1);
+        let pronouns = weighted_count(tokens.iter().map(String::as_str), PRONOUNS, 1);
+        let singulars: Vec<String> = tokens.iter().map(|t| singularise(t)).collect();
+        let ambiguous = weighted_count(singulars.iter().map(String::as_str), AMBIGUOUS_ENTITIES, 2);
+        let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
         let extras = substring_count(&lower, "a few");
         let total = pronouns + ambiguous + vague + extras + 1;
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
@@ -78,5 +75,6 @@ mod tests {
     fn rejects_empty_input() {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(""), Err(AmbiguityHeuristicError::Empty));
+        assert_eq!(h.process("   \n\t"), Err(AmbiguityHeuristicError::Empty));
     }
 }

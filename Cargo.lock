@@ -550,7 +550,6 @@ dependencies = [
  "figment",
  "figment-json5",
  "json5",
- "once_cell",
  "ortho_config",
  "regex",
  "rstest",

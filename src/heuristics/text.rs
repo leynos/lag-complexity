@@ -10,7 +10,7 @@ use regex::Regex;
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use lag_complexity::heuristics::text::normalize_tokens;
 ///
 /// let tokens = normalize_tokens("Hello, world!");
@@ -29,20 +29,21 @@ pub fn normalize_tokens(input: &str) -> Vec<String> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use lag_complexity::heuristics::text::{normalize_tokens, weighted_count};
 ///
 /// let tokens = normalize_tokens("this and that");
-/// let count = weighted_count(tokens.into_iter(), &["and"], 2);
+/// let count = weighted_count(tokens.iter().map(String::as_str), &["and"], 2);
 /// assert_eq!(count, 2);
 /// ```
-pub fn weighted_count(tokens: impl Iterator<Item = String>, patterns: &[&str], weight: u32) -> u32 {
+pub fn weighted_count<'a>(
+    tokens: impl Iterator<Item = &'a str>,
+    patterns: &[&str],
+    weight: u32,
+) -> u32 {
     #[expect(clippy::cast_possible_truncation, reason = "token count fits in u32")]
     {
-        tokens
-            .filter(|tok| patterns.contains(&tok.as_str()))
-            .count() as u32
-            * weight
+        tokens.filter(|tok| patterns.contains(tok)).count() as u32 * weight
     }
 }
 
@@ -50,7 +51,7 @@ pub fn weighted_count(tokens: impl Iterator<Item = String>, patterns: &[&str], w
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use lag_complexity::heuristics::text::substring_count;
 ///
 /// assert_eq!(substring_count("a few good men", "a few"), 1);
@@ -80,7 +81,7 @@ pub fn substring_count(haystack: &str, needle: &str) -> u32 {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use lag_complexity::heuristics::text::singularise;
 ///
 /// assert_eq!(singularise("jaguars"), "jaguar");
@@ -116,7 +117,10 @@ mod tests {
     #[test]
     fn weighted_counts_tokens() {
         let tokens = normalize_tokens("and and or");
-        assert_eq!(weighted_count(tokens.into_iter(), &["and"], 1), 2);
+        assert_eq!(
+            weighted_count(tokens.iter().map(String::as_str), &["and"], 1),
+            2,
+        );
     }
 
     #[test]

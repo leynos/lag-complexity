@@ -3,10 +3,9 @@
 //! Counts linguistic signals that typically indicate reasoning depth. The
 //! heuristic favours clarity over exhaustive linguistic analysis.
 
-use crate::{
-    heuristics::text::{normalize_tokens, substring_count},
-    providers::TextProcessor,
-};
+use crate::{heuristics::text::normalize_tokens, providers::TextProcessor};
+use regex::Regex;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 /// Errors returned by [`DepthHeuristic`].
@@ -17,7 +16,7 @@ pub enum DepthHeuristicError {
     Empty,
 }
 
-/// Fast, dependency-free estimator for reasoning depth.
+/// Fast, lightweight estimator for reasoning depth.
 ///
 /// # Examples
 ///
@@ -40,8 +39,8 @@ impl TextProcessor for DepthHeuristic {
         if trimmed.is_empty() {
             return Err(DepthHeuristicError::Empty);
         }
+        let tokens = normalize_tokens(trimmed);
         let lower = trimmed.to_lowercase();
-        let tokens = normalize_tokens(&lower);
         let mut score = tokens.iter().fold(0u32, |acc, tok| {
             let mut s = acc;
             for (set, w) in TOKEN_WEIGHTS {
@@ -58,10 +57,7 @@ impl TextProcessor for DepthHeuristic {
                 .map(|(pat, w)| lower.matches(pat).count() as u32 * w)
                 .sum::<u32>();
         }
-        score += PHRASE_WEIGHTS_BOUNDARY
-            .iter()
-            .map(|(pat, w)| substring_count(&lower, pat) * w)
-            .sum::<u32>();
+        score += boundary_score(&lower);
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
         Ok(score as f32)
     }
@@ -79,6 +75,29 @@ const PHRASE_WEIGHTS_BOUNDARY: &[(&str, u32)] = &[
     ("more than", 2),
     ("less than", 2),
 ];
+
+static BOUNDARY_PATTERNS: LazyLock<Vec<(Regex, u32)>> = LazyLock::new(|| {
+    PHRASE_WEIGHTS_BOUNDARY
+        .iter()
+        .map(|(p, w)| {
+            #[expect(clippy::expect_used, reason = "escaped pattern cannot fail")]
+            (
+                Regex::new(&format!(r"\b{}\b", regex::escape(p))).expect("valid regex"),
+                *w,
+            )
+        })
+        .collect()
+});
+
+fn boundary_score(lower: &str) -> u32 {
+    #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
+    {
+        BOUNDARY_PATTERNS
+            .iter()
+            .map(|(re, w)| re.find_iter(lower).count() as u32 * *w)
+            .sum()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -98,5 +117,6 @@ mod tests {
     fn rejects_empty_input() {
         let h = DepthHeuristic;
         assert_eq!(h.process(""), Err(DepthHeuristicError::Empty));
+        assert_eq!(h.process("   \t"), Err(DepthHeuristicError::Empty));
     }
 }

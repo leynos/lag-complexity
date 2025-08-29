@@ -425,7 +425,7 @@ decomposition in a LAG system.
 
 #### Heuristic baseline (DepthHeuristic)
 
-This implementation provides a very fast, dependency-free baseline for
+This implementation provides a very fast, dependency-light baseline for
 estimating reasoning depth. While not as accurate as a model-based approach, it
 serves as an excellent low-latency first-pass filter. It operates by
 identifying and counting linguistic markers that often correlate with syntactic
@@ -452,8 +452,9 @@ and logical complexity.22
   curated set of multi-hop questions.
 - **Implementation note:** The heuristic uses shared token normalisation and a
   pair of weighted tables for tokens and phrases. Word-boundary matching
-  prevents partial hits, and comma patterns capture simple enumerations. This
-  trades linguistic coverage for transparency and sub-millisecond performance.
+  (implemented via the `regex` crate) prevents partial hits, and comma patterns
+  capture simple enumerations. This trades linguistic coverage for transparency
+  and sub-millisecond performance.
 
 #### Model-backed options
 
@@ -518,9 +519,10 @@ English text.25
   stable, non-zero score even for queries with no detected ambiguity signals.
 - **Implementation note:** The initial heuristic uses a shared normaliser for
   token casing and punctuation. Ambiguous entity matching applies conservative
-  singularisation to avoid false positives. Pronouns and vague terms carry unit
-  weight, ambiguous entities count double, and Laplace smoothing adds one to
-  the total. Antecedent resolution is deferred to model-based providers.
+  singularisation (shared text utils) and uses `regex` word boundaries to avoid
+  partial matches. Pronouns and vague terms carry unit weight, ambiguous
+  entities count double, and Laplace smoothing adds one to the total.
+  Antecedent resolution is deferred to model-based providers.
 
 #### Model-backed option (AmbiguityClassifierOnnx)
 

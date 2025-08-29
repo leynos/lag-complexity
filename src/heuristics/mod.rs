@@ -2,7 +2,7 @@
 
 pub mod ambiguity;
 pub mod depth;
-pub mod text;
+pub(crate) mod text;
 
 pub use ambiguity::{AmbiguityHeuristic, AmbiguityHeuristicError};
 pub use depth::{DepthHeuristic, DepthHeuristicError};
