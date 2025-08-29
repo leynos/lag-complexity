@@ -552,6 +552,7 @@ dependencies = [
  "json5",
  "once_cell",
  "ortho_config",
+ "regex",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",

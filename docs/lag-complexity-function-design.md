@@ -450,11 +450,10 @@ and logical complexity.22
 - **Aggregation:** The final heuristic score will be a weighted sum of the
   counts of these features. The weights will be empirically tuned against a
   curated set of multi-hop questions.
-- **Implementation note:** The first release uses case-insensitive token counts
-  with integer weights (1 for coordinating conjunctions, 2 for subordinating
-  ones). Comparative phrases are detected via substring matches and
-  enumerations via comma patterns, trading linguistic coverage for transparency
-  and sub-millisecond performance.
+- **Implementation note:** The heuristic uses shared token normalisation and a
+  pair of weighted tables for tokens and phrases. Word-boundary matching
+  prevents partial hits, and comma patterns capture simple enumerations. This
+  trades linguistic coverage for transparency and sub-millisecond performance.
 
 #### Model-backed options
 
@@ -517,11 +516,11 @@ English text.25
 - **Aggregation:** The scores from these risk factors will be combined into a
   single pseudo-entropy value. Laplace smoothing will be applied to ensure a
   stable, non-zero score even for queries with no detected ambiguity signals.
-- **Implementation note:** The initial heuristic counts tokens
-  case-insensitively against small curated lists. Pronouns and vague terms
-  carry unit weight, ambiguous entities count double, and Laplace smoothing
-  adds one to the total. Antecedent resolution is deferred to model-based
-  providers.
+- **Implementation note:** The initial heuristic uses a shared normaliser for
+  token casing and punctuation. Ambiguous entity matching applies conservative
+  singularisation to avoid false positives. Pronouns and vague terms carry unit
+  weight, ambiguous entities count double, and Laplace smoothing adds one to
+  the total. Antecedent resolution is deferred to model-based providers.
 
 #### Model-backed option (AmbiguityClassifierOnnx)
 

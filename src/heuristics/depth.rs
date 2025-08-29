@@ -3,7 +3,10 @@
 //! Counts linguistic signals that typically indicate reasoning depth. The
 //! heuristic favours clarity over exhaustive linguistic analysis.
 
-use crate::providers::TextProcessor;
+use crate::{
+    heuristics::text::{normalize_tokens, substring_count},
+    providers::TextProcessor,
+};
 use thiserror::Error;
 
 /// Errors returned by [`DepthHeuristic`].
@@ -33,61 +36,53 @@ impl TextProcessor for DepthHeuristic {
     type Error = DepthHeuristicError;
 
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error> {
-        if input.trim().is_empty() {
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
             return Err(DepthHeuristicError::Empty);
         }
-        let lower = input.to_lowercase();
-        let mut score: u32 = 0;
-        let words = lower.split_whitespace();
-        for word in words {
-            let token = word.trim_matches(|c: char| !c.is_alphabetic());
-            if COORD_CONJ.contains(&token) {
-                score += 1;
+        let lower = trimmed.to_lowercase();
+        let tokens = normalize_tokens(&lower);
+        let mut score = tokens.iter().fold(0u32, |acc, tok| {
+            let mut s = acc;
+            for (set, w) in TOKEN_WEIGHTS {
+                if set.contains(&tok.as_str()) {
+                    s += w;
+                }
             }
-            if SUBORD_CONJ.contains(&token) {
-                score += 2;
-            }
-            if REL_PRON.contains(&token) {
-                score += 1;
-            }
-        }
+            s
+        });
         #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
         {
-            score += lower.matches(", and").count() as u32;
+            score += PHRASE_WEIGHTS_RAW
+                .iter()
+                .map(|(pat, w)| lower.matches(pat).count() as u32 * w)
+                .sum::<u32>();
         }
-        #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
-        {
-            score += lower.matches(", or").count() as u32;
-        }
-        score += count_phrases(&lower, COMPARATIVES) * 2;
+        score += PHRASE_WEIGHTS_BOUNDARY
+            .iter()
+            .map(|(pat, w)| substring_count(&lower, pat) * w)
+            .sum::<u32>();
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
-        let score_f32 = score as f32;
-        Ok(score_f32)
+        Ok(score as f32)
     }
 }
 
 const COORD_CONJ: &[&str] = &["and", "or", "but"];
 const SUBORD_CONJ: &[&str] = &["if", "because", "while", "since", "although"];
 const REL_PRON: &[&str] = &["who", "which", "that", "whose"];
-const COMPARATIVES: &[&str] = &[
-    "compared to",
-    "versus",
-    "as opposed to",
-    "more than",
-    "less than",
+const TOKEN_WEIGHTS: &[(&[&str], u32)] = &[
+    (COORD_CONJ, 1),
+    (SUBORD_CONJ, 2),
+    (REL_PRON, 1),
 ];
-
-fn count_phrases(text: &str, phrases: &[&str]) -> u32 {
-    phrases
-        .iter()
-        .map(|p| {
-            #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
-            {
-                text.matches(p).count() as u32
-            }
-        })
-        .sum()
-}
+const PHRASE_WEIGHTS_RAW: &[(&str, u32)] = &[(", and", 1), (", or", 1)];
+const PHRASE_WEIGHTS_BOUNDARY: &[(&str, u32)] = &[
+    ("compared to", 2),
+    ("versus", 2),
+    ("as opposed to", 2),
+    ("more than", 2),
+    ("less than", 2),
+];
 
 #[cfg(test)]
 mod tests {

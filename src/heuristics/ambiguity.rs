@@ -3,7 +3,10 @@
 //! Provides a lightweight ambiguity signal by counting pronouns, ambiguous
 //! terms, and vague references. Uses Laplace smoothing to avoid zero scores.
 
-use crate::providers::TextProcessor;
+use crate::{
+    heuristics::text::{normalize_tokens, singularise, substring_count, weighted_count},
+    providers::TextProcessor,
+};
 use thiserror::Error;
 
 /// Errors returned by [`AmbiguityHeuristic`].
@@ -33,32 +36,23 @@ impl TextProcessor for AmbiguityHeuristic {
     type Error = AmbiguityHeuristicError;
 
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error> {
-        if input.trim().is_empty() {
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
             return Err(AmbiguityHeuristicError::Empty);
         }
-        let lower = input.to_lowercase();
-        let mut score: u32 = 0;
-        for word in lower.split_whitespace() {
-            let token = word.trim_matches(|c: char| !c.is_alphabetic());
-            if PRONOUNS.contains(&token) {
-                score += 1;
-            }
-            let singular = token.strip_suffix('s').unwrap_or(token);
-            if AMBIGUOUS_ENTITIES.contains(&singular) {
-                score += 2;
-            }
-            if VAGUE_WORDS.contains(&token) {
-                score += 1;
-            }
-        }
-        #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
-        {
-            score += lower.matches("a few").count() as u32;
-        }
-        let total = score + 1;
+        let lower = trimmed.to_lowercase();
+        let tokens = normalize_tokens(&lower);
+        let pronouns = weighted_count(tokens.iter().cloned(), PRONOUNS, 1);
+        let ambiguous = weighted_count(
+            tokens.iter().cloned().map(|t| singularise(&t)),
+            AMBIGUOUS_ENTITIES,
+            2,
+        );
+        let vague = weighted_count(tokens.iter().cloned(), VAGUE_WORDS, 1);
+        let extras = substring_count(&lower, "a few");
+        let total = pronouns + ambiguous + vague + extras + 1;
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
-        let score_f32 = total as f32;
-        Ok(score_f32)
+        Ok(total as f32)
     }
 }
 
