@@ -425,11 +425,11 @@ decomposition in a LAG system.
 
 #### Heuristic baseline (DepthHeuristic)
 
-This implementation provides a very fast, dependency-light baseline for
-estimating reasoning depth. While not as accurate as a model-based approach, it
-serves as an excellent low-latency first-pass filter. It operates by
-identifying and counting linguistic markers that often correlate with syntactic
-and logical complexity.22
+This implementation provides a very fast, dependency-light baseline (using the
+`regex` crate for boundary matching) for estimating reasoning depth. While not
+as accurate as a model-based approach, it serves as an excellent low-latency
+first-pass filter. It operates by identifying and counting linguistic markers
+that often correlate with syntactic and logical complexity.22
 
 - **Feature Engineering:**
 
