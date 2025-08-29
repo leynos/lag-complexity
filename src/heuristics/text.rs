@@ -88,12 +88,20 @@ pub fn substring_count(haystack: &str, needle: &str) -> u32 {
 /// ```
 #[must_use]
 pub fn singularise(token: &str) -> String {
-    const EXCEPTIONS: &[&str] = &["this", "his", "is"];
-    if token.len() > 3 && token.ends_with('s') && !EXCEPTIONS.contains(&token) {
-        token.trim_end_matches('s').to_string()
+    if should_singularise(token) {
+        token.strip_suffix('s').unwrap_or(token).to_string()
     } else {
         token.to_string()
     }
+}
+
+/// Determine whether `singularise` should strip a trailing "s".
+///
+/// This guards against short tokens and a few explicit exceptions where the
+/// final "s" is meaningful.
+fn should_singularise(token: &str) -> bool {
+    const EXCEPTIONS: &[&str] = &["this", "his", "is"];
+    token.len() > 3 && token.ends_with('s') && !EXCEPTIONS.contains(&token)
 }
 
 #[cfg(test)]

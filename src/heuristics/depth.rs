@@ -70,11 +70,7 @@ impl TextProcessor for DepthHeuristic {
 const COORD_CONJ: &[&str] = &["and", "or", "but"];
 const SUBORD_CONJ: &[&str] = &["if", "because", "while", "since", "although"];
 const REL_PRON: &[&str] = &["who", "which", "that", "whose"];
-const TOKEN_WEIGHTS: &[(&[&str], u32)] = &[
-    (COORD_CONJ, 1),
-    (SUBORD_CONJ, 2),
-    (REL_PRON, 1),
-];
+const TOKEN_WEIGHTS: &[(&[&str], u32)] = &[(COORD_CONJ, 1), (SUBORD_CONJ, 2), (REL_PRON, 1)];
 const PHRASE_WEIGHTS_RAW: &[(&str, u32)] = &[(", and", 1), (", or", 1)];
 const PHRASE_WEIGHTS_BOUNDARY: &[(&str, u32)] = &[
     ("compared to", 2),
