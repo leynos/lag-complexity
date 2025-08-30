@@ -44,8 +44,8 @@ impl TextProcessor for AmbiguityHeuristic {
         let tokens = normalize_tokens(trimmed);
         let lower = trimmed.to_lowercase();
         let pronouns = weighted_count(tokens.iter().map(String::as_str), PRONOUNS, 1);
-        let singulars: Vec<String> = tokens.iter().map(|t| singularise(t)).collect();
-        let ambiguous = weighted_count(singulars.iter().map(String::as_str), AMBIGUOUS_ENTITIES, 2);
+        let ambiguous =
+            weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
         let extras = substring_count(&lower, "a few");
         let total = pronouns + ambiguous + vague + extras + 1;

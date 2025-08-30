@@ -5,6 +5,7 @@
 //! small and focused on scoring logic.
 
 use regex::Regex;
+use std::borrow::Cow;
 
 /// Split text into lowercase tokens stripped of surrounding punctuation.
 ///
@@ -39,14 +40,17 @@ pub fn normalize_tokens(input: &str) -> Vec<String> {
 /// let count = weighted_count(tokens.iter().map(String::as_str), &["and"], 2);
 /// assert_eq!(count, 2);
 /// ```
-pub fn weighted_count<'a>(
-    tokens: impl Iterator<Item = &'a str>,
+pub fn weighted_count<T: AsRef<str>>(
+    tokens: impl Iterator<Item = T>,
     patterns: &[&str],
     weight: u32,
 ) -> u32 {
     #[expect(clippy::cast_possible_truncation, reason = "token count fits in u32")]
     {
-        tokens.filter(|tok| patterns.contains(tok)).count() as u32 * weight
+        tokens
+            .filter(|tok| patterns.contains(&tok.as_ref()))
+            .count() as u32
+            * weight
     }
 }
 
@@ -94,11 +98,11 @@ pub fn substring_count(haystack: &str, needle: &str) -> u32 {
 /// assert_eq!(singularise("this"), "this");
 /// ```
 #[must_use]
-pub fn singularise(token: &str) -> String {
+pub fn singularise(token: &str) -> Cow<'_, str> {
     if should_singularise(token) {
-        token.strip_suffix('s').unwrap_or(token).to_string()
+        Cow::Owned(token.strip_suffix('s').unwrap_or(token).to_string())
     } else {
-        token.to_string()
+        Cow::Borrowed(token)
     }
 }
 
