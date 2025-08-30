@@ -8,7 +8,7 @@ use crate::{
     providers::TextProcessor,
 };
 use regex::Regex;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 /// Errors returned by [`AmbiguityHeuristic`].
@@ -44,18 +44,11 @@ impl TextProcessor for AmbiguityHeuristic {
             return Err(AmbiguityHeuristicError::Empty);
         }
         let tokens = normalize_tokens(trimmed);
-        let lower = trimmed.to_lowercase();
         let pronouns = weighted_count(tokens.iter().map(String::as_str), PRONOUNS, 1);
         let ambiguous =
             weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
-        let extras = substring_count_regex(
-            &lower,
-            A_FEW_RE.get_or_init(|| {
-                #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
-                Regex::new(r"\ba few\b").expect("valid regex")
-            }),
-        );
+        let extras = substring_count_regex(trimmed, &A_FEW_RE);
         let total = pronouns + ambiguous + vague + extras + 1;
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
         Ok(total as f32)
@@ -66,7 +59,10 @@ const PRONOUNS: &[&str] = &["it", "he", "she", "they", "this", "that"];
 const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
-static A_FEW_RE: OnceLock<Regex> = OnceLock::new();
+static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
+    Regex::new(r"(?i)\ba few\b").expect("valid regex")
+});
 
 #[cfg(test)]
 mod tests {

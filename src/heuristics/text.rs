@@ -154,9 +154,13 @@ mod tests {
 
     #[test]
     fn counts_substrings_with_boundaries() {
+        // `substring_count_regex` counts non-overlapping matches; overlapping
+        // occurrences are ignored.
         #[expect(clippy::expect_used, reason = "pattern literal is valid")]
         let re = Regex::new(r"\bmore\b").expect("valid regex");
         assert_eq!(substring_count_regex("more than less", &re), 1);
+        assert_eq!(substring_count_regex("more or more", &re), 2);
+        assert_eq!(substring_count_regex("more-more", &re), 2);
         assert_eq!(substring_count_regex("smores", &re), 0);
     }
 
