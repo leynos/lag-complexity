@@ -53,10 +53,10 @@ fn then_score(#[from(test_context)] ctx: &TestContext, expected: f32) {
 
 #[then("an ambiguity error is returned")]
 fn then_error(#[from(test_context)] ctx: &TestContext) {
-    assert!(matches!(
+    assert_eq!(
         ctx.result.borrow().as_ref(),
-        Some(Err(AmbiguityHeuristicError::Empty))
-    ));
+        Some(&Err(AmbiguityHeuristicError::Empty))
+    );
 }
 
 #[scenario(path = "tests/features/ambiguity_heuristic.feature", index = 0)]

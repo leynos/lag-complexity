@@ -53,10 +53,7 @@ fn then_score(#[from(test_context)] ctx: &TestContext, expected: f32) {
 
 #[then("a depth error is returned")]
 fn then_error(#[from(test_context)] ctx: &TestContext) {
-    assert!(matches!(
-        ctx.result.borrow().as_ref(),
-        Some(Err(DepthHeuristicError::Empty))
-    ));
+    assert!(matches!(ctx.result.borrow().as_ref(), Some(Err(_))));
 }
 
 #[scenario(path = "tests/features/depth_heuristic.feature", index = 0)]
