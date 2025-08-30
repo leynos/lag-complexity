@@ -23,6 +23,7 @@ pub enum AmbiguityHeuristicError {
 ///
 /// ```
 /// use lag_complexity::heuristics::AmbiguityHeuristic;
+/// use lag_complexity::TextProcessor;
 ///
 /// let estimator = AmbiguityHeuristic;
 /// let score = estimator.process("It references Mercury").unwrap();

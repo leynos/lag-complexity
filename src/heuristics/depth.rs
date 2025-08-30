@@ -22,6 +22,7 @@ pub enum DepthHeuristicError {
 ///
 /// ```
 /// use lag_complexity::heuristics::DepthHeuristic;
+/// use lag_complexity::TextProcessor;
 ///
 /// let estimator = DepthHeuristic;
 /// let score = estimator.process("If A and B then C").unwrap();
