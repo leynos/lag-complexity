@@ -54,9 +54,11 @@ pub fn weighted_count<T: AsRef<str>>(
     }
 }
 
-/// Count substring matches using a precompiled pattern with word boundaries.
+/// Count non-overlapping matches using a precompiled regular-expression
+/// pattern.
 ///
-/// This avoids recompiling regular expressions in hot paths.
+/// This avoids recompiling regular expressions in hot paths. Supply word
+/// boundaries or flags (e.g., `(?i)`) within the pattern if required.
 ///
 /// # Examples
 ///
@@ -64,8 +66,9 @@ pub fn weighted_count<T: AsRef<str>>(
 /// use regex::Regex;
 /// use lag_complexity::heuristics::text::substring_count_regex;
 ///
-/// let pattern = Regex::new(r"\bmore\b").unwrap();
+/// let pattern = Regex::new(r"\bmore\b").expect("valid regex");
 /// assert_eq!(substring_count_regex("more than less", &pattern), 1);
+/// assert_eq!(substring_count_regex("more or more", &pattern), 2);
 /// ```
 #[must_use]
 pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
@@ -87,14 +90,10 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
 ///
 /// assert_eq!(substring_count("more than less", "more"), 1);
 /// ```
-#[expect(
-    clippy::allow_attributes,
-    reason = "deprecated wrapper retained for migration"
-)]
-#[allow(dead_code, reason = "deprecated wrapper retained for migration")]
+#[expect(dead_code, reason = "deprecated wrapper retained for migration")]
 #[must_use]
 #[deprecated(note = "precompile the pattern and use substring_count_regex to avoid recompiling")]
-pub fn substring_count(haystack: &str, needle: &str) -> u32 {
+pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
     #[expect(
         clippy::expect_used,
         reason = "escaped needle forms a valid literal pattern"
@@ -162,13 +161,9 @@ mod tests {
         assert_eq!(substring_count_regex("more or more", &re), 2);
         assert_eq!(substring_count_regex("more-more", &re), 2);
         assert_eq!(substring_count_regex("smores", &re), 0);
-    }
-
-    #[test]
-    #[expect(deprecated, reason = "testing deprecated wrapper")]
-    fn counts_substrings_from_str() {
-        assert_eq!(substring_count("more than less", "more"), 1);
-        assert_eq!(substring_count("smores", "more"), 0);
+        #[expect(clippy::expect_used, reason = "pattern literal is valid")]
+        let re2 = Regex::new(r"aa").expect("valid regex");
+        assert_eq!(substring_count_regex("aaaa", &re2), 2);
     }
 
     #[test]
