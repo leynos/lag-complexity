@@ -44,7 +44,8 @@ cargo add lag-complexity
 
 By default, the crate includes fast, lightweight heuristic-based providers and
 local ONNX model support for a "batteries-included" experience. For more
-advanced use cases, you can enable additional features.
+advanced use cases, you can enable additional features. The heuristics remain
+dependency-light, relying only on the `regex` crate for boundary matching.
 
 ### Quick Example
 

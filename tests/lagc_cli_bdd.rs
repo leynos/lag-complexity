@@ -2,9 +2,9 @@
 #![cfg(feature = "cli")]
 
 use assert_cmd::Command;
-use once_cell::unsync::OnceCell;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::env;
 use std::process::Output;
