@@ -2,11 +2,11 @@
 
 use lag_complexity::TextProcessor;
 use lag_complexity::heuristics::{AmbiguityHeuristic, AmbiguityHeuristicError};
-mod support;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::cell::RefCell;
-use support::approx_eq;
+
+const EPSILON: f32 = 1e-6;
 
 #[derive(Default)]
 struct TestContext {
@@ -39,16 +39,17 @@ fn when_evaluating_empty(#[from(test_context)] ctx: &TestContext) {
 }
 
 #[then("the ambiguity score is {expected:f32}")]
-#[expect(clippy::expect_used, reason = "test asserts presence")]
+#[expect(clippy::float_arithmetic, reason = "tolerance comparison")]
 fn then_score(#[from(test_context)] ctx: &TestContext, expected: f32) {
-    let actual = *ctx
-        .result
-        .borrow()
-        .as_ref()
-        .expect("expected result")
-        .as_ref()
-        .expect("expected score");
-    assert!(approx_eq(actual, expected, 1e-6));
+    let actual = match ctx.result.borrow().as_ref() {
+        Some(Ok(val)) => *val,
+        Some(Err(e)) => panic!("expected score, got error: {e:?}"),
+        None => panic!("no result"),
+    };
+    assert!(
+        (actual - expected).abs() < EPSILON,
+        "expected {expected}, got {actual}"
+    );
 }
 
 #[then("an ambiguity error is returned")]
