@@ -54,34 +54,24 @@ pub fn weighted_count<T: AsRef<str>>(
     }
 }
 
-/// Count substring matches using word boundaries.
+/// Count substring matches using a precompiled pattern with word boundaries.
+///
+/// This avoids recompiling regular expressions in hot paths.
 ///
 /// # Examples
 ///
 /// ```ignore
+/// use regex::Regex;
 /// use lag_complexity::heuristics::text::substring_count;
 ///
-/// assert_eq!(substring_count("a few good men", "a few"), 1);
-/// assert_eq!(substring_count("versus", "versus"), 1);
+/// let pattern = Regex::new(r"\bmore\b").unwrap();
+/// assert_eq!(substring_count("more than less", &pattern), 1);
 /// ```
-///
-/// # Panics
-///
-/// Panics if the regular expression fails to compile. This cannot occur
-/// because `needle` is escaped.
 #[must_use]
-pub fn substring_count(haystack: &str, needle: &str) -> u32 {
-    if needle.is_empty() {
-        return 0;
-    }
-    let pattern = format!(r"\b{}\b", regex::escape(needle));
-    #[expect(clippy::expect_used, reason = "escaped pattern cannot fail")]
+pub fn substring_count(haystack: &str, pattern: &Regex) -> u32 {
     #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
     {
-        Regex::new(&pattern)
-            .expect("valid regex")
-            .find_iter(haystack)
-            .count() as u32
+        pattern.find_iter(haystack).count() as u32
     }
 }
 
@@ -118,6 +108,7 @@ fn should_singularise(token: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use regex::Regex;
 
     #[test]
     fn normalises_tokens() {
@@ -135,13 +126,10 @@ mod tests {
 
     #[test]
     fn counts_substrings_with_boundaries() {
-        assert_eq!(substring_count("more than less", "more"), 1);
-        assert_eq!(substring_count("smores", "more"), 0);
-    }
-
-    #[test]
-    fn substring_count_empty_needle_is_zero() {
-        assert_eq!(substring_count("anything", ""), 0);
+        #[expect(clippy::expect_used, reason = "pattern literal is valid")]
+        let re = Regex::new(r"\bmore\b").expect("valid regex");
+        assert_eq!(substring_count("more than less", &re), 1);
+        assert_eq!(substring_count("smores", &re), 0);
     }
 
     #[test]

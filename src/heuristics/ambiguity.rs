@@ -7,6 +7,8 @@ use crate::{
     heuristics::text::{normalize_tokens, singularise, substring_count, weighted_count},
     providers::TextProcessor,
 };
+use regex::Regex;
+use std::sync::OnceLock;
 use thiserror::Error;
 
 /// Errors returned by [`AmbiguityHeuristic`].
@@ -47,7 +49,13 @@ impl TextProcessor for AmbiguityHeuristic {
         let ambiguous =
             weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
-        let extras = substring_count(&lower, "a few");
+        let extras = substring_count(
+            &lower,
+            A_FEW_RE.get_or_init(|| {
+                #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
+                Regex::new(&format!(r"\b{}\b", regex::escape("a few"))).expect("valid regex")
+            }),
+        );
         let total = pronouns + ambiguous + vague + extras + 1;
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
         Ok(total as f32)
@@ -57,6 +65,8 @@ impl TextProcessor for AmbiguityHeuristic {
 const PRONOUNS: &[&str] = &["it", "he", "she", "they", "this", "that"];
 const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
+
+static A_FEW_RE: OnceLock<Regex> = OnceLock::new();
 
 #[cfg(test)]
 mod tests {
