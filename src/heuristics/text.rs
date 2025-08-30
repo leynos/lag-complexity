@@ -20,7 +20,10 @@ use regex::Regex;
 pub fn normalize_tokens(input: &str) -> Vec<String> {
     input
         .split_whitespace()
-        .map(|w| w.trim_matches(|c: char| !c.is_alphabetic()).to_lowercase())
+        .map(|w| {
+            w.trim_matches(|c: char| !c.is_alphanumeric() && c != '-')
+                .to_lowercase()
+        })
         .filter(|t| !t.is_empty())
         .collect()
 }
@@ -64,6 +67,9 @@ pub fn weighted_count<'a>(
 /// because `needle` is escaped.
 #[must_use]
 pub fn substring_count(haystack: &str, needle: &str) -> u32 {
+    if needle.is_empty() {
+        return 0;
+    }
     let pattern = format!(r"\b{}\b", regex::escape(needle));
     #[expect(clippy::expect_used, reason = "escaped pattern cannot fail")]
     #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
@@ -130,8 +136,21 @@ mod tests {
     }
 
     #[test]
+    fn substring_count_empty_needle_is_zero() {
+        assert_eq!(substring_count("anything", ""), 0);
+    }
+
+    #[test]
     fn singularises_tokens() {
         assert_eq!(singularise("jaguars"), "jaguar");
         assert_eq!(singularise("this"), "this");
+    }
+
+    #[test]
+    fn preserves_digits_and_hyphens() {
+        assert_eq!(
+            normalize_tokens("IPv6 state-of-the-art"),
+            vec!["ipv6", "state-of-the-art"]
+        );
     }
 }
