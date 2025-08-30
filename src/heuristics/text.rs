@@ -62,17 +62,45 @@ pub fn weighted_count<T: AsRef<str>>(
 ///
 /// ```ignore
 /// use regex::Regex;
-/// use lag_complexity::heuristics::text::substring_count;
+/// use lag_complexity::heuristics::text::substring_count_regex;
 ///
 /// let pattern = Regex::new(r"\bmore\b").unwrap();
-/// assert_eq!(substring_count("more than less", &pattern), 1);
+/// assert_eq!(substring_count_regex("more than less", &pattern), 1);
 /// ```
 #[must_use]
-pub fn substring_count(haystack: &str, pattern: &Regex) -> u32 {
+pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
     #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
     {
         pattern.find_iter(haystack).count() as u32
     }
+}
+
+/// Count substring matches using a pattern with word boundaries.
+///
+/// Deprecated: precompile the pattern and use [`substring_count_regex`] to
+/// avoid recompiling on each call.
+///
+/// # Examples
+///
+/// ```ignore
+/// use lag_complexity::heuristics::text::substring_count;
+///
+/// assert_eq!(substring_count("more than less", "more"), 1);
+/// ```
+#[expect(
+    clippy::allow_attributes,
+    reason = "deprecated wrapper retained for migration"
+)]
+#[allow(dead_code, reason = "deprecated wrapper retained for migration")]
+#[must_use]
+#[deprecated(note = "precompile the pattern and use substring_count_regex to avoid recompiling")]
+pub fn substring_count(haystack: &str, needle: &str) -> u32 {
+    #[expect(
+        clippy::expect_used,
+        reason = "escaped needle forms a valid literal pattern"
+    )]
+    let re = Regex::new(&format!(r"\b{}\b", regex::escape(needle))).expect("valid regex");
+    substring_count_regex(haystack, &re)
 }
 
 /// Naïvely singularise an English token.
@@ -128,8 +156,15 @@ mod tests {
     fn counts_substrings_with_boundaries() {
         #[expect(clippy::expect_used, reason = "pattern literal is valid")]
         let re = Regex::new(r"\bmore\b").expect("valid regex");
-        assert_eq!(substring_count("more than less", &re), 1);
-        assert_eq!(substring_count("smores", &re), 0);
+        assert_eq!(substring_count_regex("more than less", &re), 1);
+        assert_eq!(substring_count_regex("smores", &re), 0);
+    }
+
+    #[test]
+    #[expect(deprecated, reason = "testing deprecated wrapper")]
+    fn counts_substrings_from_str() {
+        assert_eq!(substring_count("more than less", "more"), 1);
+        assert_eq!(substring_count("smores", "more"), 0);
     }
 
     #[test]

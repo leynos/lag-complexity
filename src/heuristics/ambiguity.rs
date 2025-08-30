@@ -4,7 +4,7 @@
 //! terms, and vague references. Uses Laplace smoothing to avoid zero scores.
 
 use crate::{
-    heuristics::text::{normalize_tokens, singularise, substring_count, weighted_count},
+    heuristics::text::{normalize_tokens, singularise, substring_count_regex, weighted_count},
     providers::TextProcessor,
 };
 use regex::Regex;
@@ -49,11 +49,11 @@ impl TextProcessor for AmbiguityHeuristic {
         let ambiguous =
             weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
-        let extras = substring_count(
+        let extras = substring_count_regex(
             &lower,
             A_FEW_RE.get_or_init(|| {
                 #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
-                Regex::new(&format!(r"\b{}\b", regex::escape("a few"))).expect("valid regex")
+                Regex::new(r"\ba few\b").expect("valid regex")
             }),
         );
         let total = pronouns + ambiguous + vague + extras + 1;
