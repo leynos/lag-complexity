@@ -54,35 +54,52 @@ pub fn weighted_count<T: AsRef<str>>(
     }
 }
 
-/// Count substring matches using word boundaries.
+/// Count non-overlapping matches using a precompiled regular-expression
+/// pattern.
+///
+/// This avoids recompiling regular expressions in hot paths. Supply word
+/// boundaries or flags (e.g., `(?i)`) within the pattern if required.
+///
+/// # Examples
+///
+/// ```ignore
+/// use regex::Regex;
+/// use lag_complexity::heuristics::text::substring_count_regex;
+///
+/// let pattern = Regex::new(r"\bmore\b").expect("valid regex");
+/// assert_eq!(substring_count_regex("more than less", &pattern), 1);
+/// assert_eq!(substring_count_regex("more or more", &pattern), 2);
+/// ```
+#[must_use]
+pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
+    #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
+    {
+        pattern.find_iter(haystack).count() as u32
+    }
+}
+
+/// Count substring matches using a pattern with word boundaries.
+///
+/// Deprecated: precompile the pattern and use [`substring_count_regex`] to
+/// avoid recompiling on each call.
 ///
 /// # Examples
 ///
 /// ```ignore
 /// use lag_complexity::heuristics::text::substring_count;
 ///
-/// assert_eq!(substring_count("a few good men", "a few"), 1);
-/// assert_eq!(substring_count("versus", "versus"), 1);
+/// assert_eq!(substring_count("more than less", "more"), 1);
 /// ```
-///
-/// # Panics
-///
-/// Panics if the regular expression fails to compile. This cannot occur
-/// because `needle` is escaped.
+#[expect(dead_code, reason = "deprecated wrapper retained for migration")]
 #[must_use]
-pub fn substring_count(haystack: &str, needle: &str) -> u32 {
-    if needle.is_empty() {
-        return 0;
-    }
-    let pattern = format!(r"\b{}\b", regex::escape(needle));
-    #[expect(clippy::expect_used, reason = "escaped pattern cannot fail")]
-    #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
-    {
-        Regex::new(&pattern)
-            .expect("valid regex")
-            .find_iter(haystack)
-            .count() as u32
-    }
+#[deprecated(note = "precompile the pattern and use substring_count_regex to avoid recompiling")]
+pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
+    #[expect(
+        clippy::expect_used,
+        reason = "escaped needle forms a valid literal pattern"
+    )]
+    let re = Regex::new(&format!(r"\b{}\b", regex::escape(needle))).expect("valid regex");
+    substring_count_regex(haystack, &re)
 }
 
 /// Naïvely singularise an English token.
@@ -118,6 +135,7 @@ fn should_singularise(token: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use regex::Regex;
 
     #[test]
     fn normalises_tokens() {
@@ -135,13 +153,17 @@ mod tests {
 
     #[test]
     fn counts_substrings_with_boundaries() {
-        assert_eq!(substring_count("more than less", "more"), 1);
-        assert_eq!(substring_count("smores", "more"), 0);
-    }
-
-    #[test]
-    fn substring_count_empty_needle_is_zero() {
-        assert_eq!(substring_count("anything", ""), 0);
+        // `substring_count_regex` counts non-overlapping matches; overlapping
+        // occurrences are ignored.
+        #[expect(clippy::expect_used, reason = "pattern literal is valid")]
+        let re = Regex::new(r"\bmore\b").expect("valid regex");
+        assert_eq!(substring_count_regex("more than less", &re), 1);
+        assert_eq!(substring_count_regex("more or more", &re), 2);
+        assert_eq!(substring_count_regex("more-more", &re), 2);
+        assert_eq!(substring_count_regex("smores", &re), 0);
+        #[expect(clippy::expect_used, reason = "pattern literal is valid")]
+        let re2 = Regex::new(r"aa").expect("valid regex");
+        assert_eq!(substring_count_regex("aaaa", &re2), 2);
     }
 
     #[test]
