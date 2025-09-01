@@ -68,6 +68,12 @@ pub fn weighted_count<T: AsRef<str>>(
 /// `(?i)` for case-insensitivity) in `pattern`. Overlapping occurrences are
 /// ignored.
 ///
+/// # Behaviour
+/// If `pattern` is empty (`""`), the function returns `0`. An empty pattern
+/// matches at every position, so this avoids a surprising infinite match
+/// count. Callers needing different semantics should handle empty patterns
+/// before calling.
+///
 /// # Examples
 ///
 /// ```ignore
@@ -81,6 +87,10 @@ pub fn weighted_count<T: AsRef<str>>(
 /// // overlapping matches are ignored
 /// let doubles = Regex::new("aa").expect("valid regex");
 /// assert_eq!(substring_count_regex("aaaa", &doubles), 2);
+///
+/// // empty patterns return zero
+/// let empty = Regex::new("").expect("valid regex");
+/// assert_eq!(substring_count_regex("hay", &empty), 0);
 /// ```
 #[must_use]
 pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
@@ -152,20 +162,6 @@ mod tests {
     use super::*;
     use regex::Regex;
 
-    // helper to invoke both the new & deprecated APIs
-    fn check(hay: &str, pat: &str, want: u32) {
-        let re = Regex::new(pat).expect("valid regex");
-        assert_eq!(substring_count_regex(hay, &re), want);
-        if pat.starts_with(r"\b") && pat.ends_with(r"\b") {
-            // strip the boundaries so we can still cover the deprecated wrapper
-            let literal = pat.trim_start_matches(r"\b").trim_end_matches(r"\b");
-            #[expect(deprecated, reason = "deprecated wrapper still covered in tests")]
-            {
-                assert_eq!(substring_count(hay, literal), want);
-            }
-        }
-    }
-
     #[test]
     fn normalises_tokens() {
         assert_eq!(normalize_tokens("Hello, world!"), vec!["hello", "world"]);
@@ -181,18 +177,31 @@ mod tests {
     }
 
     #[test]
-    fn substring_counts() {
-        let cases = [
-            ("more than less", r"\bmore\b", 1),
-            ("more or more", r"\bmore\b", 2),
-            ("smores", r"\bmore\b", 0),
-            ("more-more", r"\bmore\b", 2),
-            ("aaaa", r"aa", 2),
-            ("hay", r"", 0),
-        ];
-        for &(hay, pat, want) in &cases {
-            check(hay, pat, want);
-        }
+    fn substring_count_regex_cases() {
+        // word boundary matches
+        let re = Regex::new(r"\bmore\b").expect("valid regex");
+        assert_eq!(substring_count_regex("more than less", &re), 1);
+        assert_eq!(substring_count_regex("more or more", &re), 2);
+        assert_eq!(substring_count_regex("more-more", &re), 2);
+        assert_eq!(substring_count_regex("smores", &re), 0);
+
+        // overlapping and empty patterns
+        let re2 = Regex::new(r"aa").expect("valid regex");
+        assert_eq!(substring_count_regex("aaaa", &re2), 2);
+
+        let re3 = Regex::new("").expect("valid regex");
+        assert_eq!(substring_count_regex("hay", &re3), 0);
+    }
+
+    #[test]
+    #[expect(deprecated, reason = "deprecated wrapper retained for migration")]
+    fn substring_count_deprecated_cases() {
+        assert_eq!(substring_count("more than less", "more"), 1);
+        assert_eq!(substring_count("more or more", "more"), 2);
+        assert_eq!(substring_count("more-more", "more"), 2);
+        assert_eq!(substring_count("smores", "more"), 0);
+        assert_eq!(substring_count("aaaa", "aa"), 0);
+        assert_eq!(substring_count("hay", ""), 0);
     }
 
     #[test]
