@@ -452,10 +452,20 @@ that often correlate with syntactic and logical complexity.22
   curated set of multi-hop questions.
 - **Implementation note:** The heuristic uses shared token normalisation and a
   pair of weighted tables for tokens and phrases. Word-boundary matching
-  (implemented via the `regex` crate) prevents partial hits, and empty patterns
-  return zero matches to avoid runaway counts. Comma patterns capture simple
-  enumerations. This trades linguistic coverage for transparency and
-  sub-millisecond performance.
+  (implemented via the `regex` crate) prevents partial hits. Empty patterns
+  return zero matches to avoid runaway counts, mirroring the public API. For
+  example:
+
+  ```rust
+  use regex::Regex;
+  use lag_complexity::heuristics::text::substring_count_regex;
+
+  let empty = Regex::new("").unwrap();
+  assert_eq!(substring_count_regex("hay", &empty), 0);
+  ```
+
+  Comma patterns capture simple enumerations. This trades linguistic coverage
+  for transparency and sub-millisecond performance.
 
 #### Model-backed options
 
