@@ -4,15 +4,6 @@
 //! substrings with word boundaries. They exist to keep heuristic providers
 //! small and focused on scoring logic.
 
-#![allow(
-    clippy::cast_possible_truncation,
-    reason = "test helpers cast counts to u32"
-)]
-#![allow(
-    clippy::expect_used,
-    reason = "tests require explicit panic paths for regex compilation"
-)]
-
 use regex::Regex;
 use std::borrow::Cow;
 
@@ -54,11 +45,11 @@ pub fn weighted_count<T: AsRef<str>>(
     patterns: &[&str],
     weight: u32,
 ) -> u32 {
-    // token count fits in `u32`
-    tokens
+    let matches = tokens
         .filter(|tok| patterns.contains(&tok.as_ref()))
-        .count() as u32
-        * weight
+        .count();
+    let count = u32::try_from(matches).unwrap_or(u32::MAX); // clamp to u32 range
+    count.saturating_mul(weight)
 }
 
 /// Count non-overlapping matches of a precompiled regular-expression
@@ -98,7 +89,9 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
         // an empty pattern matches at every position; treat as no matches
         return 0;
     }
-    pattern.find_iter(haystack).count() as u32
+    let matches = pattern.find_iter(haystack).count();
+    // clamp to u32 range
+    u32::try_from(matches).unwrap_or(u32::MAX)
 }
 
 /// Count substring matches using a pattern with word boundaries.
@@ -116,6 +109,10 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
 #[cfg_attr(
     not(test),
     expect(dead_code, reason = "deprecated wrapper retained for migration")
+)]
+#[expect(
+    clippy::expect_used,
+    reason = "regex::escape makes the pattern infallible; a failure would indicate OOM"
 )]
 #[must_use]
 #[deprecated(note = "precompile the pattern and use substring_count_regex to avoid recompiling")]
@@ -177,6 +174,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::expect_used,
+        reason = "tests require explicit panic paths for invalid patterns"
+    )]
     fn substring_count_regex_cases() {
         // word boundary matches
         let re = Regex::new(r"\bmore\b").expect("valid regex");
