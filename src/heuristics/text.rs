@@ -12,7 +12,7 @@ use std::collections::HashSet;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::normalize_tokens;
 ///
 /// let tokens = normalize_tokens("Hello, world!");
@@ -34,7 +34,7 @@ pub fn normalize_tokens(input: &str) -> Vec<String> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::{normalize_tokens, weighted_count};
 ///
 /// let tokens = normalize_tokens("this and that");
@@ -101,7 +101,7 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::substring_count;
 ///
 /// assert_eq!(substring_count("more than less", "more"), 1);
@@ -130,7 +130,7 @@ pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::singularise;
 ///
 /// assert_eq!(singularise("jaguars"), "jaguar");
@@ -156,7 +156,10 @@ fn should_singularise(token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, reason = "tests require explicit panic paths for invalid patterns")]
+    #![allow(
+        clippy::expect_used,
+        reason = "tests require explicit panic paths for invalid patterns"
+    )]
     #![allow(deprecated, reason = "exercise deprecated wrapper")]
     use super::*;
     use regex::Regex;
@@ -184,7 +187,6 @@ mod tests {
         assert_eq!(substring_count(hay, literal), want_wrap);
     }
 
-
     #[test]
     fn substring_counts() {
         let cases = [
@@ -200,7 +202,6 @@ mod tests {
             check(hay, pat, want_re, want_wrap);
         }
     }
-
 
     #[test]
     fn singularises_tokens() {
