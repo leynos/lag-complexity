@@ -156,11 +156,6 @@ fn should_singularise(token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(
-        clippy::expect_used,
-        reason = "tests require explicit panic paths for invalid patterns"
-    )]
-    #![allow(deprecated, reason = "exercise deprecated wrapper")]
     use super::*;
     use regex::Regex;
 
@@ -178,29 +173,36 @@ mod tests {
         );
     }
 
-    // helper to invoke both the new & deprecated APIs
-    fn check(hay: &str, pat: &str, want_re: u32, want_wrap: u32) {
-        let re = Regex::new(pat).expect("valid regex");
-        assert_eq!(substring_count_regex(hay, &re), want_re);
-        // strip the `\b` so we can still cover the deprecated wrapper
-        let literal = pat.trim_start_matches(r"\b").trim_end_matches(r"\b");
-        assert_eq!(substring_count(hay, literal), want_wrap);
+    #[test]
+    #[expect(
+        clippy::expect_used,
+        reason = "tests require explicit panic paths for invalid patterns"
+    )]
+    fn substring_count_regex_cases() {
+        let re = Regex::new(r"\bmore\b").expect("valid regex");
+        assert_eq!(substring_count_regex("more than less", &re), 1);
+        assert_eq!(substring_count_regex("more or more", &re), 2);
+        assert_eq!(substring_count_regex("more-more", &re), 2);
+        assert_eq!(substring_count_regex("more.", &re), 1);
+        assert_eq!(substring_count_regex("smores", &re), 0);
+
+        let re2 = Regex::new(r"aa").expect("valid regex");
+        assert_eq!(substring_count_regex("aaaa", &re2), 2);
+
+        let re3 = Regex::new("").expect("valid regex");
+        assert_eq!(substring_count_regex("hay", &re3), 0);
     }
 
     #[test]
-    fn substring_counts() {
-        let cases = [
-            ("more than less", r"\bmore\b", 1, 1),
-            ("more or more", r"\bmore\b", 2, 2),
-            ("smores", r"\bmore\b", 0, 0),
-            ("more-more", r"\bmore\b", 2, 2),
-            ("more.", r"\bmore\b", 1, 1),
-            ("aaaa", r"aa", 2, 0),
-            ("hay", r"", 0, 0),
-        ];
-        for &(hay, pat, want_re, want_wrap) in &cases {
-            check(hay, pat, want_re, want_wrap);
-        }
+    #[expect(deprecated, reason = "exercise deprecated wrapper")]
+    fn substring_count_deprecated_cases() {
+        assert_eq!(substring_count("more than less", "more"), 1);
+        assert_eq!(substring_count("more or more", "more"), 2);
+        assert_eq!(substring_count("more-more", "more"), 2);
+        assert_eq!(substring_count("more.", "more"), 1);
+        assert_eq!(substring_count("smores", "more"), 0);
+        assert_eq!(substring_count("aaaa", "aa"), 0);
+        assert_eq!(substring_count("hay", ""), 0);
     }
 
     #[test]
