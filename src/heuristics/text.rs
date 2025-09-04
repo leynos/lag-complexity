@@ -6,6 +6,7 @@
 
 use regex::Regex;
 use std::borrow::Cow;
+use std::collections::HashSet;
 
 /// Split text into lowercase tokens stripped of surrounding punctuation.
 ///
@@ -45,9 +46,8 @@ pub fn weighted_count<T: AsRef<str>>(
     patterns: &[&str],
     weight: u32,
 ) -> u32 {
-    let matches = tokens
-        .filter(|tok| patterns.contains(&tok.as_ref()))
-        .count();
+    let patset: HashSet<&str> = patterns.iter().copied().collect();
+    let matches = tokens.filter(|tok| patset.contains(tok.as_ref())).count();
     let count = u32::try_from(matches).unwrap_or(u32::MAX); // clamp to u32 range
     count.saturating_mul(weight)
 }
@@ -67,7 +67,7 @@ pub fn weighted_count<T: AsRef<str>>(
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use regex::Regex;
 /// use lag_complexity::heuristics::text::substring_count_regex;
 ///
@@ -156,6 +156,8 @@ fn should_singularise(token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used, reason = "tests require explicit panic paths for invalid patterns")]
+    #![allow(deprecated, reason = "exercise deprecated wrapper")]
     use super::*;
     use regex::Regex;
 
@@ -173,37 +175,32 @@ mod tests {
         );
     }
 
-    #[test]
-    #[expect(
-        clippy::expect_used,
-        reason = "tests require explicit panic paths for invalid patterns"
-    )]
-    fn substring_count_regex_cases() {
-        // word boundary matches
-        let re = Regex::new(r"\bmore\b").expect("valid regex");
-        assert_eq!(substring_count_regex("more than less", &re), 1);
-        assert_eq!(substring_count_regex("more or more", &re), 2);
-        assert_eq!(substring_count_regex("more-more", &re), 2);
-        assert_eq!(substring_count_regex("smores", &re), 0);
-
-        // overlapping and empty patterns
-        let re2 = Regex::new(r"aa").expect("valid regex");
-        assert_eq!(substring_count_regex("aaaa", &re2), 2);
-
-        let re3 = Regex::new("").expect("valid regex");
-        assert_eq!(substring_count_regex("hay", &re3), 0);
+    // helper to invoke both the new & deprecated APIs
+    fn check(hay: &str, pat: &str, want_re: u32, want_wrap: u32) {
+        let re = Regex::new(pat).expect("valid regex");
+        assert_eq!(substring_count_regex(hay, &re), want_re);
+        // strip the `\b` so we can still cover the deprecated wrapper
+        let literal = pat.trim_start_matches(r"\b").trim_end_matches(r"\b");
+        assert_eq!(substring_count(hay, literal), want_wrap);
     }
 
+
     #[test]
-    #[expect(deprecated, reason = "deprecated wrapper retained for migration")]
-    fn substring_count_deprecated_cases() {
-        assert_eq!(substring_count("more than less", "more"), 1);
-        assert_eq!(substring_count("more or more", "more"), 2);
-        assert_eq!(substring_count("more-more", "more"), 2);
-        assert_eq!(substring_count("smores", "more"), 0);
-        assert_eq!(substring_count("aaaa", "aa"), 0);
-        assert_eq!(substring_count("hay", ""), 0);
+    fn substring_counts() {
+        let cases = [
+            ("more than less", r"\bmore\b", 1, 1),
+            ("more or more", r"\bmore\b", 2, 2),
+            ("smores", r"\bmore\b", 0, 0),
+            ("more-more", r"\bmore\b", 2, 2),
+            ("more.", r"\bmore\b", 1, 1),
+            ("aaaa", r"aa", 2, 0),
+            ("hay", r"", 0, 0),
+        ];
+        for &(hay, pat, want_re, want_wrap) in &cases {
+            check(hay, pat, want_re, want_wrap);
+        }
     }
+
 
     #[test]
     fn singularises_tokens() {

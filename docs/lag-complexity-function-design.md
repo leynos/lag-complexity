@@ -118,20 +118,20 @@ re-exported at the crate root for convenient access.
 - `lag_complexity::error`: Defines the crate's custom `Error` enum using the
   `thiserror` crate for ergonomic error handling.
 
-### Core types deep dive
+  ### Core types deep dive
 
 The central data structures are designed for transparency and interoperability.
 
 - `Complexity`:
 
 ```rust
-pub struct Complexity {
+  pub struct Complexity {
     total: f32,
     scope: f32,
     depth: f32,
     ambiguity: f32,
 }
-```
+  ```
 
 The fields of the `Complexity` struct are private to preserve the invariant
 that `total` always equals the sum of its components. Accessor methods expose
@@ -157,7 +157,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
     // ... other error variants
 }
-```
+  ```
 
 ### The `ComplexityFn` trait
 
@@ -171,7 +171,7 @@ pub trait ComplexityFn {
     fn score(&self, q: &str) -> Result<Complexity, Self::Error>;
     fn trace(&self, q: &str) -> Result<Trace, Self::Error>;
 }
-```
+  ```
 
 - The `score` method represents the hot path, designed for high-throughput,
   low-latency execution in production.
@@ -184,7 +184,7 @@ pub trait ComplexityFn {
   creating golden-file tests (Section 5.3), debugging scoring anomalies, and
   powering stakeholder-facing demonstrations (Section 7).
 
-#### Scoring flow
+  #### Scoring flow
 
 The sequence diagram below outlines the primary interactions when scoring a
 query.
@@ -217,7 +217,7 @@ sequenceDiagram
       end
     end
   end
-```
+  ```
 
 ### Provider traits
 
@@ -240,7 +240,7 @@ pub type DepthEstimator<E> =
     dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
 pub type AmbiguityEstimator<E> =
     dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
-```
+  ```
 
 All provider methods return a `Result` to ensure that failures, such as a
 network timeout or a model loading error, are propagated cleanly through the
@@ -274,7 +274,7 @@ pub enum Sigma {
     ZScore { mean: f32, std: f32 },
     Robust { median: f32, mad: f32 },
 }
-```
+  ```
 
 - `Weights`: A simple struct for re-weighting the final components of the
   `CL(q)` score. The default will be `1.0` for all components, directly
@@ -286,7 +286,7 @@ pub struct Weights {
     pub depth: f32,
     pub ambiguity: f32,
 }
-```
+  ```
 
 - `Schedule`: An enum that implements the decaying threshold logic, `τ(t)`, for
   the split condition. The primary variant directly models the paper's concept
@@ -297,7 +297,7 @@ pub enum Schedule {
     Constant(f32),
     ExpDecay { tau0: f32, lambda: f32 },
 }
-```
+  ```
 
 - `Halting`: A struct to hold the parameters for the agent-level "Logical
   Terminator." While the logic is implemented by the consuming agent, these
@@ -309,7 +309,7 @@ pub struct Halting {
     pub gamma: f32, // Semantic redundancy threshold
     pub t_max: u8,  // Max decomposition steps
 }
-```
+  ```
 
 ### Feature flags
 
@@ -387,7 +387,7 @@ require a wider retrieval strategy.
 - **Non-finite Inputs:** `NaN` or infinite values yield `NaN`. Callers should
   sanitise embeddings if such values are not expected.
 
-#### Embedding providers
+  #### Embedding providers
 
 The quality of the Semantic Scope signal is entirely dependent on the quality
 of the underlying embedding, `ϕ(q)`. The crate will provide both remote and
@@ -417,7 +417,7 @@ local options.
   like `all-MiniLM-L6-v2`. Clear instructions will be provided for downloading
   model weights and configuring the provider to use them.
 
-### 2.2 Reasoning steps: σ(Depth(q))
+  ### 2.2 Reasoning steps: σ(Depth(q))
 
 This component estimates the number of latent inference steps required to
 answer a query. A high depth score is the primary trigger for query
@@ -442,7 +442,7 @@ that often correlate with syntactic and logical complexity.22
   adjectives ("more than," "less than").
 - **Dependency Chains:** It will penalize sequences of prepositional phrases,
   particularly possessive chains (e.g., "the name of the director of the sequel
-  to the movie..."), which often signal nested entity relationships.
+  to the movie…"), which often signal nested entity relationships.
 - **Relative Clauses:** It will increment the score for clauses introduced by
   relative pronouns like "who," "which," "that," and "whose."
 - **Enumerations:** It will recognize explicit lists and enumerations (e.g.,
@@ -457,17 +457,21 @@ that often correlate with syntactic and logical complexity.22
   example:
 
   ```rust
+  # fn main() -> Result<(), regex::Error> {
   use regex::Regex;
   use lag_complexity::heuristics::text::substring_count_regex;
 
-  let empty = Regex::new("").unwrap();
+  let empty = Regex::new("")?;
   assert_eq!(substring_count_regex("hay", &empty), 0);
+  # Ok(())
+  # }
+
   ```
 
   Comma patterns capture simple enumerations. This trades linguistic coverage
   for transparency and sub-millisecond performance.
 
-#### Model-backed options
+  #### Model-backed options
 
 For higher accuracy, the crate will provide model-based estimators.
 
@@ -535,7 +539,7 @@ English text.25
   entities count double, and Laplace smoothing adds one to the total.
   Antecedent resolution is deferred to model-based providers.
 
-#### Model-backed option (AmbiguityClassifierOnnx)
+  #### Model-backed option (AmbiguityClassifierOnnx)
 
 - Enabled by the `onnx` feature, this provider uses a lightweight text
   classification model for more nuanced ambiguity detection.
@@ -623,7 +627,7 @@ approximate the standard deviation under a normal distribution.
   domain-specific data and the evaluation harness provided by the crate (see
   Section 5).
 
-### Split scheduling (Schedule and τ(t))
+  ### Split scheduling (Schedule and τ(t))
 
 This component directly implements the adaptive decomposition logic from the
 LAG paper: `SplitCondition(q) = CL(q) > τ(t)`.6 The core concept is that the
@@ -648,7 +652,7 @@ threshold for decomposition,
 - `lambda`: The decay rate, controlling how quickly the threshold decreases
   with each step.
 
-### Halting conditions (Halting)
+  ### Halting conditions (Halting)
 
 The `Halting` configuration provides the parameters for the "Logical
 Terminator," a critical safety and efficiency mechanism described in the LAG
@@ -667,7 +671,7 @@ reasoning loops or wasting computational resources on unproductive paths.
   more than 90% similar to the context it has already gathered, indicating
   diminishing returns.
 - `t_max: u8`: The absolute maximum number of decomposition steps, for example,
-  5. This acts as a hard stop to prevent runaway recursion, ensuring
+  1. This acts as a hard stop to prevent runaway recursion, ensuring
   tractability.
 
 By centralizing these parameters within `ScoringConfig`, the crate provides a
@@ -729,7 +733,7 @@ which are critical for managing the cache's memory footprint and data freshness.
   key distribution and fixed key size. The cache itself will be configurable
   for maximum number of entries and an optional time-to-live (TTL) for entries.
 
-### Observability (metrics & tracing)
+  ### Observability (metrics & tracing)
 
 To operate and debug the system in production, deep visibility into its
 behaviour is required. The crate will provide first-class support for modern
@@ -761,7 +765,7 @@ observability practices.
   crate to expose these metrics on a `/metrics` HTTP endpoint, making them
   readily consumable by Prometheus and other compatible monitoring systems.46
 
-### Security
+  ### Security
 
 The crate will be designed with security as a primary consideration.
 
@@ -782,7 +786,7 @@ The crate will be designed with security as a primary consideration.
   is a critical feature for maintaining data privacy and achieving compliance
   in regulated domains.
 
-### Determinism
+  ### Determinism
 
 For reproducible testing and evaluation, the crate's output must be
 deterministic for a given input and configuration.
@@ -797,7 +801,7 @@ deterministic for a given input and configuration.
   configuration file, ensuring that the exact parameters used for evaluation
   are captured and reproducible.
 
-## 5. Comprehensive testing and evaluation strategy
+  ## 5. Comprehensive testing and evaluation strategy
 
 A rigorous, multi-layered testing and evaluation strategy is essential to
 validate the correctness, robustness, and effectiveness of the `lag_complexity`
@@ -831,7 +835,7 @@ in isolation.
   (e.g., "it" without a clear antecedent) or known homonyms never decreases the
   ambiguity score.
 
-### Property tests (proptest)
+  ### Property tests (proptest)
 
 Property-based testing, using the `proptest` crate, will be employed to test
 for invariants that must hold true for a wide range of arbitrary, automatically
@@ -854,7 +858,7 @@ test writers might miss.
   (e.g., "versus", "in addition to") should generally lead to a non-decreasing
   `depth` score.
 
-### Integration tests
+  ### Integration tests
 
 Located in the `tests/` directory, these tests will verify that the different
 components of the crate work correctly together.
@@ -876,7 +880,7 @@ components of the crate work correctly together.
   servers like `wiremock`) and that ONNX models can be loaded and executed
   successfully.
 
-### Dataset-driven evaluation
+  ### Dataset-driven evaluation
 
 To validate that the complexity scores are not just internally consistent but
 also correlate with real-world notions of complexity, a dedicated evaluation
@@ -928,7 +932,7 @@ simpler ones.
   for each version of the crate. This provides a transparent and reproducible
   record of the scorer's empirical validity.
 
-## 6. Performance benchmarking protocol
+  ## 6. Performance benchmarking protocol
 
 To ensure the `lag_complexity` crate meets the performance requirements of
 production AI systems, a systematic benchmarking protocol will be established.
@@ -967,7 +971,7 @@ efforts.
   normalization will be measured to ensure they contribute negligibly to the
   overall latency.
 
-### Macro-benchmarks
+  ### Macro-benchmarks
 
 These benchmarks will assess the end-to-end performance of the public API,
 simulating real-world usage patterns.
@@ -989,7 +993,7 @@ simulating real-world usage patterns.
   of providers (e.g., full heuristic, heuristic + ONNX, full API) to provide
   users with clear performance expectations for each configuration.
 
-### Scalability benchmarks
+  ### Scalability benchmarks
 
 A key advantage of the Rust implementation is its ability to leverage
 multi-core processors. These benchmarks will quantify the performance gains
@@ -1000,7 +1004,7 @@ from parallelism.
   will be used to calculate the speed-up factor and assess how effectively the
   implementation scales with additional CPU cores.
 
-### Reporting
+  ### Reporting
 
 Transparent and reproducible performance reporting is crucial for users and
 maintainers.
@@ -1016,7 +1020,7 @@ maintainers.
   and software (Rust version, OS, crate feature flags) configuration used for
   the benchmark run, ensuring that the results are reproducible.
 
-## 7. Stakeholder demonstration and application
+  ## 7. Stakeholder demonstration and application
 
 To effectively communicate the value and functionality of the `lag_complexity`
 crate to a broader audience, including product managers, technical leadership,
@@ -1053,7 +1057,7 @@ experience of the complexity metric in action.
   stakeholders to develop an intuitive "feel" for what kinds of questions are
   considered complex by the system.
 
-### Python notebook walkthroughs
+  ### Python notebook walkthroughs
 
 For a more narrative and comparative demonstration, a series of Jupyter
 notebooks will be created. These will leverage the Python bindings generated by
@@ -1121,9 +1125,9 @@ providers and the scoring configuration, acting as the primary engine for
 calculating complexity.
 
 ```rust
-use lag_complexity::api::{Complexity, ComplexityFn};
-use lag_complexity::config::ScoringConfig;
-use lag_complexity::providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
+  use lag_complexity::api::{Complexity, ComplexityFn};
+  use lag_complexity::config::ScoringConfig;
+  use lag_complexity::providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
 
 pub struct DefaultComplexity<'a, EE, DE, AE> {
     emb: &'a dyn EmbeddingProvider<EE>,
@@ -1183,7 +1187,7 @@ where
     }
     // ... trace() implementation ...
 }
-```
+  ```
 
 This example clearly illustrates the composition pattern, the use of
 `rayon::join` for concurrent provider execution, and the conditional
@@ -1220,13 +1224,13 @@ lambda = 0.1
 gamma = 0.9
 t_max = 5
 
-```
+  ```
 
 **Rust code to load the configuration:**
 
 ```rust
-use lag_complexity::config::ScoringConfig;
-use std::fs;
+  use lag_complexity::config::ScoringConfig;
+  use std::fs;
 
 fn load_config(path: &str) -> Result<ScoringConfig, Box<dyn std::error::Error>> {
     let config_str = fs::read_to_string(path)?;
@@ -1234,7 +1238,7 @@ fn load_config(path: &str) -> Result<ScoringConfig, Box<dyn std::error::Error>> 
     Ok(config)
 }
 
-```
+  ```
 
 ### Using the `Trace` object for diagnostics
 
@@ -1255,7 +1259,7 @@ fn print_trace(scorer: &impl ComplexityFn, query: &str) {
         Err(e) => eprintln!("Failed to generate trace: {e}"),
     }
 }
-```
+  ```
 
 This example highlights how the `Trace` object exposes the original query and
 its component scores, aiding debugging without additional instrumentation.
@@ -1295,7 +1299,7 @@ defining the primary public interfaces.
 - The `lagc` CLI application can be built and executed, though it will have no
   functional commands yet.
 
-### Phase 1 — heuristic baseline (duration: 1-2 weeks)
+  ### Phase 1 — heuristic baseline (duration: 1-2 weeks)
 
 This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
@@ -1314,7 +1318,7 @@ relying on fast, lightweight heuristics.
 - The golden-file integration tests pass, establishing a baseline for
   regression testing.
 
-### Phase 2 — model-backed providers & performance (duration: 2 weeks)
+  ### Phase 2 — model-backed providers & performance (duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
 optimizing for performance.
@@ -1338,7 +1342,7 @@ optimizing for performance.
 - Initial performance metrics (latency, throughput) are recorded in
   `BENCHMARKS.md`.
 
-### Phase 3 — evaluation & calibration (duration: 1 week)
+  ### Phase 3 — evaluation & calibration (duration: 1 week)
 
 This phase is dedicated to empirically validating the scorer's effectiveness
 and tuning its parameters.
@@ -1359,7 +1363,7 @@ and tuning its parameters.
 - The calibrated parameters are finalized and committed as the default
   configuration.
 
-### Phase 4 — bindings & demos (duration: 2 weeks)
+  ### Phase 4 — bindings & demos (duration: 2 weeks)
 
 This phase focuses on making the crate accessible from other ecosystems and
 creating compelling demonstrations.
@@ -1379,7 +1383,7 @@ creating compelling demonstrations.
 - The demonstration notebooks are complete and successfully showcase the
   crate's value.
 
-### Phase 5 — production hardening (duration: 1 week)
+  ### Phase 5 — production hardening (duration: 1 week)
 
 The final phase adds the remaining features required for robust, secure, and
 observable production deployment.
@@ -1401,7 +1405,7 @@ observable production deployment.
   implemented and tested.
 - The final project is ready for its first official release.
 
-## 10. Integration into a logic-augmented generation (LAG) system
+  ## 10. Integration into a logic-augmented generation (LAG) system
 
 The `lag_complexity` crate is not an end in itself; it is a critical enabling
 component for more advanced AI reasoning systems, specifically those built on
@@ -1427,7 +1431,7 @@ decide which "gear" to use for processing it.
   breaks the problem down into smaller parts, and then tackles them
   systematically. This is slower but more robust and reliable.
 
-### Control flow in a LAG agent
+  ### Control flow in a LAG agent
 
 The integration of the crate into a LAG agent's control loop can be visualized
 as follows:
@@ -1450,7 +1454,7 @@ as follows:
   resolution. The agent proceeds with its standard execution flow: retrieve
   context relevant to qt​ and generate an answer.
 
-1. **Synthesize and repeat:** Once a sub-question is resolved, its answer is
+- **Synthesize and repeat:** Once a sub-question is resolved, its answer is
    added to the context for subsequent steps. The loop continues until all
    sub-questions are answered and a final answer can be synthesized, or a
    halting condition is met.

@@ -37,7 +37,7 @@ decisions about how to best approach a problem.
 
 Add `lag-complexity` to your project's dependencies:
 
-```null
+```sh
 cargo add lag-complexity
 
 ```
@@ -52,7 +52,7 @@ dependency-light, relying only on the `regex` crate for boundary matching.
 Here is a simple example of how to calculate the complexity score for a query
 using the default, general-purpose configuration.
 
-```null
+```rust
 use lag_complexity::api::{Complexity, ComplexityFn, Error};
 use lag_complexity::providers::{
     // Using default, fast providers
