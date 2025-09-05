@@ -396,15 +396,11 @@ local options.
 - `ApiEmbedding`: This provider, enabled by the `provider-api` feature, is
   designed for systems that leverage external, state-of-the-art embedding
   models via an API.
-
-- It will use the `reqwest` library for robust, asynchronous HTTP requests to
-  services like OpenAI, Cohere, or a self-hosted inference endpoint.
-- To handle the realities of network communication, it will feature
-  configurable timeouts and an exponential backoff retry strategy for transient
-  failures (e.g., HTTP 503 errors).
-- Security is paramount. API keys will be handled according to best practices,
-  read from environment variables or a secure configuration store, and never
-  accepted as plaintext function arguments or hardcoded in the source.19
+- It uses the `reqwest` library with its blocking client, expecting a JSON
+  response containing an `embedding` array of `f32` values. An optional API key
+  is sent as a bearer token. This minimal implementation avoids retries or
+  backoff to keep the heuristic baseline lightweight; callers should wrap it if
+  they require more resilient behaviour.
 - `LocalModelEmbedding`: This provider serves as a facade for running embedding
   models locally, which is crucial for air-gapped environments, low-latency
   requirements, or cost control.

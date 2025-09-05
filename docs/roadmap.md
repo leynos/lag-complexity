@@ -28,7 +28,7 @@ This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
 
 - [x] Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
-- [ ] Implement the `ApiEmbedding` provider, guarded by the `provider-api`
+- [x] Implement the `ApiEmbedding` provider, guarded by the `provider-api`
   feature flag.
 - [ ] Create the golden-file integration test suite with an initial set of
   approximately 50 curated queries and their expected trace outputs.
