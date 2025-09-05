@@ -68,8 +68,8 @@ pub fn weighted_count<T: AsRef<str>>(
 /// # Examples
 ///
 /// ```rust
-/// use regex::Regex;
-/// use lag_complexity::heuristics::text::substring_count_regex;
+/// # use regex::Regex;
+/// # use lag_complexity::heuristics::text::substring_count_regex;
 ///
 /// // case-insensitive word boundary match
 /// let word = Regex::new(r"(?i)\bmore\b").expect("valid regex");
