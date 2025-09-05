@@ -6,12 +6,13 @@
 
 use regex::Regex;
 use std::borrow::Cow;
+use std::collections::HashSet;
 
 /// Split text into lowercase tokens stripped of surrounding punctuation.
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::normalize_tokens;
 ///
 /// let tokens = normalize_tokens("Hello, world!");
@@ -33,7 +34,7 @@ pub fn normalize_tokens(input: &str) -> Vec<String> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::{normalize_tokens, weighted_count};
 ///
 /// let tokens = normalize_tokens("this and that");
@@ -45,37 +46,52 @@ pub fn weighted_count<T: AsRef<str>>(
     patterns: &[&str],
     weight: u32,
 ) -> u32 {
-    #[expect(clippy::cast_possible_truncation, reason = "token count fits in u32")]
-    {
-        tokens
-            .filter(|tok| patterns.contains(&tok.as_ref()))
-            .count() as u32
-            * weight
-    }
+    let patset: HashSet<&str> = patterns.iter().copied().collect();
+    let matches = tokens.filter(|tok| patset.contains(tok.as_ref())).count();
+    let count = u32::try_from(matches).unwrap_or(u32::MAX); // clamp to u32 range
+    count.saturating_mul(weight)
 }
 
-/// Count non-overlapping matches using a precompiled regular-expression
-/// pattern.
+/// Count non-overlapping matches of a precompiled regular-expression
+/// `pattern`.
 ///
-/// This avoids recompiling regular expressions in hot paths. Supply word
-/// boundaries or flags (e.g., `(?i)`) within the pattern if required.
+/// Callers must embed any required word boundaries or flags (for example
+/// `(?i)` for case-insensitivity) in `pattern`. Overlapping occurrences are
+/// ignored.
+///
+/// # Behaviour
+/// If `pattern` is empty (`""`), the function returns `0`. An empty pattern
+/// matches at every position, so this avoids a surprising infinite match
+/// count. Callers needing different semantics should handle empty patterns
+/// before calling.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use regex::Regex;
-/// use lag_complexity::heuristics::text::substring_count_regex;
+/// ```rust
+/// # use regex::Regex;
+/// # use lag_complexity::heuristics::text::substring_count_regex;
 ///
-/// let pattern = Regex::new(r"\bmore\b").expect("valid regex");
-/// assert_eq!(substring_count_regex("more than less", &pattern), 1);
-/// assert_eq!(substring_count_regex("more or more", &pattern), 2);
+/// // case-insensitive word boundary match
+/// let word = Regex::new(r"(?i)\bmore\b").expect("valid regex");
+/// assert_eq!(substring_count_regex("More or more", &word), 2);
+///
+/// // overlapping matches are ignored
+/// let doubles = Regex::new("aa").expect("valid regex");
+/// assert_eq!(substring_count_regex("aaaa", &doubles), 2);
+///
+/// // empty patterns return zero
+/// let empty = Regex::new("").expect("valid regex");
+/// assert_eq!(substring_count_regex("hay", &empty), 0);
 /// ```
 #[must_use]
 pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
-    #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
-    {
-        pattern.find_iter(haystack).count() as u32
+    if pattern.as_str().is_empty() {
+        // an empty pattern matches at every position; treat as no matches
+        return 0;
     }
+    let matches = pattern.find_iter(haystack).count();
+    // clamp to u32 range
+    u32::try_from(matches).unwrap_or(u32::MAX)
 }
 
 /// Count substring matches using a pattern with word boundaries.
@@ -85,19 +101,25 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::substring_count;
 ///
 /// assert_eq!(substring_count("more than less", "more"), 1);
 /// ```
-#[expect(dead_code, reason = "deprecated wrapper retained for migration")]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "deprecated wrapper retained for migration")
+)]
+#[expect(
+    clippy::expect_used,
+    reason = "regex::escape makes the pattern infallible; a failure would indicate OOM"
+)]
 #[must_use]
 #[deprecated(note = "precompile the pattern and use substring_count_regex to avoid recompiling")]
 pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
-    #[expect(
-        clippy::expect_used,
-        reason = "escaped needle forms a valid literal pattern"
-    )]
+    if needle.is_empty() {
+        return 0;
+    }
     let re = Regex::new(&format!(r"\b{}\b", regex::escape(needle))).expect("valid regex");
     substring_count_regex(haystack, &re)
 }
@@ -108,7 +130,7 @@ pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
 /// use lag_complexity::heuristics::text::singularise;
 ///
 /// assert_eq!(singularise("jaguars"), "jaguar");
@@ -152,18 +174,35 @@ mod tests {
     }
 
     #[test]
-    fn counts_substrings_with_boundaries() {
-        // `substring_count_regex` counts non-overlapping matches; overlapping
-        // occurrences are ignored.
-        #[expect(clippy::expect_used, reason = "pattern literal is valid")]
+    #[expect(
+        clippy::expect_used,
+        reason = "tests require explicit panic paths for invalid patterns"
+    )]
+    fn substring_count_regex_cases() {
         let re = Regex::new(r"\bmore\b").expect("valid regex");
         assert_eq!(substring_count_regex("more than less", &re), 1);
         assert_eq!(substring_count_regex("more or more", &re), 2);
         assert_eq!(substring_count_regex("more-more", &re), 2);
+        assert_eq!(substring_count_regex("more.", &re), 1);
         assert_eq!(substring_count_regex("smores", &re), 0);
-        #[expect(clippy::expect_used, reason = "pattern literal is valid")]
+
         let re2 = Regex::new(r"aa").expect("valid regex");
         assert_eq!(substring_count_regex("aaaa", &re2), 2);
+
+        let re3 = Regex::new("").expect("valid regex");
+        assert_eq!(substring_count_regex("hay", &re3), 0);
+    }
+
+    #[test]
+    #[expect(deprecated, reason = "exercise deprecated wrapper")]
+    fn substring_count_deprecated_cases() {
+        assert_eq!(substring_count("more than less", "more"), 1);
+        assert_eq!(substring_count("more or more", "more"), 2);
+        assert_eq!(substring_count("more-more", "more"), 2);
+        assert_eq!(substring_count("more.", "more"), 1);
+        assert_eq!(substring_count("smores", "more"), 0);
+        assert_eq!(substring_count("aaaa", "aa"), 0);
+        assert_eq!(substring_count("hay", ""), 0);
     }
 
     #[test]
