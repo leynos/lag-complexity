@@ -399,8 +399,8 @@ local options.
 - It uses the `reqwest` library with its blocking client, expecting a JSON
   response containing an `embedding` array of `f32` values. An optional API key
   is sent as a bearer token. This minimal implementation avoids retries or
-  backoff to keep the heuristic baseline lightweight; callers should wrap it if
-  they require more resilient behaviour.
+  backoff to keep the heuristic baseline lightweight; it can be wrapped
+  externally if more resilient behaviour is required.
 - `LocalModelEmbedding`: This provider serves as a facade for running embedding
   models locally, which is crucial for air-gapped environments, low-latency
   requirements, or cost control.

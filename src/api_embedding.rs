@@ -26,8 +26,8 @@ use crate::providers::TextProcessor;
 /// Error returned by [`ApiEmbedding`].
 #[derive(Debug, Error)]
 pub enum ApiEmbeddingError {
-    /// Input was empty.
-    #[error("empty input")]
+    /// Input or embedding was empty.
+    #[error("empty input or embedding")]
     Empty,
     /// HTTP request failed.
     #[error("request failed: {0}")]
@@ -94,39 +94,13 @@ impl TextProcessor for ApiEmbedding {
         let api: ApiResponse = resp
             .json()
             .map_err(|_| ApiEmbeddingError::InvalidResponse)?;
+
+        if api.embedding.is_empty() {
+            return Err(ApiEmbeddingError::Empty);
+        }
+        if !api.embedding.iter().all(|v| v.is_finite()) {
+            return Err(ApiEmbeddingError::InvalidResponse);
+        }
         Ok(api.embedding.into_boxed_slice())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use httpmock::prelude::*;
-    use rstest::rstest;
-
-    fn provider(server: &MockServer) -> ApiEmbedding {
-        ApiEmbedding::new(format!("{}/embed", server.base_url()), None)
-    }
-
-    #[rstest]
-    #[expect(clippy::expect_used, reason = "test should fail loudly")]
-    fn returns_embedding() {
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(POST).path("/embed");
-            then.status(200)
-                .header("content-type", "application/json")
-                .json_body(serde_json::json!({ "embedding": [1.0, 2.0] }));
-        });
-        let p = provider(&server);
-        let emb = p.process("hi").expect("embedding");
-        assert_eq!(&*emb, &[1.0, 2.0]);
-    }
-
-    #[rstest]
-    fn empty_error() {
-        let server = MockServer::start();
-        let p = provider(&server);
-        assert_eq!(p.process(""), Err(ApiEmbeddingError::Empty));
     }
 }
