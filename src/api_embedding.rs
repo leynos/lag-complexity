@@ -19,6 +19,7 @@
 
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use std::time::Duration;
 use thiserror::Error;
 
 use crate::providers::TextProcessor;
@@ -65,10 +66,23 @@ pub struct ApiEmbedding {
 
 impl ApiEmbedding {
     /// Create a new provider for the given endpoint.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP client cannot be constructed with the default
+    /// configuration.
     #[must_use]
     pub fn new(url: impl Into<String>, api_key: Option<String>) -> Self {
+        #[expect(
+            clippy::expect_used,
+            reason = "client builder should not fail with defaults"
+        )]
+        let client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("client builder failed with default configuration");
         Self {
-            client: Client::new(),
+            client,
             url: url.into(),
             api_key,
         }

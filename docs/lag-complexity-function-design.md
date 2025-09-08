@@ -396,13 +396,12 @@ local options.
 - `ApiEmbedding`: This provider, enabled by the `provider-api` feature, is
   designed for systems that leverage external, state-of-the-art embedding
   models via an API.
-- It uses the `reqwest` library with its blocking client, expecting a JSON
-  response containing an `embedding` array of `f32` values. The constructor
-  accepts an optional API key which, when provided, is sent as a bearer token.
-  This minimal implementation avoids retries or backoff to keep the heuristic
-  baseline lightweight; it can be wrapped externally if more resilient
-  behaviour is required. Production deployments SHOULD source API keys from
-  secure configuration.
+- It uses the `reqwest` blocking client with a 10 s timeout. Requests send
+  `content-type: application/json` and, when an API key is supplied,
+  `authorization: bearer <key>`. The body is `{ "input": "" }` and responses
+  MUST contain `{ "embedding": [f32, ...] }`. No retries or backoff are built
+  in; wrap the provider if more resilience is required. Production deployments
+  SHOULD source API keys from secure configuration.
 - `LocalModelEmbedding`: This provider serves as a facade for running embedding
   models locally, which is crucial for air-gapped environments, low-latency
   requirements, or cost control.
