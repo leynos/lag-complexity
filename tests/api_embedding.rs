@@ -1,4 +1,4 @@
-#![cfg(feature = "provider-api")]
+#![cfg(feature = "provider-api")] // Gate tests on provider-api feature
 use httpmock::{Method::POST, MockServer};
 use lag_complexity::{ApiEmbedding, ApiEmbeddingError, TextProcessor};
 
