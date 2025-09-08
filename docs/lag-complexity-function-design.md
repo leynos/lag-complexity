@@ -397,10 +397,12 @@ local options.
   designed for systems that leverage external, state-of-the-art embedding
   models via an API.
 - It uses the `reqwest` library with its blocking client, expecting a JSON
-  response containing an `embedding` array of `f32` values. An optional API key
-  is sent as a bearer token. This minimal implementation avoids retries or
-  backoff to keep the heuristic baseline lightweight; it can be wrapped
-  externally if more resilient behaviour is required.
+  response containing an `embedding` array of `f32` values. The constructor
+  accepts an optional API key which, when provided, is sent as a bearer token.
+  This minimal implementation avoids retries or backoff to keep the heuristic
+  baseline lightweight; it can be wrapped externally if more resilient
+  behaviour is required. Production deployments SHOULD source API keys from
+  secure configuration.
 - `LocalModelEmbedding`: This provider serves as a facade for running embedding
   models locally, which is crucial for air-gapped environments, low-latency
   requirements, or cost control.
@@ -768,11 +770,10 @@ The crate will be designed with security as a primary consideration.
 - **Secure by Default:** As detailed in Section 1, the crate will not perform
   any network operations unless the `provider-api` feature is explicitly
   enabled. This prevents accidental data leakage.
-- **API Key Management:** Implementations that use external APIs will be
-  designed to read credentials from environment variables or a secure
-  configuration system. They will never accept API keys as direct function
-  arguments, and documentation will explicitly warn against hardcoding secrets,
-  in line with industry best practices.19
+- **API key management:** Implementations that use external APIs SHOULD read
+  credentials from environment variables or a secret manager. To support tests
+  and simple embeddings clients, `ApiEmbedding` accepts an optional API key at
+  construction; avoid hard-coding secrets and prefer secure configuration.19
 - **PII Scrubbing Hook:** Recognizing that queries may contain Personally
   Identifiable Information (PII), the `ComplexityFn` will expose a builder
   method `with_redaction_hook`. This allows the consumer to inject a custom
