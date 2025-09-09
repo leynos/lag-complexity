@@ -1,45 +1,137 @@
 #![cfg(feature = "provider-api")] // Gate tests on provider-api feature
 use httpmock::{Method::POST, MockServer};
 use lag_complexity::{ApiEmbedding, ApiEmbeddingError, TextProcessor};
+use rstest::*;
 
-#[test]
-#[expect(clippy::expect_used, reason = "test should fail loudly")]
-fn embedding_success() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(POST)
-            .path("/embed")
-            .header("content-type", "application/json")
-            .json_body(serde_json::json!({ "input": "hello" }));
-        then.status(200)
-            .header("content-type", "application/json")
-            .json_body(serde_json::json!({ "embedding": [0.1, 0.2] }));
-    });
-
-    let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, None);
-    let emb = provider.process("hello").expect("embedding");
-    assert_eq!(&*emb, &[0.1, 0.2]);
+#[fixture]
+fn mock_server() -> MockServer {
+    MockServer::start()
 }
 
-#[test]
-#[expect(clippy::expect_used, reason = "test should fail loudly")]
-fn sets_bearer_auth_header() {
-    let server = MockServer::start();
+#[fixture]
+fn api_provider(mock_server: MockServer) -> (ApiEmbedding, MockServer) {
+    let url = format!("{}/embed", mock_server.base_url());
+    (ApiEmbedding::new(url, None), mock_server)
+}
+
+#[fixture]
+fn api_provider_with_auth(mock_server: MockServer) -> (ApiEmbedding, MockServer) {
+    let url = format!("{}/embed", mock_server.base_url());
+    (ApiEmbedding::new(url, Some("secret".into())), mock_server)
+}
+
+#[rstest]
+#[case("hello", vec![0.1, 0.2], serde_json::json!({ "embedding": [0.1, 0.2] }))]
+fn test_success_cases(
+    #[case] input: &str,
+    #[case] expected_embedding: Vec<f32>,
+    #[case] mock_json: serde_json::Value,
+    api_provider: (ApiEmbedding, MockServer),
+) {
+    let (provider, server) = api_provider;
     server.mock(|when, then| {
         when.method(POST)
             .path("/embed")
-            .header("authorization", "Bearer secret")
-            .json_body(serde_json::json!({ "input": "hi" }));
-        then.status(200)
             .header("content-type", "application/json")
-            .json_body(serde_json::json!({ "embedding": [1.0] }));
+            .json_body(serde_json::json!({ "input": input }));
+        then.status(200).json_body(mock_json);
     });
+    let emb = match provider.process(input) {
+        Ok(e) => e,
+        Err(e) => panic!("embedding error: {e:?}"),
+    };
+    assert_eq!(&*emb, expected_embedding.as_slice());
+}
 
-    let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, Some("secret".into()));
-    let emb = provider.process("hi").expect("embedding");
-    assert_eq!(&*emb, &[1.0]);
+#[rstest]
+#[case("hi", vec![1.0], serde_json::json!({ "embedding": [1.0] }))]
+fn test_bearer_auth_success(
+    #[case] input: &str,
+    #[case] expected_embedding: Vec<f32>,
+    #[case] mock_json: serde_json::Value,
+    api_provider_with_auth: (ApiEmbedding, MockServer),
+) {
+    let (provider, server) = api_provider_with_auth;
+    server.mock(|when, then| {
+        when.method(POST)
+            .path("/embed")
+            .header("content-type", "application/json")
+            .header("authorization", "Bearer secret")
+            .json_body(serde_json::json!({ "input": input }));
+        then.status(200).json_body(mock_json);
+    });
+    let emb = match provider.process(input) {
+        Ok(e) => e,
+        Err(e) => panic!("embedding error: {e:?}"),
+    };
+    assert_eq!(&*emb, expected_embedding.as_slice());
+}
+
+#[derive(Clone, Copy)]
+enum ExpectedError {
+    Request,
+    Empty,
+    InvalidResponse,
+}
+
+#[rstest]
+#[case("oops", 500, None::<serde_json::Value>, Some(""), ExpectedError::Request)]
+#[case(
+    "text",
+    200,
+    Some(serde_json::json!({ "embedding": [] })),
+    None,
+    ExpectedError::Empty
+)]
+#[case(
+    "text",
+    200,
+    None,
+    Some(r#"{\"embedding\":[\"x\"]}"#),
+    ExpectedError::InvalidResponse
+)]
+#[case(
+    "hi",
+    200,
+    Some(serde_json::json!({ "oops": true })),
+    None,
+    ExpectedError::InvalidResponse
+)]
+fn test_error_cases(
+    #[case] input: &str,
+    #[case] http_status: u16,
+    #[case] response_json: Option<serde_json::Value>,
+    #[case] response_body: Option<&str>,
+    #[case] expected_error: ExpectedError,
+    api_provider: (ApiEmbedding, MockServer),
+) {
+    let (provider, server) = api_provider;
+    server.mock(|when, then| {
+        when.method(POST).path("/embed");
+        match (response_json, response_body) {
+            (Some(json), _) => {
+                then.status(http_status)
+                    .header("content-type", "application/json")
+                    .json_body(json);
+            }
+            (None, Some(body)) => {
+                then.status(http_status)
+                    .header("content-type", "application/json")
+                    .body(body);
+            }
+            (None, None) => {
+                then.status(http_status);
+            }
+        }
+    });
+    let Err(err) = provider.process(input) else {
+        panic!("expected error")
+    };
+    match expected_error {
+        ExpectedError::Request => assert!(matches!(err, ApiEmbeddingError::Request(_))),
+        ExpectedError::Empty => assert_eq!(err, ApiEmbeddingError::Empty),
+        ExpectedError::InvalidResponse => assert_eq!(err, ApiEmbeddingError::InvalidResponse),
+    }
 }
 
 #[test]
@@ -48,72 +140,4 @@ fn rejects_empty_input() {
     let url = format!("{}/embed", server.base_url());
     let provider = ApiEmbedding::new(url, None);
     assert_eq!(provider.process(""), Err(ApiEmbeddingError::Empty));
-}
-
-#[test]
-#[expect(clippy::expect_used, reason = "test should fail loudly")]
-fn server_failure_returns_request_error() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(POST).path("/embed");
-        then.status(500);
-    });
-
-    let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, None);
-    let err = provider.process("oops").expect_err("error");
-    assert!(matches!(err, ApiEmbeddingError::Request(_)));
-}
-
-#[test]
-#[expect(clippy::expect_used, reason = "test should fail loudly")]
-fn empty_embedding_error() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(POST).path("/embed");
-        then.status(200)
-            .header("content-type", "application/json")
-            .json_body(serde_json::json!({ "embedding": [] }));
-    });
-
-    let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, None);
-    let err = provider.process("text").expect_err("error");
-    assert_eq!(err, ApiEmbeddingError::Empty);
-}
-
-#[test]
-#[expect(clippy::expect_used, reason = "test should fail loudly")]
-fn invalid_embedding_error() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(POST).path("/embed");
-        then.status(200)
-            .header("content-type", "application/json")
-            .body(r#"{"embedding":["x"]}"#);
-    });
-
-    let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, None);
-    let err = provider.process("text").expect_err("error");
-    assert_eq!(err, ApiEmbeddingError::InvalidResponse);
-}
-
-#[test]
-fn invalid_json_yields_invalid_response() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(POST).path("/embed");
-        // Missing `embedding` field
-        then.status(200)
-            .header("content-type", "application/json")
-            .json_body(serde_json::json!({ "oops": true }));
-    });
-
-    let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, None);
-    assert_eq!(
-        provider.process("hi"),
-        Err(ApiEmbeddingError::InvalidResponse),
-    );
 }
