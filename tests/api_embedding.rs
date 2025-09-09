@@ -36,10 +36,10 @@ fn test_success_cases(
             .json_body(serde_json::json!({ "input": input }));
         then.status(200).json_body(mock_json);
     });
-    let emb = match provider.process(input) {
-        Ok(e) => e,
-        Err(e) => panic!("embedding error: {e:?}"),
-    };
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let emb = provider
+        .process(input)
+        .expect("embedding request should succeed");
     assert_eq!(&*emb, expected_embedding.as_slice());
 }
 
@@ -60,10 +60,10 @@ fn test_bearer_auth_success(
             .json_body(serde_json::json!({ "input": input }));
         then.status(200).json_body(mock_json);
     });
-    let emb = match provider.process(input) {
-        Ok(e) => e,
-        Err(e) => panic!("embedding error: {e:?}"),
-    };
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let emb = provider
+        .process(input)
+        .expect("embedding request should succeed");
     assert_eq!(&*emb, expected_embedding.as_slice());
 }
 

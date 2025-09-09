@@ -6,12 +6,17 @@
 //!
 //! # Examples
 //!
-//! ```
+//! ```no_run
+//! # #[cfg(feature = "provider-api")]
 //! use lag_complexity::{ApiEmbedding, TextProcessor};
 //!
+//! # #[cfg(feature = "provider-api")]
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[cfg(feature = "provider-api")]
 //! let provider = ApiEmbedding::new("http://localhost:8080/embed", None);
+//! # #[cfg(feature = "provider-api")]
 //! let embedding = provider.process("hello")?;
+//! # #[cfg(feature = "provider-api")]
 //! assert!(!embedding.is_empty());
 //! # Ok(())
 //! # }

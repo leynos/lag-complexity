@@ -14,6 +14,7 @@ pub mod variance;
 
 pub use api::{Complexity, ComplexityFn, Trace};
 #[cfg(feature = "provider-api")]
+/// Re-exports available only with the provider-api feature.
 pub use api_embedding::{ApiEmbedding, ApiEmbeddingError};
 #[cfg(feature = "cli")]
 pub use cli::LagcArgs;
