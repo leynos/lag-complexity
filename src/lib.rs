@@ -2,6 +2,8 @@
 //! Re-exports public types and traits.
 
 pub mod api;
+#[cfg(feature = "provider-api")]
+pub mod api_embedding;
 #[cfg(feature = "cli")]
 pub mod cli;
 pub mod config;
@@ -11,6 +13,9 @@ pub mod sigma;
 pub mod variance;
 
 pub use api::{Complexity, ComplexityFn, Trace};
+#[cfg(feature = "provider-api")]
+/// Re-exports available only with the provider-api feature.
+pub use api_embedding::{ApiEmbedding, ApiEmbeddingError};
 #[cfg(feature = "cli")]
 pub use cli::LagcArgs;
 pub use config::{ScopingConfig, VarianceScopingConfig};

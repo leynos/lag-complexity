@@ -396,15 +396,12 @@ local options.
 - `ApiEmbedding`: This provider, enabled by the `provider-api` feature, is
   designed for systems that leverage external, state-of-the-art embedding
   models via an API.
-
-- It will use the `reqwest` library for robust, asynchronous HTTP requests to
-  services like OpenAI, Cohere, or a self-hosted inference endpoint.
-- To handle the realities of network communication, it will feature
-  configurable timeouts and an exponential backoff retry strategy for transient
-  failures (e.g., HTTP 503 errors).
-- Security is paramount. API keys will be handled according to best practices,
-  read from environment variables or a secure configuration store, and never
-  accepted as plaintext function arguments or hardcoded in the source.19
+- It uses the `reqwest` blocking client with a 10 s timeout. Requests send
+  `content-type: application/json` and, when an API key is supplied,
+  `authorization: bearer <key>`. The body is `{ "input": "" }` and responses
+  MUST contain `{ "embedding": [f32, ...] }`. No retries or backoff are built
+  in; wrap the provider if more resilience is required. Production deployments
+  SHOULD source API keys from secure configuration.
 - `LocalModelEmbedding`: This provider serves as a facade for running embedding
   models locally, which is crucial for air-gapped environments, low-latency
   requirements, or cost control.
@@ -772,11 +769,10 @@ The crate will be designed with security as a primary consideration.
 - **Secure by Default:** As detailed in Section 1, the crate will not perform
   any network operations unless the `provider-api` feature is explicitly
   enabled. This prevents accidental data leakage.
-- **API Key Management:** Implementations that use external APIs will be
-  designed to read credentials from environment variables or a secure
-  configuration system. They will never accept API keys as direct function
-  arguments, and documentation will explicitly warn against hardcoding secrets,
-  in line with industry best practices.19
+- **API key management:** Implementations that use external APIs SHOULD read
+  credentials from environment variables or a secret manager. To support tests
+  and simple embeddings clients, `ApiEmbedding` accepts an optional API key at
+  construction; avoid hard-coding secrets and prefer secure configuration.19
 - **PII Scrubbing Hook:** Recognizing that queries may contain Personally
   Identifiable Information (PII), the `ComplexityFn` will expose a builder
   method `with_redaction_hook`. This allows the consumer to inject a custom
