@@ -7,7 +7,10 @@ use lag_complexity::{ApiEmbedding, ApiEmbeddingError, TextProcessor};
 fn embedding_success() {
     let server = MockServer::start();
     server.mock(|when, then| {
-        when.method(POST).path("/embed");
+        when.method(POST)
+            .path("/embed")
+            .header("content-type", "application/json")
+            .json_body(serde_json::json!({ "input": "hello" }));
         then.status(200)
             .header("content-type", "application/json")
             .json_body(serde_json::json!({ "embedding": [0.1, 0.2] }));
