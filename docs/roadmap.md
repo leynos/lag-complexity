@@ -30,7 +30,7 @@ relying on fast, lightweight heuristics.
 - [x] Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
 - [x] Implement the `ApiEmbedding` provider, guarded by the `provider-api`
   feature flag.
-- [ ] Create the golden-file integration test suite with an initial set of
+- [x] Create the golden-file integration test suite with an initial set of
   approximately 50 curated queries and their expected trace outputs.
 - [ ] **Acceptance Criteria**: The `score()` and `trace()` methods are fully
   functional using the heuristic providers.

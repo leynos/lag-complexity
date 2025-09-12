@@ -869,6 +869,11 @@ components of the crate work correctly together.
   golden snapshot; any discrepancies will fail the test, immediately flagging
   unintended changes in behaviour from modifications to heuristics, models, or
   normalization logic.
+- The snapshots are stored as newline-delimited JSON at
+  `tests/golden/traces.jsonl`.
+- The heuristic baseline is implemented by `HeuristicComplexity`, combining
+  depth and ambiguity signals with the `scope` component temporarily fixed at
+  zero until a dedicated estimator is introduced.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based
