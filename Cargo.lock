@@ -1490,9 +1490,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ortho_config"
-version = "0.5.0-alpha2"
+version = "0.5.0-beta1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75bd38d3ab2439bb3d29c188fa807e000fbc25e9d720c6117c199d1a97c7a946"
+checksum = "3051d04864a8012db7cdfcf09f5635af2533a2bbc944601e55afc0ba8dad247a"
 dependencies = [
  "clap",
  "clap-dispatch",
@@ -1510,9 +1510,9 @@ dependencies = [
 
 [[package]]
 name = "ortho_config_macros"
-version = "0.5.0-alpha2"
+version = "0.5.0-beta1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1afa9a9c8e9213c5464bcc09eec873fbe0407b0a9288f9ef120323b6b2c44c01"
+checksum = "bcdf8829338c0dd1bdeaf3cd60b648051c3c51b73724cf29325b59aa428532bf"
 dependencies = [
  "proc-macro2",
  "quote",
