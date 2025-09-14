@@ -1254,10 +1254,10 @@ fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
             println!("--- Trace for query: '{}' ---", trace.query);
-            println!("Final Complexity Score: {:.[^3]}", trace.complexity.total());
-            println!("  - Scope:     {:.[^3]}", trace.complexity.scope());
-            println!("  - Depth:     {:.[^3]}", trace.complexity.depth());
-            println!("  - Ambiguity: {:.[^3]}", trace.complexity.ambiguity());
+            println!("Final Complexity Score: {:.3}", trace.complexity.total());
+            println!("  - Scope:     {:.3}", trace.complexity.scope());
+            println!("  - Depth:     {:.3}", trace.complexity.depth());
+            println!("  - Ambiguity: {:.3}", trace.complexity.ambiguity());
         }
         Err(e) => eprintln!("Failed to generate trace: {e}"),
     }

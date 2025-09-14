@@ -28,7 +28,7 @@ pub enum DepthHeuristicError {
 /// let score = estimator.process("If A and B then C").unwrap();
 /// assert!(score > 0.0);
 /// ```
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct DepthHeuristic;
 
 impl TextProcessor for DepthHeuristic {

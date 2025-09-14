@@ -11,7 +11,6 @@ use crate::{
     heuristics::{
         AmbiguityHeuristic, AmbiguityHeuristicError, DepthHeuristic, DepthHeuristicError,
     },
-    providers::TextProcessor,
 };
 use thiserror::Error;
 
@@ -27,7 +26,7 @@ pub enum HeuristicComplexityError {
 /// Basic `ComplexityFn` backed by lightweight heuristics.
 ///
 /// The `scope` component is always zero in this baseline implementation.
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
@@ -37,8 +36,8 @@ impl ComplexityFn for HeuristicComplexity {
     type Error = HeuristicComplexityError;
 
     fn score(&self, query: &str) -> Result<Complexity, Self::Error> {
-        let depth = self.depth.process(query)?;
-        let ambiguity = self.ambiguity.process(query)?;
+        let depth = crate::providers::TextProcessor::process(&self.depth, query)?;
+        let ambiguity = crate::providers::TextProcessor::process(&self.ambiguity, query)?;
         Ok(Complexity::new(0.0, depth, ambiguity))
     }
 
@@ -69,7 +68,11 @@ mod tests {
     #[rstest]
     fn rejects_empty() {
         let hc = HeuristicComplexity::default();
-        assert!(hc.score("").is_err());
+        let err = hc.score("");
+        assert!(matches!(
+            err,
+            Err(HeuristicComplexityError::Depth(DepthHeuristicError::Empty))
+        ));
     }
 
     #[test]
