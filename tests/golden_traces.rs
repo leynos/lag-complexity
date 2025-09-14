@@ -2,6 +2,9 @@ use lag_complexity::{Complexity, ComplexityFn, HeuristicComplexity, Trace};
 use serde::Deserialize;
 use serde_json::from_str;
 use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader, ErrorKind, Write};
+use tempfile::NamedTempFile;
 
 const TRACES_JSONL: &str = include_str!("golden/traces.jsonl");
 
@@ -53,6 +56,41 @@ fn golden_traces() -> Result<(), Box<dyn Error>> {
             expected.id,
             &expected.trace.query,
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn missing_golden_file() {
+    match File::open("tests/golden/missing_file.jsonl") {
+        Err(e) => assert_eq!(e.kind(), ErrorKind::NotFound),
+        Ok(_) => panic!("unexpectedly opened missing file"),
+    }
+}
+
+#[test]
+fn empty_golden_file() -> Result<(), Box<dyn Error>> {
+    let tmp = NamedTempFile::new()?;
+    let reader = BufReader::new(File::open(tmp.path())?);
+    let hc = HeuristicComplexity::default();
+    for line in reader.lines() {
+        let line = line?;
+        let expected: GoldenTrace = from_str(&line)?;
+        let actual = hc.trace(&expected.trace.query)?;
+        assert_eq!(actual, expected.trace);
+    }
+    Ok(())
+}
+
+#[test]
+fn malformed_golden_file() -> Result<(), Box<dyn Error>> {
+    let mut tmp = NamedTempFile::new()?;
+    writeln!(tmp, "{{ this is not valid json }}")?;
+    let reader = BufReader::new(File::open(tmp.path())?);
+    for line in reader.lines() {
+        let line = line?;
+        let result: Result<GoldenTrace, _> = from_str(&line);
+        assert!(result.is_err(), "expected JSON parsing to fail");
     }
     Ok(())
 }
