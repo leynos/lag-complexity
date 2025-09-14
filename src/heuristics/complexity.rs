@@ -66,12 +66,13 @@ mod tests {
     }
 
     #[rstest]
+    #[expect(clippy::unwrap_used, reason = "test should fail loudly")]
     fn rejects_empty() {
         let hc = HeuristicComplexity::default();
-        let err = hc.score("");
+        let err = hc.score("").unwrap_err();
         assert!(matches!(
             err,
-            Err(HeuristicComplexityError::Depth(DepthHeuristicError::Empty))
+            HeuristicComplexityError::Depth(DepthHeuristicError::Empty)
         ));
     }
 
