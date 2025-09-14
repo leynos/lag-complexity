@@ -11,6 +11,7 @@ use crate::{
     heuristics::{
         AmbiguityHeuristic, AmbiguityHeuristicError, DepthHeuristic, DepthHeuristicError,
     },
+    providers::TextProcessor,
 };
 use thiserror::Error;
 
@@ -36,8 +37,8 @@ impl ComplexityFn for HeuristicComplexity {
     type Error = HeuristicComplexityError;
 
     fn score(&self, query: &str) -> Result<Complexity, Self::Error> {
-        let depth = crate::providers::TextProcessor::process(&self.depth, query)?;
-        let ambiguity = crate::providers::TextProcessor::process(&self.ambiguity, query)?;
+        let depth = self.depth.process(query)?;
+        let ambiguity = self.ambiguity.process(query)?;
         Ok(Complexity::new(0.0, depth, ambiguity))
     }
 

@@ -8,6 +8,9 @@ use tempfile::NamedTempFile;
 
 const TRACES_JSONL: &str = include_str!("golden/traces.jsonl");
 
+const TOL_ABS: f32 = 1e-5;
+const TOL_REL: f32 = 1e-4;
+
 #[derive(Deserialize)]
 struct GoldenTrace {
     id: u32,
@@ -20,7 +23,10 @@ struct GoldenTrace {
     reason = "compute delta between expected and actual values"
 )]
 fn assert_complexity_close(actual: &Complexity, expected: &Complexity, id: u32, query: &str) {
-    let close = |a: f32, b: f32| (a - b).abs() < f32::EPSILON;
+    let close = |a: f32, b: f32| {
+        let diff = (a - b).abs();
+        diff <= TOL_ABS || diff <= TOL_REL * b.abs()
+    };
     assert!(
         close(actual.total(), expected.total()),
         "total mismatch for id {id} (query = `{query}`)"
@@ -55,6 +61,18 @@ fn golden_traces() -> Result<(), Box<dyn Error>> {
             &expected.trace.complexity,
             expected.id,
             &expected.trace.query,
+        );
+        // Invariant: total equals sum of components
+        let s =
+            actual.complexity.scope() + actual.complexity.depth() + actual.complexity.ambiguity();
+        assert!(
+            {
+                let d = (actual.complexity.total() - s).abs();
+                d <= TOL_ABS || d <= TOL_REL * s.abs()
+            },
+            "total invariant violated for id {} (query = `{}`)",
+            expected.id,
+            expected.trace.query,
         );
     }
     Ok(())

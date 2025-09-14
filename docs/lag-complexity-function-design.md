@@ -873,8 +873,8 @@ components of the crate work correctly together.
   `tests/golden/traces.jsonl`.
 - Each entry includes an integer `id`, the query string, and the expected
   complexity trace.
-- Component scores are compared using a small floating-point tolerance to
-  avoid brittle failures from minute rounding errors.
+- Component scores are compared using a combined tolerance to avoid brittle
+  failures: abs <= 1e-5 OR rel <= 1e-4.
 - The heuristic baseline is implemented by `HeuristicComplexity`, combining
   depth and ambiguity signals with the `scope` component temporarily fixed at
   zero until a dedicated estimator is introduced.
