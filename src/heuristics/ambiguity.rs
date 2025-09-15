@@ -31,7 +31,7 @@ pub enum AmbiguityHeuristicError {
 /// let score = estimator.process("It references Mercury").unwrap();
 /// assert!(score >= 1.0);
 /// ```
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct AmbiguityHeuristic;
 
 impl TextProcessor for AmbiguityHeuristic {

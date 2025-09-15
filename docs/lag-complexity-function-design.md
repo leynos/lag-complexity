@@ -6,29 +6,29 @@
 
 Modern Large Language Models (LLMs) have demonstrated remarkable capabilities
 across a broad spectrum of natural language tasks, from text generation to
-complex query understanding.1 However, their proficiency often diminishes when
-faced with knowledge-intensive, multi-hop questions that require structured
-reasoning. In these scenarios, LLMs are prone to "hallucination"—generating
-factually incorrect or logically inconsistent statements.3 While frameworks
-like Retrieval-Augmented Generation (RAG) have been developed to mitigate this
-by grounding models in external knowledge, they often fall short. Standard RAG
-systems rely on direct semantic retrieval, a process that frequently fails to
-capture the underlying logical structure of complex queries, leading to the
-retrieval of fragmented or irrelevant context and subsequent propagation of
-errors through the reasoning chain.4
+complex query understanding.[^1] However, their proficiency often diminishes
+when faced with knowledge-intensive, multi-hop questions that require
+structured reasoning. In these scenarios, LLMs are prone to
+"hallucination"—generating factually incorrect or logically inconsistent
+statements.[^2] While frameworks like Retrieval-Augmented Generation (RAG) have
+been developed to mitigate this by grounding models in external knowledge, they
+often fall short. Standard RAG systems rely on direct semantic retrieval, a
+process that frequently fails to capture the underlying logical structure of
+complex queries, leading to the retrieval of fragmented or irrelevant context
+and subsequent propagation of errors through the reasoning chain.[^3]
 
 ### The LAG paradigm
 
 The Logic-Augmented Generation (LAG) paradigm offers a principled alternative
-to address these shortcomings.3 Inspired by Cartesian principles of methodical
-problem-solving, LAG introduces a "reasoning-first" pipeline that prioritizes
-systematic question decomposition and dependency-aware resolution over
-immediate, brute-force retrieval.4 This approach represents a significant
-architectural shift, moving from purely semantic pattern matching toward a more
-structured, robust, and explainable process that mirrors human cognitive
-strategies for tackling complex problems. This aligns with broader trends in AI
-toward building more sophisticated language agents that incorporate explicit
-mechanisms for planning, memory, and reasoning.8
+to address these shortcomings.[^2] Inspired by Cartesian principles of
+methodical problem-solving, LAG introduces a "reasoning-first" pipeline that
+prioritizes systematic question decomposition and dependency-aware resolution
+over immediate, brute-force retrieval.[^3] This approach represents a
+significant architectural shift, moving from purely semantic pattern matching
+toward a more structured, robust, and explainable process that mirrors human
+cognitive strategies for tackling complex problems. This aligns with broader
+trends in AI toward building more sophisticated language agents that
+incorporate explicit mechanisms for planning, memory, and reasoning.[^4]
 
 ### The role of CL(q)
 
@@ -38,7 +38,7 @@ resolution and must be broken down into simpler, atomic sub-questions. This
 decision is governed by the Cognitive Load metric, denoted as CL(q). This
 metric serves as a quantitative measure of a query's intrinsic complexity,
 integrating signals for its conceptual breadth, required inference steps, and
-semantic uncertainty.6 By evaluating
+semantic uncertainty.[^5] By evaluating
 
 CL(q) against a dynamic threshold, a LAG-based system can decide whether to
 proceed with direct generation or to initiate a recursive decomposition
@@ -62,13 +62,13 @@ environments.
 
 It is critical to establish a clear distinction at the outset. The cognitive
 complexity metric implemented in this crate is the _Cognitive Load_ for natural
-language queries as defined in the LAG research paper.6 This is conceptually
+language queries as defined in the LAG research paper.[^5] This is conceptually
 and mathematically distinct from the "Cognitive Complexity" metric for source
-code understandability developed by SonarSource.11 While both metrics aim to
+code understandability developed by SonarSource.[^6] While both metrics aim to
 quantify a form of mental effort or difficulty, the former applies to natural
 language and is composed of semantic scope, reasoning depth, and ambiguity,
 whereas the latter applies to software code and is based on increments for
-breaks in linear control flow and nesting levels.11 This proposal exclusively
+breaks in linear control flow and nesting levels.[^6] This proposal exclusively
 concerns the implementation of the LAG paper's
 
 CL(q) metric.
@@ -76,10 +76,10 @@ CL(q) metric.
 The architectural decision to encapsulate the CL(q) calculation within a
 standalone, reusable crate is a strategic one. It moves beyond a monolithic
 agent design and embraces modularity, a core principle for building robust and
-maintainable AI systems.14 This approach is deeply aligned with conceptual
+maintainable AI systems.[^7] This approach is deeply aligned with conceptual
 frameworks like Cognitive Architectures for Language Agents (CoALA), which
 advocate for distinct, interoperable components for memory, action, and
-decision-making.8 By isolating the complexity scoring logic, several
+decision-making.[^4] By isolating the complexity scoring logic, several
 engineering advantages are unlocked. The component can be independently
 benchmarked and optimized for performance, a critical requirement for a
 function that may be on the hot path of every incoming query. Its internal
@@ -278,7 +278,7 @@ pub enum Sigma {
 
 - `Weights`: A simple struct for re-weighting the final components of the
   `CL(q)` score. The default will be `1.0` for all components, directly
-  matching the unweighted sum in the LAG paper's formula.6
+  matching the unweighted sum in the LAG paper's formula.[^5]
 
 ```rust
 pub struct Weights {
@@ -290,7 +290,7 @@ pub struct Weights {
 
 - `Schedule`: An enum that implements the decaying threshold logic, `τ(t)`, for
   the split condition. The primary variant directly models the paper's concept
-  of a threshold that becomes more lenient as the reasoning process deepens.6
+  of a threshold that becomes more lenient as the reasoning process deepens.[^5]
 
 ```rust
 pub enum Schedule {
@@ -320,7 +320,7 @@ library.
 The selection of default features is a deliberate design choice prioritizing
 security and ease of use. By disabling `provider-api` by default, the crate
 adheres to the principle of least privilege, preventing any unintended network
-activity unless explicitly opted into by the developer.17 This is a critical
+activity unless explicitly opted into by the developer.[^8] This is a critical
 security posture for a library that might be deployed in sensitive
 environments. Conversely, by enabling local, pure-Rust providers (
 
@@ -363,7 +363,7 @@ require a wider retrieval strategy.
 
 - **Formulaic Fidelity:** The default implementation will adhere precisely to
   the definition provided in the LAG paper: the variance across the dimensions
-  of the query's embedding vector, `ϕ(q)`.6 The mathematical formula is
+  of the query's embedding vector, `ϕ(q)`.[^5] The mathematical formula is
   `Var(v) = (1/d) * Σ_{i=1..d} (v_i − mean(v))^2`.
 
   ```plaintext
@@ -426,7 +426,7 @@ This implementation provides a very fast, dependency-light baseline (using the
 `regex` crate for boundary matching) for estimating reasoning depth. While not
 as accurate as a model-based approach, it serves as an excellent low-latency
 first-pass filter. It operates by identifying and counting linguistic markers
-that often correlate with syntactic and logical complexity.22
+that often correlate with syntactic and logical complexity.[^9]
 
 - **Feature Engineering:**
 
@@ -508,7 +508,7 @@ clarified before attempting to answer.
 #### Heuristic baseline (AmbiguityHeuristic)
 
 This provides a fast, lightweight signal for common sources of ambiguity in
-English text.25
+English text.[^10]
 
 - **Feature Engineering:**
 
@@ -518,7 +518,7 @@ English text.25
   noun phrase from the same number/gender class) is not found within a small,
   preceding context window (e.g., the current and previous sentence). This is a
   simplified approach to anaphora resolution, focusing on identifying risk
-  rather than fully resolving it.28
+  rather than fully resolving it.[^11]
 - **Polysemy and Homonymy Risk:** It will use a curated dictionary of common
   ambiguous entities (e.g., "Mercury": planet, god, element, car brand; "Nile":
   river, band). An NER pre-pass (even a simple regex-based one) will identify
@@ -541,10 +541,10 @@ English text.25
 - Enabled by the `onnx` feature, this provider uses a lightweight text
   classification model for more nuanced ambiguity detection.
 - **Architecture:** The model could be a fine-tuned DistilBERT 34 or a similar
-  compact transformer, exported to ONNX for efficient inference.36
+  compact transformer, exported to ONNX for efficient inference.[^12]
 - **Training Data:** The model would be trained on a dataset specifically
   designed for ambiguity, such as AmbigQA, which contains questions annotated
-  with multiple plausible interpretations.38
+  with multiple plausible interpretations.[^13]
 - **Output:** The model would perform multi-class classification, predicting a
   label such as `Clear`, `Possibly Ambiguous`, or `Highly Ambiguous`. These
   categorical labels would then be mapped to a numeric score (e.g., 0.1, 0.5,
@@ -627,7 +627,7 @@ approximate the standard deviation under a normal distribution.
   ### Split scheduling (Schedule and τ(t))
 
 This component directly implements the adaptive decomposition logic from the
-LAG paper: `SplitCondition(q) = CL(q) > τ(t)`.6 The core concept is that the
+LAG paper: `SplitCondition(q) = CL(q) > τ(t)`.[^5] The core concept is that the
 threshold for decomposition,
 
 `τ(t)`, should not be static. It should decay as the reasoning process unfolds
@@ -653,7 +653,7 @@ threshold for decomposition,
 
 The `Halting` configuration provides the parameters for the "Logical
 Terminator," a critical safety and efficiency mechanism described in the LAG
-paper.4 These guardrails prevent the consuming agent from entering infinite
+paper.[^3] These guardrails prevent the consuming agent from entering infinite
 reasoning loops or wasting computational resources on unproductive paths.
 
 - **Role of the Crate:** It is essential to clarify that the `lag_complexity`
@@ -714,7 +714,7 @@ essential for performance and cost reduction.
 - **Targeted Caching:** The primary target for caching is the output of the
   `EmbeddingProvider`. Caching the final `Complexity` score is less effective,
   as small variations in the query text would lead to cache misses.
-- **Library Selection:** The `moka` crate will be used for caching.40 While
+- **Library Selection:** The `moka` crate will be used for caching.[^14] While
 
 `dashmap` is an excellent general-purpose concurrent hash map 42,
 
@@ -738,7 +738,7 @@ observability practices.
 
 - **Frameworks:** It will use the `tracing` crate for structured, context-aware
   logging and performance profiling via spans, and the `metrics` crate as a
-  facade for emitting telemetry data.45
+  facade for emitting telemetry data.[^15]
 - **Structured Tracing:** All primary public functions (`score`, `score_batch`)
   and each provider's main method (`embed`, `estimate`, etc.) will be
   instrumented with the `#[tracing::instrument]` macro. This will automatically
@@ -760,7 +760,7 @@ observability practices.
 - **Prometheus Integration:** The documentation and CLI tool will provide a
   reference implementation for how to use the `metrics-exporter-prometheus`
   crate to expose these metrics on a `/metrics` HTTP endpoint, making them
-  readily consumable by Prometheus and other compatible monitoring systems.46
+  readily consumable by Prometheus and other compatible monitoring systems.[^16]
 
   ### Security
 
@@ -772,7 +772,7 @@ The crate will be designed with security as a primary consideration.
 - **API key management:** Implementations that use external APIs SHOULD read
   credentials from environment variables or a secret manager. To support tests
   and simple embeddings clients, `ApiEmbedding` accepts an optional API key at
-  construction; avoid hard-coding secrets and prefer secure configuration.19
+  construction; avoid hard-coding secrets and prefer secure configuration.[^17]
 - **PII Scrubbing Hook:** Recognizing that queries may contain Personally
   Identifiable Information (PII), the `ComplexityFn` will expose a builder
   method `with_redaction_hook`. This allows the consumer to inject a custom
@@ -869,6 +869,15 @@ components of the crate work correctly together.
   golden snapshot; any discrepancies will fail the test, immediately flagging
   unintended changes in behaviour from modifications to heuristics, models, or
   normalization logic.
+- The snapshots are stored as newline-delimited JSON at
+  `tests/golden/traces.jsonl`.
+- Each entry includes an integer `id`, the query string, and the expected
+  complexity trace.
+- Component scores are compared using a combined tolerance to avoid brittle
+  failures: abs <= 1e-5 OR rel <= 1e-4.
+- The heuristic baseline is implemented by `HeuristicComplexity`, combining
+  depth and ambiguity signals with the `scope` component temporarily fixed at
+  zero until a dedicated estimator is introduced.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based
@@ -910,9 +919,9 @@ a question has multiple plausible interpretations.
 - **Evaluation Metrics:**
 
 - **Rank Correlation:** The primary metrics will be **Kendall's Tau (τ)** and
-  **Spearman's Rho (ρ)** rank correlation coefficients.56 These are chosen over
-  simpler metrics like Pearson correlation because the absolute value of the
-  complexity score is less important than its ability to correctly
+  **Spearman's Rho (ρ)** rank correlation coefficients.[^18] These are chosen
+  over simpler metrics like Pearson correlation because the absolute value of
+  the complexity score is less important than its ability to correctly
 
 _rank_ questions by difficulty. A strong positive rank correlation indicates
 that the scorer is effective at distinguishing more complex queries from
@@ -920,7 +929,7 @@ simpler ones.
 
 - **Classifier Calibration:** For any model-based classifiers (e.g.,
   `AmbiguityClassifierOnnx`), the **Expected Calibration Error (ECE)** will be
-  reported.57 A low ECE indicates that the model's confidence in its
+  reported.[^19] A low ECE indicates that the model's confidence in its
   predictions is well-calibrated (e.g., when it predicts a class with 80%
   confidence, it is correct about 80% of the time).
 - **Reporting:** The evaluation harness will generate a version-controlled
@@ -1032,9 +1041,9 @@ experience of the complexity metric in action.
 - **Implementation:** A lightweight, single-page web application will be
   created. The core logic will be powered by the `lag_complexity` crate
   compiled to WebAssembly (WASM) using the `wasm-bindgen` toolchain, enabled by
-  the `wasm` feature flag.58 This allows the entire Rust-based scoring engine
-  to run directly and efficiently in the user's browser, with no server-side
-  backend required.
+  the `wasm` feature flag.[^20] This allows the entire Rust-based scoring
+  engine to run directly and efficiently in the user's browser, with no
+  server-side backend required.
 - **User Interface and Functionality:** The UI will feature a large text input
   area where a user can type or paste a question. As the user types, the input
   will be passed to the WASM module in real-time. The application will display:
@@ -1042,7 +1051,7 @@ experience of the complexity metric in action.
 - A set of gauges or progress bars visualizing the normalized scores for
   `total`, `scope`, `depth`, and `ambiguity`. These will update dynamically,
   providing instant feedback.
-- A color-coded overall complexity indicator (e.g., Green for Low, Yellow for
+- A colour-coded overall complexity indicator (e.g., Green for Low, Yellow for
   Medium, Red for High) with a corresponding message, such as "Simple query,
   ready to answer" or "Complex query, recommend decomposition."
 - A detailed output pane showing the raw data from the `trace()` method,
@@ -1057,7 +1066,7 @@ experience of the complexity metric in action.
 
 For a more narrative and comparative demonstration, a series of Jupyter
 notebooks will be created. These will leverage the Python bindings generated by
-the `pyo3` crate, enabled by the `python` feature flag.61
+the `pyo3` crate, enabled by the `python` feature flag.[^21]
 
 - **Scenario 1: Smart Assistant vs. Clumsy Intern**
 
@@ -1247,10 +1256,10 @@ fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
             println!("--- Trace for query: '{}' ---", trace.query);
-            println!("Final Complexity Score: {:.4}", trace.complexity.total());
-            println!("  - Scope:     {:.4}", trace.complexity.scope());
-            println!("  - Depth:     {:.4}", trace.complexity.depth());
-            println!("  - Ambiguity: {:.4}", trace.complexity.ambiguity());
+            println!("Final Complexity Score: {:.3}", trace.complexity.total());
+            println!("  - Scope:     {:.3}", trace.complexity.scope());
+            println!("  - Depth:     {:.3}", trace.complexity.depth());
+            println!("  - Ambiguity: {:.3}", trace.complexity.ambiguity());
         }
         Err(e) => eprintln!("Failed to generate trace: {e}"),
     }
@@ -1282,10 +1291,11 @@ defining the primary public interfaces.
 - Implement the mathematical logic for variance calculation and all `Sigma`
   normalization strategies.
 - Create the stub for the `lagc` command-line interface binary using the
-  `ortho_config` crate (published as `ortho-config` on crates.io)
-  [^hyphen-underscore], which layers command-line arguments, environment
-  variables (prefixed with `LAGC_`), and configuration files without extra
-  boilerplate. Precedence is: command-line arguments > environment variables
+  `ortho_config` crate (published as `ortho-config` on
+  crates.io)[^hyphen-underscore], which layers command-line arguments,
+  environment variables (prefixed with `LAGC_`), and configuration files
+  without extra boilerplate. Precedence is: command-line arguments >
+  environment variables
   > configuration files.
 - **Acceptance Criteria:**
 
@@ -1366,8 +1376,8 @@ creating compelling demonstrations.
 
 - **Tasks:**
 
-- Implement the Python bindings using `pyo3`.61
-- Implement the WebAssembly bindings using `wasm-bindgen`.58
+- Implement the Python bindings using `pyo3`.[^21]
+- Implement the WebAssembly bindings using `wasm-bindgen`.[^20]
 - Develop the interactive "Complexity Meter" web page using the WASM module.
 - Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
   Resolver" stakeholder demonstrations.
@@ -1459,7 +1469,7 @@ as follows:
 
 The `lag_complexity` crate provides a unified configuration point for the
 agent's "Logical Terminator," a crucial safety mechanism to prevent infinite
-loops and wasted computation as defined in the LAG paper.4 The agent's main
+loops and wasted computation as defined in the LAG paper.[^3] The agent's main
 loop will consume these parameters from the
 
 `ScoringConfig`:
@@ -1482,14 +1492,14 @@ sophisticated language agents that are capable of metacognition—the ability to
 reason about their own reasoning process. Frameworks for advanced AI, such as
 Cognitive Architectures for Language Agents (CoALA), emphasize the need for
 agents to possess distinct modules for memory, action, and deliberative
-decision-making.8 The
+decision-making.[^4] The
 
 CL(q) score provides the agent with a critical piece of self-awareness about
 the task at hand. A low score can trigger a fast, reflexive, and
 computationally inexpensive "System 1" thinking path (direct resolution). A
 high score, however, signals the need for a slower, more deliberate, and
-resource-intensive "System 2" path involving planning and decomposition.65 By
-providing this signal, the
+resource-intensive "System 2" path involving planning and decomposition.[^22]
+By providing this signal, the
 
 `lag_complexity` crate serves as the gatekeeper between these two cognitive
 modes, enabling the construction of agents that can dynamically adapt their
@@ -1536,6 +1546,32 @@ systems that are more robust, explainable, and aligned with the principles of
 structured human reasoning. Its successful implementation will represent a
 significant step toward creating AI that can not only answer questions but can
 also understand when a question requires deeper thought.
+[^1]: T. Brown et al., "Language Models are Few-Shot Learners."
+[^2]: J. Ji et al., "Survey of Hallucination in Neural Models."
+[^3]: P. Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive
+      NLP."
+[^4]: M. Xu et al., "Cognitive Architectures for Language Agents."
+[^5]: Z. Shen et al., "Logic-Augmented Generation."
+[^6]: SonarSource, "Cognitive Complexity."
+[^7]: D. Sculley et al., "Hidden Technical Debt in Machine Learning Systems."
+[^8]: J. Saltzer and M. Schroeder, "The Protection of Information in Computer
+    Systems."
+[^9]: T. McCabe, "A Complexity Measure."
+[^10]: C. Manning and H. Schütze, "Foundations of Statistical Natural Language
+    Processing."
+[^11]: E. Laporte, "Vague language and quantifiers."
+[^12]: ONNX Runtime documentation.
+[^13]: J. Min et al., "AmbigQA: Answering Ambiguous Open-domain Questions."
+[^14]: Moka cache crate documentation.
+[^15]: Tokio project, "tracing" crate.
+[^16]: Metrics crate documentation.
+[^17]: OWASP, "Secrets Management Cheat Sheet."
+[^18]: C. Spearman, "The Proof and Measurement of Association Between Two
+       Things."
+[^19]: C. Guo et al., "On Calibration of Modern Neural Networks."
+[^20]: Rust Wasm Bindgen guide.
+[^21]: pyo3 project documentation.
+[^22]: D. Kahneman, "Thinking, Fast and Slow."
 
 [^hyphen-underscore]: Cargo converts hyphens to underscores for import paths.
                       The package is `ortho-config` on crates.io and is
