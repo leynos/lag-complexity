@@ -33,7 +33,8 @@ pub enum HeuristicComplexityError {
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
-    scope_weight: f32,
+    /// Constant baseline for the `scope` component (non-negative).
+    scope_baseline: f32,
 }
 
 impl HeuristicComplexity {
@@ -52,7 +53,7 @@ impl HeuristicComplexity {
 
     /// Set the baseline score for the scope component.
     ///
-    /// `weight` is clamped to `0.0` and typically within `[0.0, 1.0]`.
+    /// `baseline` is clamped to `0.0` and typically within `[0.0, 1.0]`.
     /// Values above zero increase the baseline scope score; `0.0` disables
     /// the scope signal.
     ///
@@ -62,13 +63,13 @@ impl HeuristicComplexity {
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::HeuristicComplexity;
     ///
-    /// let hc = HeuristicComplexity::new().with_scope_weight(0.5);
+    /// let hc = HeuristicComplexity::new().with_scope_baseline(0.5);
     /// let score = hc.score("Plain question").unwrap();
     /// assert_eq!(score.scope(), 0.5);
     /// ```
     #[must_use]
-    pub fn with_scope_weight(mut self, weight: f32) -> Self {
-        self.scope_weight = weight.max(0.0);
+    pub fn with_scope_baseline(mut self, baseline: f32) -> Self {
+        self.scope_baseline = baseline.max(0.0);
         self
     }
 
@@ -115,7 +116,7 @@ impl ComplexityFn for HeuristicComplexity {
     fn score(&self, query: &str) -> Result<Complexity, Self::Error> {
         let depth = self.depth.process(query)?;
         let ambiguity = self.ambiguity.process(query)?;
-        Ok(Complexity::new(self.scope_weight, depth, ambiguity))
+        Ok(Complexity::new(self.scope_baseline, depth, ambiguity))
     }
 
     fn trace(&self, query: &str) -> Result<Trace, Self::Error> {
