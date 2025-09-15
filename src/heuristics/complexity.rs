@@ -29,69 +29,42 @@ pub enum HeuristicComplexityError {
 ///
 /// The `scope` component is a configurable baseline (default `0.0`) in this
 /// baseline implementation.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
     scope_weight: f32,
 }
 
-impl Default for HeuristicComplexity {
-    fn default() -> Self {
-        Self::builder().build()
-    }
-}
-
 impl HeuristicComplexity {
+    /// Create a heuristic scorer with default heuristics.
     #[must_use]
-    pub fn builder() -> HeuristicComplexityBuilder {
-        HeuristicComplexityBuilder::default()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct HeuristicComplexityBuilder {
-    depth: DepthHeuristic,
-    ambiguity: AmbiguityHeuristic,
-    scope_weight: f32,
-}
-
-impl Default for HeuristicComplexityBuilder {
-    fn default() -> Self {
-        Self {
-            depth: DepthHeuristic,
-            ambiguity: AmbiguityHeuristic,
-            scope_weight: 0.0,
-        }
-    }
-}
-
-impl HeuristicComplexityBuilder {
-    #[must_use]
-    pub fn depth(mut self, depth: DepthHeuristic) -> Self {
-        self.depth = depth;
-        self
+    pub fn new() -> Self {
+        Self::default()
     }
 
+    /// Set the baseline score for the scope component.
+    ///
+    /// `weight` should be non-negative and typically within `[0.0, 1.0]`,
+    /// representing a constant contribution to the overall complexity.
+    /// Values above zero increase the baseline scope score; `0.0` disables
+    /// the scope signal.
     #[must_use]
-    pub fn ambiguity(mut self, ambiguity: AmbiguityHeuristic) -> Self {
-        self.ambiguity = ambiguity;
-        self
-    }
-
-    #[must_use]
-    pub fn scope_weight(mut self, weight: f32) -> Self {
+    pub fn with_scope_weight(mut self, weight: f32) -> Self {
         self.scope_weight = weight;
         self
     }
 
     #[must_use]
-    pub fn build(self) -> HeuristicComplexity {
-        HeuristicComplexity {
-            depth: self.depth,
-            ambiguity: self.ambiguity,
-            scope_weight: self.scope_weight,
-        }
+    pub fn with_depth(mut self, depth: DepthHeuristic) -> Self {
+        self.depth = depth;
+        self
+    }
+
+    #[must_use]
+    pub fn with_ambiguity(mut self, ambiguity: AmbiguityHeuristic) -> Self {
+        self.ambiguity = ambiguity;
+        self
     }
 }
 

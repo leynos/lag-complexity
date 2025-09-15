@@ -23,9 +23,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         traces.push(GoldenTrace { id: gt.id, trace });
     }
     let mut writer = BufWriter::new(File::create(&path)?);
-    for t in traces {
-        serde_json::to_writer(&mut writer, &t)?;
-        writeln!(&mut writer)?;
+    for (i, t) in traces.iter().enumerate() {
+        let line = serde_json::to_string(t)?;
+        writer.write_all(line.as_bytes())?;
+        if i + 1 < traces.len() {
+            writer.write_all(b"\n")?;
+        }
     }
+    writer.flush()?;
     Ok(())
 }
