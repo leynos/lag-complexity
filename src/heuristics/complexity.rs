@@ -38,6 +38,13 @@ pub struct HeuristicComplexity {
 
 impl HeuristicComplexity {
     /// Create a heuristic scorer with default heuristics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lag_complexity::heuristics::HeuristicComplexity;
+    /// let hc = HeuristicComplexity::new();
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -45,22 +52,56 @@ impl HeuristicComplexity {
 
     /// Set the baseline score for the scope component.
     ///
-    /// `weight` should be non-negative and typically within `[0.0, 1.0]`,
-    /// representing a constant contribution to the overall complexity.
+    /// `weight` is clamped to `0.0` and typically within `[0.0, 1.0]`.
     /// Values above zero increase the baseline scope score; `0.0` disables
     /// the scope signal.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lag_complexity::ComplexityFn;
+    /// use lag_complexity::heuristics::HeuristicComplexity;
+    ///
+    /// let hc = HeuristicComplexity::new().with_scope_weight(0.5);
+    /// let score = hc.score("Plain question").unwrap();
+    /// assert_eq!(score.scope(), 0.5);
+    /// ```
     #[must_use]
     pub fn with_scope_weight(mut self, weight: f32) -> Self {
-        self.scope_weight = weight;
+        self.scope_weight = weight.max(0.0);
         self
     }
 
+    /// Replace the depth heuristic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lag_complexity::ComplexityFn;
+    /// use lag_complexity::heuristics::{HeuristicComplexity, DepthHeuristic};
+    ///
+    /// let hc = HeuristicComplexity::new()
+    ///     .with_depth(DepthHeuristic::default());
+    /// assert!(hc.score("If A and B then C").is_ok());
+    /// ```
     #[must_use]
     pub fn with_depth(mut self, depth: DepthHeuristic) -> Self {
         self.depth = depth;
         self
     }
 
+    /// Replace the ambiguity heuristic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lag_complexity::ComplexityFn;
+    /// use lag_complexity::heuristics::{HeuristicComplexity, AmbiguityHeuristic};
+    ///
+    /// let hc = HeuristicComplexity::new()
+    ///     .with_ambiguity(AmbiguityHeuristic::default());
+    /// assert!(hc.score("Plain question").is_ok());
+    /// ```
     #[must_use]
     pub fn with_ambiguity(mut self, ambiguity: AmbiguityHeuristic) -> Self {
         self.ambiguity = ambiguity;

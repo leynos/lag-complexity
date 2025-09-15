@@ -118,6 +118,8 @@ fn missing_trace_fields() -> Result<(), Box<dyn Error>> {
     let mut tmp = NamedTempFile::new()?;
     tmp.write_all(b"{\"id\":1,\"query\":\"Q\"}\n")?;
     tmp.write_all(b"{\"id\":2,\"complexity\":{\"total\":1.0,\"scope\":0.0,\"depth\":0.0,\"ambiguity\":1.0}}\n")?;
+    // Missing a required field inside `complexity` should also fail with an error.
+    tmp.write_all(b"{\"id\":3,\"query\":\"Q3\",\"complexity\":{\"scope\":0.0,\"depth\":0.0}}\n")?;
     let reader = BufReader::new(File::open(tmp.path())?);
     for line in reader.lines() {
         let line = line?;

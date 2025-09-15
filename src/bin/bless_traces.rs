@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
+use tempfile::NamedTempFile;
 
 #[derive(Deserialize, Serialize)]
 struct GoldenTrace {
@@ -22,14 +23,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let trace = hc.trace(&gt.trace.query)?;
         traces.push(GoldenTrace { id: gt.id, trace });
     }
-    let mut writer = BufWriter::new(File::create(&path)?);
-    for (i, t) in traces.iter().enumerate() {
-        let line = serde_json::to_string(t)?;
-        writer.write_all(line.as_bytes())?;
-        if i + 1 < traces.len() {
-            writer.write_all(b"\n")?;
+    let dir = path.parent().ok_or_else(|| "snapshot directory missing".to_owned())?;
+    let mut tmp = NamedTempFile::new_in(dir)?;
+    {
+        let mut writer = BufWriter::new(tmp.as_file_mut());
+        for (i, t) in traces.iter().enumerate() {
+            let line = serde_json::to_string(t)?;
+            writer.write_all(line.as_bytes())?;
+            if i + 1 < traces.len() {
+                writer.write_all(b"\n")?;
+            }
         }
+        writer.flush()?;
     }
-    writer.flush()?;
+    tmp.persist(&path)?;
     Ok(())
 }
