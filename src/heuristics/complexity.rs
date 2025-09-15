@@ -33,7 +33,11 @@ pub enum HeuristicComplexityError {
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
-    /// Constant baseline for the `scope` component (non-negative).
+    /// Constant baseline for the `scope` component.
+    ///
+    /// Values are clamped to remain non-negative. `0.0` disables the scope
+    /// signal, while larger values increase its contribution. Values within
+    /// `[0.0, 1.0]` are recommended for current heuristics.
     scope_baseline: f32,
 }
 
@@ -41,7 +45,6 @@ impl HeuristicComplexity {
     /// Create a heuristic scorer with default heuristics.
     ///
     /// # Examples
-    ///
     /// ```
     /// use lag_complexity::heuristics::HeuristicComplexity;
     /// let hc = HeuristicComplexity::new();
@@ -53,16 +56,15 @@ impl HeuristicComplexity {
 
     /// Set the baseline score for the scope component.
     ///
-    /// `baseline` is clamped to `0.0` and typically within `[0.0, 1.0]`.
-    /// Values above zero increase the baseline scope score; `0.0` disables
-    /// the scope signal.
+    /// The `baseline` argument is clamped to `>= 0.0` so negative values are
+    /// ignored. Values in `[0.0, 1.0]` match the current heuristics: `0.0`
+    /// disables the scope signal, while larger numbers raise
+    /// [`Complexity::scope`].
     ///
     /// # Examples
-    ///
     /// ```
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::HeuristicComplexity;
-    ///
     /// let hc = HeuristicComplexity::new().with_scope_baseline(0.5);
     /// let score = hc.score("Plain question").unwrap();
     /// assert_eq!(score.scope(), 0.5);
@@ -76,11 +78,9 @@ impl HeuristicComplexity {
     /// Replace the depth heuristic.
     ///
     /// # Examples
-    ///
     /// ```
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::{HeuristicComplexity, DepthHeuristic};
-    ///
     /// let hc = HeuristicComplexity::new()
     ///     .with_depth(DepthHeuristic::default());
     /// assert!(hc.score("If A and B then C").is_ok());
@@ -94,11 +94,9 @@ impl HeuristicComplexity {
     /// Replace the ambiguity heuristic.
     ///
     /// # Examples
-    ///
     /// ```
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::{HeuristicComplexity, AmbiguityHeuristic};
-    ///
     /// let hc = HeuristicComplexity::new()
     ///     .with_ambiguity(AmbiguityHeuristic::default());
     /// assert!(hc.score("Plain question").is_ok());
