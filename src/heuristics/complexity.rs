@@ -1,8 +1,9 @@
 //! Heuristic-based complexity scorer.
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
-//! `ComplexityFn` implementation. The scope component is fixed at zero until a
-//! dedicated heuristic is available. The struct exists primarily to
+//! `ComplexityFn` implementation. The scope component is currently a constant
+//! baseline controlled by a configurable field (defaulting to zero) until a
+//! dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
 
@@ -26,7 +27,8 @@ pub enum HeuristicComplexityError {
 
 /// Basic `ComplexityFn` backed by lightweight heuristics.
 ///
-/// The `scope` component is controlled by a configurable weight and defaults to zero in this baseline implementation.
+/// The `scope` component is a configurable baseline (default `0.0`) in this
+/// baseline implementation.
 #[derive(Debug, Clone)]
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
