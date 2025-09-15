@@ -871,6 +871,7 @@ components of the crate work correctly together.
   normalization logic.
 - The snapshots are stored as newline-delimited JSON at
   `tests/golden/traces.jsonl`.
+- Regenerate the snapshots with `make bless` after heuristic updates.
 - Each entry includes an integer `id`, the query string, and the expected
   complexity trace.
 - Component scores are compared using a combined tolerance to avoid brittle

@@ -21,7 +21,7 @@ pub use cli::LagcArgs;
 pub use config::{ScopingConfig, VarianceScopingConfig};
 pub use heuristics::{
     AmbiguityHeuristic, AmbiguityHeuristicError, DepthHeuristic, DepthHeuristicError,
-    HeuristicComplexity, HeuristicComplexityError,
+    HeuristicComplexity, HeuristicComplexityBuilder, HeuristicComplexityError,
 };
 pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};
 pub use sigma::Sigma;

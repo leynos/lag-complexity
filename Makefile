@@ -39,6 +39,9 @@ nixie: ## Validate Mermaid diagrams
 	# environment variable control for this option
 	nixie --no-sandbox
 
+bless: ## Regenerate golden test snapshots
+	$(CARGO) run --bin bless_traces
+
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \
 	awk 'BEGIN {FS=":"; printf "Available targets:\n"} {printf "  %-20s %s\n", $$1, $$2}'

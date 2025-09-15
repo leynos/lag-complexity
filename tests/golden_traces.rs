@@ -112,3 +112,17 @@ fn malformed_golden_file() -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+
+#[test]
+fn missing_trace_fields() -> Result<(), Box<dyn Error>> {
+    let mut tmp = NamedTempFile::new()?;
+    tmp.write_all(b"{\"id\":1,\"query\":\"Q\"}\n")?;
+    tmp.write_all(b"{\"id\":2,\"complexity\":{\"total\":1.0,\"scope\":0.0,\"depth\":0.0,\"ambiguity\":1.0}}\n")?;
+    let reader = BufReader::new(File::open(tmp.path())?);
+    for line in reader.lines() {
+        let line = line?;
+        let result: Result<GoldenTrace, _> = from_str(&line);
+        assert!(result.is_err(), "expected deserialisation to fail");
+    }
+    Ok(())
+}

@@ -26,11 +26,71 @@ pub enum HeuristicComplexityError {
 
 /// Basic `ComplexityFn` backed by lightweight heuristics.
 ///
-/// The `scope` component is always zero in this baseline implementation.
-#[derive(Default, Debug, Clone)]
+/// The `scope` component is controlled by a configurable weight and defaults to zero in this baseline implementation.
+#[derive(Debug, Clone)]
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
+    scope_weight: f32,
+}
+
+impl Default for HeuristicComplexity {
+    fn default() -> Self {
+        Self::builder().build()
+    }
+}
+
+impl HeuristicComplexity {
+    #[must_use]
+    pub fn builder() -> HeuristicComplexityBuilder {
+        HeuristicComplexityBuilder::default()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HeuristicComplexityBuilder {
+    depth: DepthHeuristic,
+    ambiguity: AmbiguityHeuristic,
+    scope_weight: f32,
+}
+
+impl Default for HeuristicComplexityBuilder {
+    fn default() -> Self {
+        Self {
+            depth: DepthHeuristic,
+            ambiguity: AmbiguityHeuristic,
+            scope_weight: 0.0,
+        }
+    }
+}
+
+impl HeuristicComplexityBuilder {
+    #[must_use]
+    pub fn depth(mut self, depth: DepthHeuristic) -> Self {
+        self.depth = depth;
+        self
+    }
+
+    #[must_use]
+    pub fn ambiguity(mut self, ambiguity: AmbiguityHeuristic) -> Self {
+        self.ambiguity = ambiguity;
+        self
+    }
+
+    #[must_use]
+    pub fn scope_weight(mut self, weight: f32) -> Self {
+        self.scope_weight = weight;
+        self
+    }
+
+    #[must_use]
+    pub fn build(self) -> HeuristicComplexity {
+        HeuristicComplexity {
+            depth: self.depth,
+            ambiguity: self.ambiguity,
+            scope_weight: self.scope_weight,
+        }
+    }
 }
 
 impl ComplexityFn for HeuristicComplexity {
@@ -39,7 +99,7 @@ impl ComplexityFn for HeuristicComplexity {
     fn score(&self, query: &str) -> Result<Complexity, Self::Error> {
         let depth = self.depth.process(query)?;
         let ambiguity = self.ambiguity.process(query)?;
-        Ok(Complexity::new(0.0, depth, ambiguity))
+        Ok(Complexity::new(self.scope_weight, depth, ambiguity))
     }
 
     fn trace(&self, query: &str) -> Result<Trace, Self::Error> {
