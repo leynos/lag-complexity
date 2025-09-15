@@ -1,9 +1,9 @@
 //! Heuristic-based complexity scorer.
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
-//! `ComplexityFn` implementation. The scope component is currently a constant
-//! baseline controlled by a configurable field (defaulting to zero) until a
-//! dedicated scope estimator is introduced. The struct exists primarily to
+//! `ComplexityFn` implementation. The scope component is a constant baseline
+//! controlled via [`HeuristicComplexity::with_scope_baseline`] (default `0.0`)
+//! until a dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
 
@@ -33,11 +33,13 @@ pub enum HeuristicComplexityError {
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
-    /// Constant baseline for the `scope` component.
+    /// Constant baseline for the `scope` component configured via
+    /// [`HeuristicComplexity::with_scope_baseline`].
     ///
     /// Values are clamped to remain non-negative. `0.0` disables the scope
     /// signal, while larger values increase its contribution. Values within
-    /// `[0.0, 1.0]` are recommended for current heuristics.
+    /// `[0.0, 1.0]` are recommended for current heuristics. Non-finite inputs
+    /// are normalised to zero.
     scope_baseline: f32,
 }
 
@@ -50,9 +52,8 @@ impl HeuristicComplexity {
     /// let hc = HeuristicComplexity::new();
     /// ```
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+    #[rustfmt::skip] // Keep single-line constructor per style guidance.
+    pub fn new() -> Self { Self::default() }
 
     /// Set the baseline score for the scope component.
     ///
@@ -61,17 +62,25 @@ impl HeuristicComplexity {
     /// disables the scope signal, while larger numbers raise
     /// [`Complexity::scope`].
     ///
+    /// Non-finite inputs (`NaN`, `±∞`) are normalised to `0.0`.
+    ///
     /// # Examples
     /// ```
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::HeuristicComplexity;
     /// let hc = HeuristicComplexity::new().with_scope_baseline(0.5);
-    /// let score = hc.score("Plain question").unwrap();
+    /// let score = hc
+    ///     .score("Plain question")
+    ///     .expect("unexpected error");
     /// assert_eq!(score.scope(), 0.5);
     /// ```
     #[must_use]
     pub fn with_scope_baseline(mut self, baseline: f32) -> Self {
-        self.scope_baseline = baseline.max(0.0);
+        self.scope_baseline = if baseline.is_finite() {
+            baseline.max(0.0)
+        } else {
+            0.0
+        };
         self
     }
 

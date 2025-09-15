@@ -26,6 +26,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut writer = BufWriter::new(tmp.as_file_mut());
         for line in reader.lines() {
             let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
             let gt: GoldenTrace = serde_json::from_str(&line)?;
             let trace = hc.trace(&gt.trace.query)?;
             let out = GoldenTrace { id: gt.id, trace };
