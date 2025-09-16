@@ -878,7 +878,7 @@ components of the crate work correctly together.
   failures: abs <= 1e-5 OR rel <= 1e-4.
 - The heuristic baseline is implemented by `HeuristicComplexity`, combining
   depth and ambiguity signals with the `scope` component exposed as a
-  configurable baseline (defaulting to zero) until a dedicated estimator is
+  configurable weight (defaulting to zero) until a dedicated estimator is
   introduced.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,

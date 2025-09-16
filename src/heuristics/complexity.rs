@@ -1,8 +1,8 @@
 //! Heuristic-based complexity scorer.
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
-//! `ComplexityFn` implementation. The scope component is a constant baseline
-//! controlled via [`HeuristicComplexity::with_scope_baseline`] (default `0.0`)
+//! `ComplexityFn` implementation. The scope component is a constant weight
+//! controlled via [`HeuristicComplexity::with_scope_weight`] (default `0.0`)
 //! until a dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
@@ -27,20 +27,19 @@ pub enum HeuristicComplexityError {
 
 /// Basic `ComplexityFn` backed by lightweight heuristics.
 ///
-/// The `scope` component is a configurable baseline (default `0.0`) in this
-/// baseline implementation.
+/// The `scope` component is a configurable weight (default `0.0`) in this baseline implementation.
+///
 #[derive(Default, Debug, Clone)]
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
-    /// Constant baseline for the `scope` component configured via
-    /// [`HeuristicComplexity::with_scope_baseline`].
+    /// Weight for the `scope` component in the complexity score.
     ///
     /// Values are clamped to remain non-negative. `0.0` disables the scope
     /// signal, while larger values increase its contribution. Values within
     /// `[0.0, 1.0]` are recommended for current heuristics. Non-finite inputs
     /// are normalised to zero.
-    scope_baseline: f32,
+    scope_weight: f32,
 }
 
 impl HeuristicComplexity {
@@ -55,9 +54,9 @@ impl HeuristicComplexity {
     #[rustfmt::skip] // Keep single-line constructor per style guidance.
     pub fn new() -> Self { Self::default() }
 
-    /// Set the baseline score for the scope component.
+    /// Set the weight for the scope component.
     ///
-    /// The `baseline` argument is clamped to `>= 0.0` so negative values are
+    /// The `weight` argument is clamped to `>= 0.0` so negative values are
     /// ignored. Values in `[0.0, 1.0]` match the current heuristics: `0.0`
     /// disables the scope signal, while larger numbers raise
     /// [`Complexity::scope`].
@@ -68,16 +67,16 @@ impl HeuristicComplexity {
     /// ```
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::HeuristicComplexity;
-    /// let hc = HeuristicComplexity::new().with_scope_baseline(0.5);
+    /// let hc = HeuristicComplexity::new().with_scope_weight(0.5);
     /// let score = hc
     ///     .score("Plain question")
     ///     .expect("unexpected error");
     /// assert_eq!(score.scope(), 0.5);
     /// ```
     #[must_use]
-    pub fn with_scope_baseline(mut self, baseline: f32) -> Self {
-        self.scope_baseline = if baseline.is_finite() {
-            baseline.max(0.0)
+    pub fn with_scope_weight(mut self, weight: f32) -> Self {
+        self.scope_weight = if weight.is_finite() {
+            weight.max(0.0)
         } else {
             0.0
         };
@@ -123,7 +122,7 @@ impl ComplexityFn for HeuristicComplexity {
     fn score(&self, query: &str) -> Result<Complexity, Self::Error> {
         let depth = self.depth.process(query)?;
         let ambiguity = self.ambiguity.process(query)?;
-        Ok(Complexity::new(self.scope_baseline, depth, ambiguity))
+        Ok(Complexity::new(self.scope_weight, depth, ambiguity))
     }
 
     fn trace(&self, query: &str) -> Result<Trace, Self::Error> {
