@@ -54,9 +54,7 @@ impl HeuristicComplexity {
     /// let hc = HeuristicComplexity::new();
     /// ```
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+    pub fn new() -> Self { Self::default() }
 
     /// Set the additive baseline for the scope component (alias of [`HeuristicComplexity::with_scope_baseline`]).
     ///
@@ -200,7 +198,8 @@ mod tests {
     fn scope_weight_non_finite_normalises_to_zero() {
         let hc = HeuristicComplexity::new()
             .with_scope_weight(f32::NAN)
-            .with_scope_weight(f32::INFINITY);
+            .with_scope_weight(f32::INFINITY)
+            .with_scope_weight(f32::NEG_INFINITY);
         let score = hc.score("Plain question").expect("unexpected error");
         assert_eq!(score.scope(), 0.0);
     }
