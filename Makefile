@@ -1,4 +1,4 @@
-.PHONY: help all clean test build release lint fmt check-fmt markdownlint nixie
+.PHONY: help all clean test build release lint fmt check-fmt markdownlint nixie bless
 
 APP ?= lag-complexity
 CARGO ?= cargo
@@ -38,6 +38,9 @@ nixie: ## Validate Mermaid diagrams
 	# CI currently requires --no-sandbox; remove once nixie supports
 	# environment variable control for this option
 	nixie --no-sandbox
+
+bless: ## Regenerate golden test snapshots
+	$(CARGO) run --no-default-features --bin bless_traces $(if $(SNAPSHOT),-- "$(SNAPSHOT)",)
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \

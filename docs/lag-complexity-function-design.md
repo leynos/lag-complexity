@@ -871,13 +871,21 @@ components of the crate work correctly together.
   normalization logic.
 - The snapshots are stored as newline-delimited JSON at
   `tests/golden/traces.jsonl`.
+- Regenerate the snapshots after heuristic updates:
+
+  ```bash
+  make bless                       # default tests/golden/traces.jsonl
+  make bless SNAPSHOT=path/to/foo.jsonl
+  ```
+
 - Each entry includes an integer `id`, the query string, and the expected
   complexity trace.
 - Component scores are compared using a combined tolerance to avoid brittle
   failures: abs <= 1e-5 OR rel <= 1e-4.
 - The heuristic baseline is implemented by `HeuristicComplexity`, combining
-  depth and ambiguity signals with the `scope` component temporarily fixed at
-  zero until a dedicated estimator is introduced.
+  depth and ambiguity signals with the `scope` component exposed as a
+  configurable baseline via [`HeuristicComplexity::with_scope_weight`] (default
+  `0.0`) until a dedicated estimator is introduced.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based
