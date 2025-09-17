@@ -18,9 +18,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_or_else(|| PathBuf::from("tests/golden/traces.jsonl"), PathBuf::from);
     let hc = HeuristicComplexity::default();
     let reader = BufReader::new(File::open(&path)?);
-    let dir = path
-        .parent()
-        .ok_or_else(|| "snapshot directory missing".to_owned())?;
+    let dir = path.parent().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "snapshot directory missing")
+    })?;
     let mut tmp = NamedTempFile::new_in(dir)?;
     {
         let mut writer = BufWriter::new(tmp.as_file_mut());

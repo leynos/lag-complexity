@@ -33,7 +33,8 @@ pub enum HeuristicComplexityError {
 pub struct HeuristicComplexity {
     depth: DepthHeuristic,
     ambiguity: AmbiguityHeuristic,
-    /// Baseline weight for the `scope` component in the complexity score.
+    /// Additive baseline for the `scope` component in the complexity score.
+    /// This is not a multiplier.
     ///
     /// Values are clamped to remain non-negative. `0.0` disables the scope
     /// signal, while larger values increase its contribution. Values within
@@ -54,7 +55,7 @@ impl HeuristicComplexity {
     #[rustfmt::skip] // Keep single-line constructor per style guidance.
     pub fn new() -> Self { Self::default() }
 
-    /// Set the weight for the scope component.
+    /// Set the additive baseline for the scope component.
     ///
     /// The `weight` argument is clamped to `>= 0.0` so negative values are
     /// ignored. Values in `[0.0, 1.0]` match the current heuristics: `0.0`
