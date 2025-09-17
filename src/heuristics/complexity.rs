@@ -169,4 +169,13 @@ mod tests {
         assert_eq!(trace.query, query);
         assert_eq!(trace.complexity, Complexity::new(0.0, 0.0, 1.0));
     }
+
+    #[test]
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    #[expect(clippy::float_cmp, reason = "clamped scope should equal zero")]
+    fn scope_weight_clamps_to_zero() {
+        let hc = HeuristicComplexity::new().with_scope_weight(-0.5);
+        let score = hc.score("Plain question").expect("unexpected error");
+        assert_eq!(score.scope(), 0.0);
+    }
 }
