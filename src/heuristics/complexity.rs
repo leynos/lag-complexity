@@ -2,7 +2,8 @@
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
 //! `ComplexityFn` implementation. The scope component is a constant baseline
-//! controlled via [`HeuristicComplexity::with_scope_weight`] (alias [`HeuristicComplexity::with_scope_baseline`], default `0.0`) until a
+//! controlled via [`HeuristicComplexity::with_scope_weight`] (alias
+//! [`HeuristicComplexity::with_scope_baseline`], default `0.0`) until a
 //! dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
@@ -38,7 +39,8 @@ pub struct HeuristicComplexity {
     ///
     /// Values are clamped to remain non-negative. `0.0` disables the scope
     /// signal, while larger values increase its contribution. Values within
-    /// `[0.0, 1.0]` are recommended for current heuristics. Non-finite inputs
+    /// `[0.0, 1.0]` are recommended for current heuristics. Higher weights are
+    /// still valid and further emphasise the scope signal. Non-finite inputs
     /// are normalised to zero.
     scope_weight: f32,
 }
@@ -60,7 +62,8 @@ impl HeuristicComplexity {
     /// The `weight` argument is clamped to `>= 0.0` so negative values are
     /// ignored. Values in `[0.0, 1.0]` match the current heuristics: `0.0`
     /// disables the scope signal, while larger numbers raise
-    /// [`Complexity::scope`].
+    /// [`Complexity::scope`]. Weights above `1.0` remain valid and further
+    /// emphasise the signal.
     ///
     /// Non-finite inputs (`NaN`, `±∞`) are normalised to `0.0`.
     ///
@@ -181,11 +184,10 @@ mod tests {
 
     #[test]
     #[expect(clippy::expect_used, reason = "test should fail loudly")]
-    #[expect(clippy::float_cmp, reason = "clamped scope should equal zero")]
-    fn scope_weight_clamps_to_zero() {
-        let hc = HeuristicComplexity::new().with_scope_weight(-0.5);
+    fn clamps_negative_scope_baseline() {
+        let hc = HeuristicComplexity::new().with_scope_baseline(-0.5);
         let score = hc.score("Plain question").expect("unexpected error");
-        assert_eq!(score.scope(), 0.0);
+        assert_eq!(score, Complexity::new(0.0, 0.0, 1.0));
     }
 
     #[test]
