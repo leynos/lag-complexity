@@ -2,7 +2,7 @@
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
 //! `ComplexityFn` implementation. The scope component is a constant baseline
-//! controlled via [`HeuristicComplexity::with_scope_weight`] (default `0.0`) until a
+//! controlled via [`HeuristicComplexity::with_scope_weight`] (alias [`HeuristicComplexity::with_scope_baseline`], default `0.0`) until a
 //! dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
@@ -82,6 +82,14 @@ impl HeuristicComplexity {
             0.0
         };
         self
+    }
+
+    /// Set the additive scope baseline (alias for [`with_scope_weight`]).
+    ///
+    /// Non-finite inputs (`NaN`, `±∞`) are normalised to `0.0`.
+    #[must_use]
+    pub fn with_scope_baseline(self, baseline: f32) -> Self {
+        self.with_scope_weight(baseline)
     }
 
     /// Replace the depth heuristic.
@@ -176,6 +184,17 @@ mod tests {
     #[expect(clippy::float_cmp, reason = "clamped scope should equal zero")]
     fn scope_weight_clamps_to_zero() {
         let hc = HeuristicComplexity::new().with_scope_weight(-0.5);
+        let score = hc.score("Plain question").expect("unexpected error");
+        assert_eq!(score.scope(), 0.0);
+    }
+
+    #[test]
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    #[expect(clippy::float_cmp, reason = "clamped scope should equal zero")]
+    fn scope_weight_non_finite_normalises_to_zero() {
+        let hc = HeuristicComplexity::new()
+            .with_scope_weight(f32::NAN)
+            .with_scope_weight(f32::INFINITY);
         let score = hc.score("Plain question").expect("unexpected error");
         assert_eq!(score.scope(), 0.0);
     }
