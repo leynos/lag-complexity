@@ -1,8 +1,8 @@
 //! Heuristic-based complexity scorer.
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
-//! `ComplexityFn` implementation. The scope component is currently a constant
-//! baseline controlled by a configurable field (defaulting to zero) until a
+//! `ComplexityFn` implementation. The scope component is a constant baseline
+//! controlled via [`HeuristicComplexity::with_scope_weight`] (default `0.0`) until a
 //! dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
@@ -151,10 +151,10 @@ mod tests {
     }
 
     #[rstest]
-    #[expect(clippy::unwrap_used, reason = "test should fail loudly")]
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
     fn rejects_empty() {
         let hc = HeuristicComplexity::default();
-        let err = hc.score("").unwrap_err();
+        let err = hc.score("").expect_err("expected empty query to error");
         assert!(matches!(
             err,
             HeuristicComplexityError::Depth(DepthHeuristicError::Empty)

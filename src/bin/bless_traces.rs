@@ -41,5 +41,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_family = "windows")]
     let _ = std::fs::remove_file(&path);
     tmp.persist(&path)?;
+    // Ensure directory entry is durable (Unix only; opening directories on Windows is unsupported).
+    #[cfg(target_family = "unix")]
+    {
+        use std::fs::File as FsFile;
+        FsFile::open(dir)?.sync_all()?;
+    }
     Ok(())
 }
