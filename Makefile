@@ -40,7 +40,7 @@ nixie: ## Validate Mermaid diagrams
 	nixie --no-sandbox
 
 bless: ## Regenerate golden test snapshots
-	$(CARGO) run --no-default-features --bin bless_traces $(if $(SNAPSHOT),-- $(SNAPSHOT),)
+	$(CARGO) run --no-default-features --bin bless_traces $(if $(SNAPSHOT),-- "$(SNAPSHOT)",)
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \

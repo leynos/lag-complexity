@@ -37,6 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         writer.flush()?;
     }
+    tmp.as_file_mut().sync_all()?;
+    #[cfg(target_family = "windows")]
+    let _ = std::fs::remove_file(&path);
     tmp.persist(&path)?;
     Ok(())
 }
