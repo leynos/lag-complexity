@@ -2,8 +2,8 @@
 //!
 //! Combines the depth and ambiguity heuristics to provide an end-to-end
 //! `ComplexityFn` implementation. The scope component is a constant baseline
-//! controlled via [`HeuristicComplexity::with_scope_weight`] (alias
-//! [`HeuristicComplexity::with_scope_baseline`], default `0.0`) until a
+//! controlled via [`HeuristicComplexity::with_scope_baseline`] (alias
+//! [`HeuristicComplexity::with_scope_weight`], default `0.0`) until a
 //! dedicated scope estimator is introduced. The struct exists primarily to
 //! facilitate early integration tests and will evolve as additional signals
 //! are added.
@@ -54,10 +54,13 @@ impl HeuristicComplexity {
     /// let hc = HeuristicComplexity::new();
     /// ```
     #[must_use]
-    #[rustfmt::skip] // Keep single-line constructor per style guidance.
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-    /// Set the additive baseline for the scope component.
+    /// Set the additive baseline for the scope component (alias of [`HeuristicComplexity::with_scope_baseline`]).
+    ///
+    /// Prefer calling [`with_scope_baseline`] for clarity.
     ///
     /// The `weight` argument is clamped to `>= 0.0` so negative values are
     /// ignored. Values in `[0.0, 1.0]` match the current heuristics: `0.0`
@@ -71,7 +74,8 @@ impl HeuristicComplexity {
     /// ```
     /// use lag_complexity::ComplexityFn;
     /// use lag_complexity::heuristics::HeuristicComplexity;
-    /// let hc = HeuristicComplexity::new().with_scope_weight(0.5);
+    /// let hc = HeuristicComplexity::new().with_scope_baseline(0.5);
+    /// // `.with_scope_weight(0.5)` provides the same result.
     /// let score = hc
     ///     .score("Plain question")
     ///     .expect("unexpected error");
@@ -87,7 +91,7 @@ impl HeuristicComplexity {
         self
     }
 
-    /// Set the additive scope baseline (alias for [`with_scope_weight`]).
+    /// Set the additive scope baseline (preferred; alias of [`with_scope_weight`]).
     ///
     /// Non-finite inputs (`NaN`, `±∞`) are normalised to `0.0`.
     #[must_use]

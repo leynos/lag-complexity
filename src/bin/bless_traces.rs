@@ -3,10 +3,10 @@
 //! Usage: `cargo run --bin bless_traces -- [PATH]` (default:
 //! `tests/golden/traces.jsonl`). Recomputes each record with the
 //! default heuristics, writes to a temporary file, then replaces the
-//! snapshot (atomic on Unix; best-effort on Windows).
+//! snapshot. The persist step is atomic on Unix but only best-effort on Windows.
 use lag_complexity::{ComplexityFn, HeuristicComplexity, Trace};
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::{env, fs::File};
 use tempfile::NamedTempFile;
@@ -23,14 +23,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(1)
         .map_or_else(|| PathBuf::from("tests/golden/traces.jsonl"), PathBuf::from);
     let hc = HeuristicComplexity::default();
-    let mut reader = BufReader::new(File::open(&path)?);
     let dir = path.parent().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "snapshot directory missing")
     })?;
     let mut tmp = NamedTempFile::new_in(dir)?;
     {
+        let file = File::open(&path)?;
+        let lines = BufReader::new(file).lines();
         let mut writer = BufWriter::new(tmp.as_file_mut());
-        for (i, line) in reader.by_ref().lines().enumerate() {
+        for (i, line) in lines.enumerate() {
             let line = line?;
             if line.trim().is_empty() {
                 continue;
@@ -57,13 +58,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writer.flush()?;
     }
     tmp.as_file_mut().sync_all()?;
-    drop(reader);
     let temp_path = tmp.into_temp_path();
     #[cfg(target_family = "unix")]
     {
         temp_path.persist(&path).map_err(std::io::Error::from)?;
         // Ensure directory entry is durable (Unix only; opening directories on Windows is unsupported).
-        std::fs::File::open(dir)?.sync_all()?;
+        File::open(dir)?.sync_all()?;
     }
     #[cfg(target_family = "windows")]
     {
