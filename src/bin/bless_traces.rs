@@ -1,3 +1,9 @@
+//! Regenerate golden trace snapshots (JSONL) deterministically.
+//!
+//! Usage: `cargo run --bin bless_traces -- [PATH]` (default:
+//! `tests/golden/traces.jsonl`). Recomputes each record with the
+//! default heuristics, writes to a temporary file, then atomically
+//! replaces the snapshot.
 use lag_complexity::{ComplexityFn, HeuristicComplexity, Trace};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, BufWriter, Write};
