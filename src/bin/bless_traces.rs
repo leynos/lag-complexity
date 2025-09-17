@@ -2,8 +2,8 @@
 //!
 //! Usage: `cargo run --bin bless_traces -- [PATH]` (default:
 //! `tests/golden/traces.jsonl`). Recomputes each record with the
-//! default heuristics, writes to a temporary file, then atomically
-//! replaces the snapshot.
+//! default heuristics, writes to a temporary file, then replaces the
+//! snapshot (atomic on Unix; best-effort on Windows).
 use lag_complexity::{ComplexityFn, HeuristicComplexity, Trace};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_family = "windows")]
     {
         let _ = std::fs::remove_file(&path);
-        temp_path.persist(&path).map_err(std::io::Error::from)?;
+        std::fs::rename(temp_path.as_ref(), &path)?;
     }
     #[cfg(not(any(target_family = "unix", target_family = "windows")))]
     {
