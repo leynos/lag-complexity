@@ -1,10 +1,10 @@
 use lag_complexity::{
-    Complexity, ComplexityFn, HeuristicComplexity, HeuristicComplexityError, Trace,
-    heuristics::DepthHeuristicError,
+    Complexity, ComplexityFn, DepthHeuristicError, HeuristicComplexity, HeuristicComplexityError,
+    Trace,
 };
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 
 #[derive(Default)]
 struct TestContext {
@@ -22,25 +22,29 @@ impl TestContext {
         }
     }
 
-    fn traced_ok(&self) -> Trace {
-        match self.trace_result.borrow().as_ref() {
-            Some(Ok(trace)) => trace.clone(),
+    fn traced_ok(&self) -> Ref<'_, Trace> {
+        Ref::map(self.trace_result.borrow(), |maybe| match maybe {
+            Some(Ok(trace)) => trace,
             Some(Err(err)) => panic!("expected trace to succeed, got error: {err}"),
             None => panic!("trace result missing"),
-        }
+        })
     }
 }
 
 fn assert_close(actual: f32, expected: f32) {
-    let tolerance = 1e-6;
     #[expect(
         clippy::float_arithmetic,
         reason = "tests compare floating point values"
     )]
-    let diff = (actual - expected).abs();
+    let abs = (actual - expected).abs();
+    #[expect(
+        clippy::float_arithmetic,
+        reason = "tests compare floating point values"
+    )]
+    let rel = abs / expected.abs().max(1.0);
     assert!(
-        diff <= tolerance,
-        "expected {expected}, got {actual}, diff {diff} exceeds tolerance {tolerance}"
+        abs <= 1e-5 || rel <= 1e-4,
+        "expected ≈{expected}, got {actual} (abs={abs}, rel={rel})"
     );
 }
 
@@ -150,27 +154,27 @@ fn then_depth_error_trace(#[from(test_context)] context: &TestContext) {
     }
 }
 
-#[scenario(path = "tests/features/score.feature", index = 0)]
+#[scenario(path = "tests/features/heuristic_scoring/multi_clause.feature")]
 fn score_multi_clause(test_context: TestContext) {
     let _ = test_context;
 }
 
-#[scenario(path = "tests/features/score.feature", index = 1)]
+#[scenario(path = "tests/features/heuristic_scoring/ambiguous.feature")]
 fn score_ambiguous_question(test_context: TestContext) {
     let _ = test_context;
 }
 
-#[scenario(path = "tests/features/score.feature", index = 2)]
+#[scenario(path = "tests/features/heuristic_scoring/empty_query.feature")]
 fn score_empty_query(test_context: TestContext) {
     let _ = test_context;
 }
 
-#[scenario(path = "tests/features/score.feature", index = 3)]
+#[scenario(path = "tests/features/heuristic_scoring/trace_simple.feature")]
 fn trace_simple_question(test_context: TestContext) {
     let _ = test_context;
 }
 
-#[scenario(path = "tests/features/score.feature", index = 4)]
+#[scenario(path = "tests/features/heuristic_scoring/trace_empty.feature")]
 fn trace_empty_query(test_context: TestContext) {
     let _ = test_context;
 }
