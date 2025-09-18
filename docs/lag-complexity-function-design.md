@@ -886,12 +886,12 @@ components of the crate work correctly together.
   depth and ambiguity signals with the `scope` component exposed as a
   configurable baseline via [`HeuristicComplexity::with_scope_weight`] (default
   `0.0`) until a dedicated estimator is introduced.
-- The implemented baseline keeps `score()` and `trace()` intentionally simple.
-  Both call the heuristic providers sequentially and bubble up their typed
-  errors. `trace()` reuses the value returned by `score()` so the diagnostic
-  struct always mirrors the score observed by callers. The scope component
-  remains an additive baseline (default `0.0`), allowing downstream systems to
-  tune the weight without introducing a placeholder heuristic.
+- The implemented baseline keeps `score()` and `trace()` intentionally
+  simple. Both call the heuristic providers sequentially and bubble up their
+  typed errors. `trace()` reuses the value returned by `score()` so the
+  diagnostic struct always mirrors the score observed by callers. The scope
+  component remains an additive baseline (default `0.0`), allowing downstream
+  systems to tune the weight without introducing a placeholder heuristic.
 - **Provider and Feature Flag Integration:** Specific integration tests will be
   compiled only when certain feature flags are enabled (e.g.,
   `#[cfg(feature = "provider-api")]`). These tests will ensure that API-based

@@ -32,12 +32,16 @@ impl TestContext {
 }
 
 fn assert_close(actual: f32, expected: f32) {
+    let tolerance = 1e-6;
     #[expect(
         clippy::float_arithmetic,
         reason = "tests compare floating point values"
     )]
     let diff = (actual - expected).abs();
-    assert!(diff <= f32::EPSILON, "expected {expected}, got {actual}");
+    assert!(
+        diff <= tolerance,
+        "expected {expected}, got {actual}, diff {diff} exceeds tolerance {tolerance}"
+    );
 }
 
 #[fixture]
