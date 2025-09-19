@@ -32,9 +32,9 @@ relying on fast, lightweight heuristics.
   feature flag.
 - [x] Create the golden-file integration test suite with an initial set of
   approximately 50 curated queries and their expected trace outputs.
-- [ ] **Acceptance Criteria**: The `score()` and `trace()` methods are fully
+- [x] **Acceptance Criteria**: The `score()` and `trace()` methods are fully
   functional using the heuristic providers.
-- [ ] **Acceptance Criteria**: The golden-file integration tests pass,
+- [x] **Acceptance Criteria**: The golden-file integration tests pass,
   establishing a baseline for regression testing.
 
 ## Phase 2 — Model-Backed Providers & Performance (Duration: 2 weeks)

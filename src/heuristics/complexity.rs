@@ -54,7 +54,9 @@ impl HeuristicComplexity {
     /// let hc = HeuristicComplexity::new();
     /// ```
     #[must_use]
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Set the additive baseline for the scope component (alias of [`HeuristicComplexity::with_scope_baseline`]).
     ///
