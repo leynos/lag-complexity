@@ -1,3 +1,6 @@
+//! Behavioural tests exercising heuristic scoring and tracing.
+//! Validates `score()` and `trace()` flows, totals, components, and error propagation.
+
 use lag_complexity::{
     Complexity, ComplexityFn, DepthHeuristicError, HeuristicComplexity, HeuristicComplexityError,
     Trace,
@@ -23,10 +26,15 @@ impl TestContext {
     }
 
     fn traced_ok(&self) -> Ref<'_, Trace> {
-        Ref::map(self.trace_result.borrow(), |maybe| match maybe {
-            Some(Ok(trace)) => trace,
+        let borrow = self.trace_result.borrow();
+        match borrow.as_ref() {
+            Some(Ok(_)) => {}
             Some(Err(err)) => panic!("expected trace to succeed, got error: {err}"),
             None => panic!("trace result missing"),
+        }
+        Ref::map(borrow, |maybe| match maybe {
+            Some(Ok(trace)) => trace,
+            _ => unreachable!("validated above"),
         })
     }
 }
@@ -51,15 +59,29 @@ fn assert_close(actual: f32, expected: f32) {
     );
 }
 
+fn assert_depth_empty_error<T>(
+    cell: &RefCell<Option<Result<T, HeuristicComplexityError>>>,
+    label: &str,
+) {
+    match cell.borrow().as_ref() {
+        Some(Err(HeuristicComplexityError::Depth(DepthHeuristicError::Empty))) => {}
+        Some(Err(other)) => panic!("expected depth error, got {other}"),
+        Some(Ok(_)) => panic!("expected error, got success"),
+        None => panic!("{label} result missing"),
+    }
+}
+
 #[fixture]
 fn test_context() -> TestContext {
     TestContext::default()
 }
 
 #[given("a heuristic complexity scorer")]
-fn given_scorer(#[from(test_context)] context: &TestContext) {
-    let _ = context;
-}
+#[expect(
+    unused_variables,
+    reason = "rstest-bdd injects the fixture while this Given step remains a no-op"
+)]
+fn given_scorer(#[from(test_context)] context: &TestContext) {}
 
 #[when("scoring \"{query}\"")]
 #[expect(
@@ -139,22 +161,12 @@ fn then_trace_query(expected: String, #[from(test_context)] context: &TestContex
 
 #[then("a depth error is returned")]
 fn then_depth_error(#[from(test_context)] context: &TestContext) {
-    match context.score_result.borrow().as_ref() {
-        Some(Err(HeuristicComplexityError::Depth(DepthHeuristicError::Empty))) => {}
-        Some(Err(other)) => panic!("expected depth error, got {other}"),
-        Some(Ok(_)) => panic!("expected error, got success"),
-        None => panic!("score result missing"),
-    }
+    assert_depth_empty_error(&context.score_result, "score");
 }
 
 #[then("a depth error is returned from trace")]
 fn then_depth_error_trace(#[from(test_context)] context: &TestContext) {
-    match context.trace_result.borrow().as_ref() {
-        Some(Err(HeuristicComplexityError::Depth(DepthHeuristicError::Empty))) => {}
-        Some(Err(other)) => panic!("expected depth error, got {other}"),
-        Some(Ok(_)) => panic!("expected error, got success"),
-        None => panic!("trace result missing"),
-    }
+    assert_depth_empty_error(&context.trace_result, "trace");
 }
 
 #[scenario(path = "tests/features/heuristic_scoring/multi_clause.feature")]
