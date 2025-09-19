@@ -77,11 +77,7 @@ fn test_context() -> TestContext {
 }
 
 #[given("a heuristic complexity scorer")]
-#[expect(
-    unused_variables,
-    reason = "rstest-bdd injects the fixture while this Given step remains a no-op"
-)]
-fn given_scorer(#[from(test_context)] context: &TestContext) {}
+fn given_scorer() {}
 
 #[when("scoring \"{query}\"")]
 #[expect(
