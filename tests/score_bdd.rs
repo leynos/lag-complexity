@@ -32,6 +32,9 @@ impl TestContext {
 }
 
 fn assert_close(actual: f32, expected: f32) {
+    const ABS_TOLERANCE: f32 = 1e-5;
+    const REL_TOLERANCE: f32 = 1e-4;
+
     #[expect(
         clippy::float_arithmetic,
         reason = "tests compare floating point values"
@@ -43,7 +46,7 @@ fn assert_close(actual: f32, expected: f32) {
     )]
     let rel = abs / expected.abs().max(1.0);
     assert!(
-        abs <= 1e-5 || rel <= 1e-4,
+        abs <= ABS_TOLERANCE || rel <= REL_TOLERANCE,
         "expected ≈{expected}, got {actual} (abs={abs}, rel={rel})"
     );
 }
