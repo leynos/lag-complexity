@@ -118,19 +118,19 @@ re-exported at the crate root for convenient access.
 - `lag_complexity::error`: Defines the crate's custom `Error` enum using the
   `thiserror` crate for ergonomic error handling.
 
-  ### Core types deep dive
+### Core types deep dive
 
 The central data structures are designed for transparency and interoperability.
 
 - `Complexity`:
 
-```rust
-  pub struct Complexity {
-    total: f32,
-    scope: f32,
-    depth: f32,
-    ambiguity: f32,
-}
+  ```rust
+    pub struct Complexity {
+      total: f32,
+      scope: f32,
+      depth: f32,
+      ambiguity: f32,
+  }
   ```
 
 The fields of the `Complexity` struct are private to preserve the invariant
@@ -145,19 +145,19 @@ deserializing untrusted data.
 - `Error`: A comprehensive error enum will be defined using `thiserror` to
   provide structured and actionable error information.
 
-```rust
-pub enum Error {
-    #[error("Configuration error: {0}")]
-    Config(String),
-    #[error("External API call failed: {0}")]
-    Api(#[from] reqwest::Error),
-    #[error("Model inference failed: {0}")]
-    Inference(String),
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    // ... other error variants
-}
-```
+  ```rust
+  pub enum Error {
+      #[error("Configuration error: {0}")]
+      Config(String),
+      #[error("External API call failed: {0}")]
+      Api(#[from] reqwest::Error),
+      #[error("Model inference failed: {0}")]
+      Inference(String),
+      #[error("I/O error: {0}")]
+      Io(#[from] std::io::Error),
+      // ... other error variants
+  }
+  ```
 
 ### The `ComplexityFn` trait
 
@@ -428,7 +428,7 @@ as accurate as a model-based approach, it serves as an excellent low-latency
 first-pass filter. It operates by identifying and counting linguistic markers
 that often correlate with syntactic and logical complexity.[^9]
 
-- **Feature Engineering:**
+##### Feature Engineering
 
 - **Clause Connectors:** It will identify and score coordinating conjunctions
   (`and`, `or`, `but`) and subordinating conjunctions (`if`, `because`,
@@ -508,7 +508,7 @@ clarified before attempting to answer.
 This provides a fast, lightweight signal for common sources of ambiguity in
 English text.[^10]
 
-- **Feature Engineering:**
+##### Feature Engineering
 
 - **Coreference Risk (Anaphora):** The heuristic will count third-person
   pronouns (`it`, `he`, `she`, `they`) and demonstratives (`this`, `that`). The
@@ -643,9 +643,9 @@ threshold for decomposition,
 - `Schedule::ExpDecay { tau0, lambda }`: This variant implements an exponential
   decay function for the threshold: `τ(t) = tau0 * exp(-lambda * t)`.
 
-- `tau0`: The initial threshold at `t=0`.
-- `lambda`: The decay rate, controlling how quickly the threshold decreases
-  with each step.
+  - `tau0`: The initial threshold at `t=0`.
+  - `lambda`: The decay rate, controlling how quickly the threshold decreases
+    with each step.
 
 ### Halting conditions (Halting)
 
@@ -713,13 +713,11 @@ essential for performance and cost reduction.
   `EmbeddingProvider`. Caching the final `Complexity` score is less effective,
   as small variations in the query text would lead to cache misses.
 - **Library Selection:** The `moka` crate will be used for caching.[^14] While
-
-`dashmap` is an excellent general-purpose concurrent hash map 42,
-
-`moka` is a specialized, high-performance caching library inspired by Java's
-Caffeine. It provides essential caching features out-of-the-box, such as
-size-based eviction (LRU/LFU policies) and time-based expiration (TTL/TTI),
-which are critical for managing the cache's memory footprint and data freshness.
+  `dashmap` is an excellent general-purpose concurrent hash map 42, `moka` is
+  a specialized, high-performance caching library inspired by Java's Caffeine.
+  It provides essential caching features out-of-the-box, such as size-based
+  eviction (LRU/LFU policies) and time-based expiration (TTL/TTI), which are
+  critical for managing the cache's memory footprint and data freshness.
 
 - **Implementation:** A `CachingEmbeddingProvider` decorator will be
   implemented. This struct will wrap an existing `EmbeddingProvider` and
@@ -746,15 +744,16 @@ observability practices.
 - **Key Metrics:** The following metrics will be emitted via the `metrics`
   facade:
 
-- `lag_complexity_requests_total`: A `Counter` incremented for each call to
-  `score` or `score_batch`.
-- `lag_complexity_request_latency_seconds`: A `Histogram` that records the
-  end-to-end latency of a `score` operation.
-- `lag_complexity_provider_latency_seconds`: A `Histogram` with a `provider`
-  label (e.g., `provider="embedding"`) to isolate the performance of each
-  internal component.
-- `lag_complexity_provider_errors_total`: A `Counter` with `provider` and
-  `error_type` labels to track failures within each component.
+  - `lag_complexity_requests_total`: A `Counter` incremented for each call to
+    `score` or `score_batch`.
+  - `lag_complexity_request_latency_seconds`: A `Histogram` that records the
+    end-to-end latency of a `score` operation.
+  - `lag_complexity_provider_latency_seconds`: A `Histogram` with a `provider`
+    label (e.g., `provider="embedding"`) to isolate the performance of each
+    internal component.
+  - `lag_complexity_provider_errors_total`: A `Counter` with `provider` and
+    `error_type` labels to track failures within each component.
+
 - **Prometheus Integration:** The documentation and CLI tool will provide a
   reference implementation for how to use the `metrics-exporter-prometheus`
   crate to expose these metrics on a `/metrics` HTTP endpoint, making them
@@ -820,7 +819,8 @@ in isolation.
 - The `Schedule::ExpDecay` logic will be tested to confirm that the threshold
   `τ(t)` is always positive and monotonically decreasing as the step `t`
   increases.
-- **Heuristic Components:**
+  
+##### Heuristic Components:
 
 - Tests for `DepthHeuristic` will assert that adding linguistic complexity
   markers (e.g., a subordinating conjunction or a relative clause) never
@@ -841,7 +841,8 @@ test writers might miss.
 - The `score(q)` function must never panic for any valid UTF-8 string `q`.
 - All components of the returned `Complexity` struct (`total`, `scope`,
   `depth`, `ambiguity`) must be non-negative.
-- **Behavioural properties:**
+  
+##### Behavioural properties:
 
 - **Idempotence:** `score(q)` should be equal to `score(q.clone())`.
 - **Scope Order-Insensitivity:** For the `ScopeVariance` component,
@@ -909,7 +910,8 @@ academic datasets and report on its performance.
   be created to automate this process. It will load specified datasets, run the
   `lag_complexity` scorer on the questions, and compute a suite of validation
   metrics.
-- **Dataset-to-Component Mapping:**
+  
+#### Dataset-to-Component Mapping:
 
 - **Reasoning Steps (**`depth`**):** Performance will be measured against
   multi-hop question-answering datasets like **HotpotQA** 52, **2WikiMultiHopQA**,
@@ -969,7 +971,7 @@ These benchmarks will isolate and measure the performance of individual,
 critical components to identify potential bottlenecks and guide optimization
 efforts.
 
-#### Provider Latency
+#### Provider Latency:
 
 - `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
@@ -982,7 +984,7 @@ efforts.
   `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` models will be
   benchmarked.
   
-#### Computational Overhead
+#### Computational Overhead:
 
 - The time taken for the variance calculation and the application of `Sigma`
   normalization will be measured to ensure they contribute negligibly to the
@@ -1006,12 +1008,12 @@ simulating real-world usage patterns.
   - **Short Queries:** Average length of ~10 words.
   - **Medium Queries:** Average length of ~25 words.
   - **Long Queries:** Average length of ~75 words.
-  - 
+
 - **Provider Combinations:** Benchmarks will be run for different compositions
   of providers (e.g., full heuristic, heuristic + ONNX, full API) to provide
   users with clear performance expectations for each configuration.
 
-  ### Scalability benchmarks
+### Scalability benchmarks
 
 A key advantage of the Rust implementation is its ability to leverage
 multi-core processors. These benchmarks will quantify the performance gains
@@ -1022,7 +1024,7 @@ from parallelism.
   will be used to calculate the speed-up factor and assess how effectively the
   implementation scales with additional CPU cores.
 
-  ### Reporting
+### Reporting
 
 Transparent and reproducible performance reporting is crucial for users and
 maintainers.
@@ -1038,7 +1040,7 @@ maintainers.
   and software (Rust version, OS, crate feature flags) configuration used for
   the benchmark run, ensuring that the results are reproducible.
 
-  ## 7. Stakeholder demonstration and application
+## 7. Stakeholder demonstration and application
 
 To effectively communicate the value and functionality of the `lag_complexity`
 crate to a broader audience, including product managers, technical leadership,
@@ -1075,13 +1077,13 @@ experience of the complexity metric in action.
   stakeholders to develop an intuitive "feel" for what kinds of questions are
   considered complex by the system.
 
-  ### Python notebook walkthroughs
+### Python notebook walkthroughs
 
 For a more narrative and comparative demonstration, a series of Jupyter
 notebooks will be created. These will leverage the Python bindings generated by
 the `pyo3` crate, enabled by the `python` feature flag.[^21]
 
-- **Scenario 1: Smart Assistant vs. Clumsy Intern**
+#### Scenario 1: Smart Assistant vs. Clumsy Intern
 
 - **Objective:** To demonstrate how the `depth` score drives intelligent task
   decomposition.
@@ -1097,13 +1099,14 @@ the `pyo3` crate, enabled by the `python` feature flag.[^21]
   highlighting a high `depth` score. Based on this signal, the assistant
   decomposes the query into a logical chain:
 
-1. "What book is the film 'Arrival' based on?"
-2. "Who is the author of that book?"
-3. "At which university did that author teach?"
+  1. "What book is the film 'Arrival' based on?"
+  2. "Who is the author of that book?"
+  3. "At which university did that author teach?"
 
 - The notebook will then show the system answering each sub-question
   sequentially, leading to a correct and fully supported final answer.
-- **Scenario 2: The Ambiguity Resolver**
+
+#### Scenario 2: The Ambiguity Resolver
 
 - **Objective:** To demonstrate how the `ambiguity` score prevents incorrect
   assumptions and improves user interaction.
@@ -1205,7 +1208,7 @@ where
     }
     // ... trace() implementation ...
 }
-  ```
+```
 
 This example clearly illustrates the composition pattern, the use of
 `rayon::join` for concurrent provider execution, and the conditional
@@ -1241,10 +1244,9 @@ lambda = 0.1
 [halting]
 gamma = 0.9
 t_max = 5
+```
 
-  ```
-
-**Rust code to load the configuration:**
+Rust code to load the configuration:
 
 ```rust
   use lag_complexity::config::ScoringConfig;
@@ -1255,8 +1257,7 @@ fn load_config(path: &str) -> Result<ScoringConfig, Box<dyn std::error::Error>> 
     let config: ScoringConfig = toml::from_str(&config_str)?;
     Ok(config)
 }
-
-  ```
+```
 
 ### Using the `Trace` object for diagnostics
 
@@ -1277,7 +1278,7 @@ fn print_trace(scorer: &impl ComplexityFn, query: &str) {
         Err(e) => eprintln!("Failed to generate trace: {e}"),
     }
 }
-  ```
+```
 
 This example highlights how the `Trace` object exposes the original query and
 its component scores, aiding debugging without additional instrumentation.
@@ -1296,135 +1297,140 @@ defining the primary public interfaces.
 
 - **Tasks:**
 
-- Initialize the Rust project using `cargo new`.
-- Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
-  `DepthEstimator`, `AmbiguityEstimator`).
-- Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
-  its sub-types) and derive `serde` traits for configuration types.
-- Implement the mathematical logic for variance calculation and all `Sigma`
-  normalization strategies.
-- Create the stub for the `lagc` command-line interface binary using the
-  `ortho_config` crate (published as `ortho-config` on
-  crates.io)[^hyphen-underscore], which layers command-line arguments,
-  environment variables (prefixed with `LAGC_`), and configuration files
-  without extra boilerplate. Precedence is: command-line arguments >
-  environment variables
-  > configuration files.
+  - Initialize the Rust project using `cargo new`.
+  - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
+    `DepthEstimator`, `AmbiguityEstimator`).
+  - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
+    its sub-types) and derive `serde` traits for configuration types.
+  - Implement the mathematical logic for variance calculation and all `Sigma`
+    normalization strategies.
+  - Create the stub for the `lagc` command-line interface binary using the
+    `ortho_config` crate (published as `ortho-config` on
+    crates.io)[^hyphen-underscore], which layers command-line arguments,
+    environment variables (prefixed with `LAGC_`), and configuration files
+    without extra boilerplate. Precedence is: command-line arguments >
+    environment variables > configuration files.
+
 - **Acceptance Criteria:**
+  
+  - The crate and all its core types compile successfully.
+  - A comprehensive suite of unit tests for the mathematical and normalization
+    logic passes.
+  - The `lagc` CLI application can be built and executed, though it will have no
+    functional commands yet.
 
-- The crate and all its core types compile successfully.
-- A comprehensive suite of unit tests for the mathematical and normalization
-  logic passes.
-- The `lagc` CLI application can be built and executed, though it will have no
-  functional commands yet.
-
-  ### Phase 1 — heuristic baseline (duration: 1-2 weeks)
+### Phase 1 — heuristic baseline (duration: 1-2 weeks)
 
 This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
 
 - **Tasks:**
+  
+  - Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
+  - Implement the `ApiEmbedding` provider (behind the `provider-api` feature
+    flag) to enable initial testing with high-quality embeddings.
+  - Create the golden-file integration test suite with an initial set of ~50
+    curated queries and their expected trace outputs.
 
-- Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
-- Implement the `ApiEmbedding` provider (behind the `provider-api` feature
-  flag) to enable initial testing with high-quality embeddings.
-- Create the golden-file integration test suite with an initial set of ~50
-  curated queries and their expected trace outputs.
 - **Acceptance Criteria:**
 
-- The `score()` and `trace()` methods are fully functional using the heuristic
-  providers.
-- The golden-file integration tests pass, establishing a baseline for
-  regression testing.
+  - The `score()` and `trace()` methods are fully functional using the heuristic
+    providers.
+  - The golden-file integration tests pass, establishing a baseline for
+    regression testing.
 
-  ### Phase 2 — model-backed providers & performance (duration: 2 weeks)
+### Phase 2 — model-backed providers & performance (duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
 optimizing for performance.
 
 - **Tasks:**
 
-- Train (or adapt existing) and export the initial ONNX models for depth and
-  ambiguity classification.
-- Implement the `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` providers,
-  gated by the `onnx` feature flag.
-- Implement the `score_batch` method and integrate `rayon` for parallel
-  execution.
-- Set up the `criterion` benchmarking suite and implement the initial set of
-  micro and macro benchmarks.
+  - Train (or adapt existing) and export the initial ONNX models for depth and
+    ambiguity classification.
+  - Implement the `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` providers,
+    gated by the `onnx` feature flag.
+  - Implement the `score_batch` method and integrate `rayon` for parallel
+    execution.
+  - Set up the `criterion` benchmarking suite and implement the initial set of
+    micro and macro benchmarks.
+
 - **Acceptance Criteria:**
 
-- The ONNX-based providers can be successfully composed into a
-  `DefaultComplexity` engine and produce valid scores.
-- The `score_batch` method demonstrates a significant performance speedup when
-  the `rayon` feature is enabled.
-- Initial performance metrics (latency, throughput) are recorded in
-  `BENCHMARKS.md`.
+  - The ONNX-based providers can be successfully composed into a
+    `DefaultComplexity` engine and produce valid scores.
+  - The `score_batch` method demonstrates a significant performance speedup when
+    the `rayon` feature is enabled.
+  - Initial performance metrics (latency, throughput) are recorded in
+    `BENCHMARKS.md`.
 
-  ### Phase 3 — evaluation & calibration (duration: 1 week)
+### Phase 3 — evaluation & calibration (duration: 1 week)
 
 This phase is dedicated to empirically validating the scorer's effectiveness
 and tuning its parameters.
 
 - **Tasks:**
 
-- Build the dataset evaluation harness binary.
-- Integrate loaders for the target datasets (`HotpotQA`, `AmbigQA`, etc.).
-- Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
-  calibration (`ECE`) metrics.
-- Run the evaluation harness and analyse the results to fine-tune the `Sigma`
-  normalization parameters and the weights within the heuristic models.
+  - Build the dataset evaluation harness binary.
+  - Integrate loaders for the target datasets (`HotpotQA`, `AmbigQA`, etc.).
+  - Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
+    calibration (`ECE`) metrics.
+  - Run the evaluation harness and analyse the results to fine-tune the `Sigma`
+    normalization parameters and the weights within the heuristic models.
+
 - **Acceptance Criteria:**
 
-- The evaluation harness successfully generates a report (`EVALUATION.md`).
-- The report demonstrates a statistically significant positive correlation
-  between the crate's component scores and the corresponding dataset labels.
-- The calibrated parameters are finalized and committed as the default
-  configuration.
+  - The evaluation harness successfully generates a report (`EVALUATION.md`).
+  - The report demonstrates a statistically significant positive correlation
+    between the crate's component scores and the corresponding dataset labels.
+  - The calibrated parameters are finalized and committed as the default
+    configuration.
 
-  ### Phase 4 — bindings & demos (duration: 2 weeks)
+### Phase 4 — bindings & demos (duration: 2 weeks)
 
 This phase focuses on making the crate accessible from other ecosystems and
 creating compelling demonstrations.
 
 - **Tasks:**
 
-- Implement the Python bindings using `pyo3`.[^21]
-- Implement the WebAssembly bindings using `wasm-bindgen`.[^20]
-- Develop the interactive "Complexity Meter" web page using the WASM module.
-- Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
-  Resolver" stakeholder demonstrations.
+  - Implement the Python bindings using `pyo3`.[^21]
+  - Implement the WebAssembly bindings using `wasm-bindgen`.[^20]
+  - Develop the interactive "Complexity Meter" web page using the WASM module.
+  - Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
+    Resolver" stakeholder demonstrations.
+  
 - **Acceptance Criteria:**
+  
+  - The Python package can be built, installed via `pip`, and used to score
+    queries.
+  - The WASM demo is fully functional, interactive, and hosted on a static page.
+  - The demonstration notebooks are complete and successfully showcase the
+    crate's value.
 
-- The Python package can be built, installed via `pip`, and used to score
-  queries.
-- The WASM demo is fully functional, interactive, and hosted on a static page.
-- The demonstration notebooks are complete and successfully showcase the
-  crate's value.
-
-  ### Phase 5 — production hardening (duration: 1 week)
+### Phase 5 — production hardening (duration: 1 week)
 
 The final phase adds the remaining features required for robust, secure, and
 observable production deployment.
 
 - **Tasks:**
 
-- Instrument the entire crate with `tracing` spans and `metrics` calls.
-- Implement the `moka`-based `CachingEmbeddingProvider`.
-- Implement the `with_redaction_hook` method for PII scrubbing.
-- Write comprehensive `rustdoc` documentation for all public APIs, including
-  detailed usage examples.
-- Finalize the `README.md` to include installation instructions, usage
-  examples, and links to benchmarks and evaluation reports.
+  - Instrument the entire crate with `tracing` spans and `metrics` calls.
+  - Implement the `moka`-based `CachingEmbeddingProvider`.
+  - Implement the `with_redaction_hook` method for PII scrubbing.
+  - Write comprehensive `rustdoc` documentation for all public APIs, including
+    detailed usage examples.
+  - Finalize the `README.md` to include installation instructions, usage
+    examples, and links to benchmarks and evaluation reports.
+
 - **Acceptance Criteria:**
 
-- The crate is fully documented, with `cargo doc --open` producing a complete
-  and navigable API reference.
-- All production features (observability, caching, security hooks) are
-  implemented and tested.
-- The final project is ready for its first official release.
+  - The crate is fully documented, with `cargo doc --open` producing a complete
+    and navigable API reference.
+  - All production features (observability, caching, security hooks) are
+    implemented and tested.
+  - The final project is ready for its first official release.
 
-  ## 10. Integration into a logic-augmented generation (LAG) system
+## 10. Integration into a logic-augmented generation (LAG) system
 
 The `lag_complexity` crate is not an end in itself; it is a critical enabling
 component for more advanced AI reasoning systems, specifically those built on
@@ -1450,7 +1456,7 @@ decide which "gear" to use for processing it.
   breaks the problem down into smaller parts, and then tackles them
   systematically. This is slower but more robust and reliable.
 
-  ### Control flow in a LAG agent
+### Control flow in a LAG agent
 
 The integration of the crate into a LAG agent's control loop can be visualized
 as follows:
@@ -1559,6 +1565,9 @@ systems that are more robust, explainable, and aligned with the principles of
 structured human reasoning. Its successful implementation will represent a
 significant step toward creating AI that can not only answer questions but can
 also understand when a question requires deeper thought.
+
+## Works cited
+
 [^1]: T. Brown et al., "Language Models are Few-Shot Learners."
 [^2]: J. Ji et al., "Survey of Hallucination in Neural Models."
 [^3]: P. Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive
