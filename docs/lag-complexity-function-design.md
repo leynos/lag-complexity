@@ -157,7 +157,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
     // ... other error variants
 }
-  ```
+```
 
 ### The `ComplexityFn` trait
 
@@ -171,7 +171,7 @@ pub trait ComplexityFn {
     fn score(&self, q: &str) -> Result<Complexity, Self::Error>;
     fn trace(&self, q: &str) -> Result<Trace, Self::Error>;
 }
-  ```
+```
 
 - The `score` method represents the hot path, designed for high-throughput,
   low-latency execution in production.
@@ -184,7 +184,7 @@ pub trait ComplexityFn {
   creating golden-file tests (Section 5.3), debugging scoring anomalies, and
   powering stakeholder-facing demonstrations (Section 7).
 
-  #### Scoring flow
+#### Scoring flow
 
 The sequence diagram below outlines the primary interactions when scoring a
 query.
@@ -217,7 +217,7 @@ sequenceDiagram
       end
     end
   end
-  ```
+```
 
 ### Provider traits
 
@@ -240,7 +240,7 @@ pub type DepthEstimator<E> =
     dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
 pub type AmbiguityEstimator<E> =
     dyn TextProcessor<Output = f32, Error = E> + Send + Sync + 'static;
-  ```
+```
 
 All provider methods return a `Result` to ensure that failures, such as a
 network timeout or a model loading error, are propagated cleanly through the
@@ -268,35 +268,35 @@ recompiling the application.
 - Sigma: An enum representing the normalization strategy. This provides
   statistical flexibility to adapt to different distributions of raw scores.
 
-```rust
-pub enum Sigma {
-    MinMax { p01: f32, p99: f32 },
-    ZScore { mean: f32, std: f32 },
-    Robust { median: f32, mad: f32 },
-}
+  ```rust
+  pub enum Sigma {
+      MinMax { p01: f32, p99: f32 },
+      ZScore { mean: f32, std: f32 },
+      Robust { median: f32, mad: f32 },
+  }
   ```
 
 - `Weights`: A simple struct for re-weighting the final components of the
   `CL(q)` score. The default will be `1.0` for all components, directly
   matching the unweighted sum in the LAG paper's formula.[^5]
 
-```rust
-pub struct Weights {
-    pub scope: f32,
-    pub depth: f32,
-    pub ambiguity: f32,
-}
+  ```rust
+  pub struct Weights {
+      pub scope: f32,
+      pub depth: f32,
+      pub ambiguity: f32,
+  }
   ```
 
 - `Schedule`: An enum that implements the decaying threshold logic, `τ(t)`, for
   the split condition. The primary variant directly models the paper's concept
   of a threshold that becomes more lenient as the reasoning process deepens.[^5]
 
-```rust
-pub enum Schedule {
-    Constant(f32),
-    ExpDecay { tau0: f32, lambda: f32 },
-}
+  ```rust
+  pub enum Schedule {
+      Constant(f32),
+      ExpDecay { tau0: f32, lambda: f32 },
+  }
   ```
 
 - `Halting`: A struct to hold the parameters for the agent-level "Logical
@@ -304,11 +304,11 @@ pub enum Schedule {
   parameters are configured alongside the rest of the complexity logic for
   coherence.
 
-```rust
-pub struct Halting {
-    pub gamma: f32, // Semantic redundancy threshold
-    pub t_max: u8,  // Max decomposition steps
-}
+  ```rust
+  pub struct Halting {
+      pub gamma: f32, // Semantic redundancy threshold
+      pub t_max: u8,  // Max decomposition steps
+  }
   ```
 
 ### Feature flags
@@ -387,7 +387,7 @@ require a wider retrieval strategy.
 - **Non-finite Inputs:** `NaN` or infinite values yield `NaN`. Callers should
   sanitise embeddings if such values are not expected.
 
-  #### Embedding providers
+#### Embedding providers
 
 The quality of the Semantic Scope signal is entirely dependent on the quality
 of the underlying embedding, `ϕ(q)`. The crate will provide both remote and
@@ -414,7 +414,7 @@ local options.
   like `all-MiniLM-L6-v2`. Clear instructions will be provided for downloading
   model weights and configuring the provider to use them.
 
-  ### 2.2 Reasoning steps: σ(Depth(q))
+### 2.2 Reasoning steps: σ(Depth(q))
 
 This component estimates the number of latent inference steps required to
 answer a query. A high depth score is the primary trigger for query
@@ -468,13 +468,12 @@ that often correlate with syntactic and logical complexity.[^9]
   Comma patterns capture simple enumerations. This trades linguistic coverage
   for transparency and sub-millisecond performance.
 
-  #### Model-backed options
+#### Model-backed options
 
 For higher accuracy, the crate will provide model-based estimators.
 
 - `DepthClassifierOnnx`: Enabled by the `onnx` feature, this provider uses a
   small, pre-trained model in the ONNX format for fast local inference.
-
 - **Architecture:** The model will be a simple feed-forward neural network or a
   gradient-boosted tree model, designed for minimal computational overhead.
 - **Input:** To ensure low latency, the model will not process raw text.
@@ -487,7 +486,6 @@ For higher accuracy, the crate will provide model-based estimators.
   the predicted number of reasoning steps.
 - `DepthFromLLM`: Enabled by the `provider-api` feature, this is the
   highest-fidelity but also highest-latency option.
-
 - It wraps an API call to an external LLM (e.g., GPT-4o-mini).
 - The prompt will be carefully engineered using a few-shot approach, asking the
   LLM to explicitly break down the question and count the sub-questions. For
@@ -536,7 +534,7 @@ English text.[^10]
   entities count double, and Laplace smoothing adds one to the total.
   Antecedent resolution is deferred to model-based providers.
 
-  #### Model-backed option (AmbiguityClassifierOnnx)
+#### Model-backed option (AmbiguityClassifierOnnx)
 
 - Enabled by the `onnx` feature, this provider uses a lightweight text
   classification model for more nuanced ambiguity detection.
@@ -589,7 +587,7 @@ normalization module transforms these raw scores into a consistent, comparable
 range, typically [0, 1], so they can be meaningfully aggregated into the final
 `CL(q)` score.
 
-- **Implementations:**
+#### Implementations
 
 - `Sigma::MinMax { p01, p99 }`: This strategy performs a linear scaling of the
   raw score. To enhance robustness against extreme outliers, it scales based on
@@ -624,7 +622,7 @@ approximate the standard deviation under a normal distribution.
   domain-specific data and the evaluation harness provided by the crate (see
   Section 5).
 
-  ### Split scheduling (Schedule and τ(t))
+### Split scheduling (Schedule and τ(t))
 
 This component directly implements the adaptive decomposition logic from the
 LAG paper: `SplitCondition(q) = CL(q) > τ(t)`.[^5] The core concept is that the
@@ -649,7 +647,7 @@ threshold for decomposition,
 - `lambda`: The decay rate, controlling how quickly the threshold decreases
   with each step.
 
-  ### Halting conditions (Halting)
+### Halting conditions (Halting)
 
 The `Halting` configuration provides the parameters for the "Logical
 Terminator," a critical safety and efficiency mechanism described in the LAG
@@ -695,15 +693,15 @@ this task. The crate will leverage this capability to maximize throughput.
 - **`rayon` integration:** When the `rayon` feature flag is enabled,
   parallelism is applied at two levels:
 
-1. **Inter-Query Parallelism:** The `score_batch` method will use
-   `rayon::par_iter()` to process multiple queries in the batch concurrently
-   across available CPU cores.
-2. **Intra-Query Parallelism:** Within a single `score` call, the three
-   independent provider functions (`embed`, `estimate`, `entropy_like`) will be
-   executed in parallel using `rayon::join`. This allows the system to overlap
-   I/O-bound operations (like an API call for embeddings) with CPU-bound
-   operations (like running heuristic estimators), significantly reducing the
-   end-to-end latency for a single query.
+  1. **Inter-Query Parallelism:** The `score_batch` method will use
+     `rayon::par_iter()` to process multiple queries in the batch concurrently
+     across available CPU cores.
+  2. **Intra-Query Parallelism:** Within a single `score` call, the three
+     independent provider functions (`embed`, `estimate`, `entropy_like`) will be
+     executed in parallel using `rayon::join`. This allows the system to overlap
+     I/O-bound operations (like an API call for embeddings) with CPU-bound
+     operations (like running heuristic estimators), significantly reducing the
+     end-to-end latency for a single query.
 
 ### Caching strategy
 
@@ -730,7 +728,7 @@ which are critical for managing the cache's memory footprint and data freshness.
   key distribution and fixed key size. The cache itself will be configurable
   for maximum number of entries and an optional time-to-live (TTL) for entries.
 
-  ### Observability (metrics & tracing)
+### Observability (metrics & tracing)
 
 To operate and debug the system in production, deep visibility into its
 behaviour is required. The crate will provide first-class support for modern
@@ -762,7 +760,7 @@ observability practices.
   crate to expose these metrics on a `/metrics` HTTP endpoint, making them
   readily consumable by Prometheus and other compatible monitoring systems.[^16]
 
-  ### Security
+### Security
 
 The crate will be designed with security as a primary consideration.
 
@@ -782,7 +780,7 @@ The crate will be designed with security as a primary consideration.
   is a critical feature for maintaining data privacy and achieving compliance
   in regulated domains.
 
-  ### Determinism
+### Determinism
 
 For reproducible testing and evaluation, the crate's output must be
 deterministic for a given input and configuration.
@@ -797,7 +795,7 @@ deterministic for a given input and configuration.
   configuration file, ensuring that the exact parameters used for evaluation
   are captured and reproducible.
 
-  ## 5. Comprehensive testing and evaluation strategy
+## 5. Comprehensive testing and evaluation strategy
 
 A rigorous, multi-layered testing and evaluation strategy is essential to
 validate the correctness, robustness, and effectiveness of the `lag_complexity`
@@ -812,7 +810,7 @@ Located directly alongside the code they test (within `#[cfg(test)]` modules),
 unit tests will verify the correctness of individual functions and components
 in isolation.
 
-- **Mathematical and Configuration Logic:**
+#### Mathematical and Configuration Logic
 
 - The variance calculation will be tested against known inputs and edge cases
   (e.g., zero-length vectors, vectors with all identical elements).
@@ -831,14 +829,14 @@ in isolation.
   (e.g., "it" without a clear antecedent) or known homonyms never decreases the
   ambiguity score.
 
-  ### Property tests (proptest)
+### Property tests (proptest)
 
 Property-based testing, using the `proptest` crate, will be employed to test
 for invariants that must hold true for a wide range of arbitrary, automatically
 generated inputs. This is highly effective at finding edge cases that human
 test writers might miss.
 
-- **Core Invariants:**
+#### Core Invariants
 
 - The `score(q)` function must never panic for any valid UTF-8 string `q`.
 - All components of the returned `Complexity` struct (`total`, `scope`,
@@ -854,7 +852,7 @@ test writers might miss.
   (e.g., "versus", "in addition to") should generally lead to a non-decreasing
   `depth` score.
 
-  ### Integration tests
+### Integration tests
 
 Located in the `tests/` directory, these tests will verify that the different
 components of the crate work correctly together.
@@ -900,7 +898,7 @@ components of the crate work correctly together.
   servers like `wiremock`) and that ONNX models can be loaded and executed
   successfully.
 
-  ### Dataset-driven evaluation
+### Dataset-driven evaluation
 
 To validate that the complexity scores are not just internally consistent but
 also correlate with real-world notions of complexity, a dedicated evaluation
@@ -914,16 +912,14 @@ academic datasets and report on its performance.
 - **Dataset-to-Component Mapping:**
 
 - **Reasoning Steps (**`depth`**):** Performance will be measured against
-  multi-hop question-answering datasets like **HotpotQA** 52,
-
-**2WikiMultiHopQA**, and **MuSiQue**. The number of supporting facts or
-annotated reasoning hops will serve as the ground truth for reasoning depth.
+  multi-hop question-answering datasets like **HotpotQA** 52, **2WikiMultiHopQA**,
+  and **MuSiQue**. The number of supporting facts or annotated reasoning hops will
+  serve as the ground truth for reasoning depth.
 
 - **Ambiguity (**`ambiguity`**):** The ambiguity score will be validated
   against datasets designed to study ambiguity, such as **AmbigQA** 38 and
-
-**ASQA**. The ground truth will be the dataset's annotation indicating whether
-a question has multiple plausible interpretations.
+  **ASQA**. The ground truth will be the dataset's annotation indicating
+  whether a question has multiple plausible interpretations.
 
 - **Semantic Scope (**`scope`**):** As there is no direct ground-truth label
   for "scope," its behaviour will be evaluated indirectly. Using diverse
@@ -936,23 +932,23 @@ a question has multiple plausible interpretations.
 - **Rank Correlation:** The primary metrics will be **Kendall's Tau (τ)** and
   **Spearman's Rho (ρ)** rank correlation coefficients.[^18] These are chosen
   over simpler metrics like Pearson correlation because the absolute value of
-  the complexity score is less important than its ability to correctly
-
-_rank_ questions by difficulty. A strong positive rank correlation indicates
-that the scorer is effective at distinguishing more complex queries from
-simpler ones.
+  the complexity score is less important than its ability to correctly _rank_
+  questions by difficulty. A strong positive rank correlation indicates that
+  the scorer is effective at distinguishing more complex queries from simpler
+  ones.
 
 - **Classifier Calibration:** For any model-based classifiers (e.g.,
   `AmbiguityClassifierOnnx`), the **Expected Calibration Error (ECE)** will be
   reported.[^19] A low ECE indicates that the model's confidence in its
   predictions is well-calibrated (e.g., when it predicts a class with 80%
   confidence, it is correct about 80% of the time).
+
 - **Reporting:** The evaluation harness will generate a version-controlled
   `EVALUATION.md` file, summarizing the key correlation and calibration metrics
   for each version of the crate. This provides a transparent and reproducible
   record of the scorer's empirical validity.
 
-  ## 6. Performance benchmarking protocol
+## 6. Performance benchmarking protocol
 
 To ensure the `lag_complexity` crate meets the performance requirements of
 production AI systems, a systematic benchmarking protocol will be established.
@@ -973,7 +969,7 @@ These benchmarks will isolate and measure the performance of individual,
 critical components to identify potential bottlenecks and guide optimization
 efforts.
 
-- **Provider Latency:**
+#### Provider Latency
 
 - `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
@@ -985,18 +981,19 @@ efforts.
 - `ONNX` Model Inference: The latency of a single inference pass for the
   `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` models will be
   benchmarked.
-- **Computational Overhead:**
+  
+#### Computational Overhead
 
 - The time taken for the variance calculation and the application of `Sigma`
   normalization will be measured to ensure they contribute negligibly to the
   overall latency.
 
-  ### Macro-benchmarks
+### Macro-benchmarks
 
 These benchmarks will assess the end-to-end performance of the public API,
 simulating real-world usage patterns.
 
-- **End-to-End Latency and Throughput:**
+#### End-to-End Latency and Throughput
 
 - The `ComplexityFn::score` method will be benchmarked to measure the latency
   for a single query.
@@ -1006,9 +1003,10 @@ simulating real-world usage patterns.
   against three distinct datasets of queries to understand performance under
   different conditions:
 
-- **Short Queries:** Average length of ~10 words.
-- **Medium Queries:** Average length of ~25 words.
-- **Long Queries:** Average length of ~75 words.
+  - **Short Queries:** Average length of ~10 words.
+  - **Medium Queries:** Average length of ~25 words.
+  - **Long Queries:** Average length of ~75 words.
+  - 
 - **Provider Combinations:** Benchmarks will be run for different compositions
   of providers (e.g., full heuristic, heuristic + ONNX, full API) to provide
   users with clear performance expectations for each configuration.
