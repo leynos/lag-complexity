@@ -69,9 +69,7 @@ quantify a form of mental effort or difficulty, the former applies to natural
 language and is composed of semantic scope, reasoning depth, and ambiguity,
 whereas the latter applies to software code and is based on increments for
 breaks in linear control flow and nesting levels.[^6] This proposal exclusively
-concerns the implementation of the LAG paper's
-
-CL(q) metric.
+concerns the implementation of the LAG paper's CL(q) metric.
 
 The architectural decision to encapsulate the CL(q) calculation within a
 standalone, reusable crate is a strategic one. It moves beyond a monolithic
@@ -87,11 +85,9 @@ implementations—the providers for each complexity signal—can be swapped out 
 upgraded without impacting the core logic of the consuming agent. This
 modularity also promotes reusability across different agent implementations or
 even other systems that could benefit from a query complexity signal.
-Therefore, the creation of the
-
-`lag_complexity` crate is not merely an implementation detail; it is a
-foundational choice that enhances the testability, maintainability, and
-scalability of the entire AI ecosystem it serves.
+Therefore, the creation of the `lag_complexity` crate is not merely an
+implementation detail; it is a foundational choice that enhances the testability,
+maintainability, and scalability of the entire AI ecosystem it serves.
 
 ## 1. Crate architecture and public API
 
