@@ -1,50 +1,50 @@
-{"id": 1, "query":"What is the capital of France?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
-{"id": 2, "query":"If Alice and Bob go to the market, who buys apples?","complexity":{"total":7.0,"scope":0.0,"depth":4.0,"ambiguity":3.0}}
-{"id": 3, "query":"Which planets are larger than Earth and smaller than Jupiter?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
-{"id": 4, "query":"Is the sky blue?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
-{"id": 5, "query":"A few cats chase a dog; what happens?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 6, "query":"Compare apples versus oranges.","complexity":{"total":5.0,"scope":0.0,"depth":2.0,"ambiguity":3.0}}
-{"id": 7, "query":"What are the differences between cats, dogs, and birds?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
-{"id": 8, "query":"Who is she referring to when she says it?","complexity":{"total":5.0,"scope":0.0,"depth":1.0,"ambiguity":4.0}}
-{"id": 9, "query":"When will they arrive here?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 10, "query":"Is Mercury hotter than Venus?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 11, "query":"Does Python or Java run faster?","complexity":{"total":4.0,"scope":0.0,"depth":1.0,"ambiguity":3.0}}
-{"id": 12, "query":"How many people were there?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 13, "query":"He and she went there.","complexity":{"total":5.0,"scope":0.0,"depth":1.0,"ambiguity":4.0}}
-{"id": 14, "query":"This or that?","complexity":{"total":5.0,"scope":0.0,"depth":2.0,"ambiguity":3.0}}
-{"id": 15, "query":"Is the sum greater than or less than ten?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
-{"id": 16, "query":"Where is the nearest hospital?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
-{"id": 17, "query":"If it rains, will the game stop?","complexity":{"total":4.0,"scope":0.0,"depth":2.0,"ambiguity":2.0}}
-{"id": 18, "query":"Who won the match between A and B?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
-{"id": 19, "query":"Compare the results of experiment one and experiment two.","complexity":{"total":2.0,"scope":0.0,"depth":1.0,"ambiguity":1.0}}
-{"id": 20, "query":"What is the meaning of life?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
-{"id": 21, "query":"They said it would happen then.","complexity":{"total":4.0,"scope":0.0,"depth":0.0,"ambiguity":4.0}}
-{"id": 22, "query":"Which is more efficient, solar or wind energy?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
-{"id": 23, "query":"Does the jaguar run faster than the cheetah?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 24, "query":"Is there any difference between P and Q?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
-{"id": 25, "query":"What happens if we mix hydrogen and oxygen?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
-{"id": 26, "query":"She told him to go home.","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 27, "query":"Is New York bigger than Los Angeles?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
-{"id": 28, "query":"When this is over, what then?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 29, "query":"Are there several ways to solve it?","complexity":{"total":4.0,"scope":0.0,"depth":0.0,"ambiguity":4.0}}
-{"id": 30, "query":"How does it compare to the previous model?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 31, "query":"If both teams score, who wins?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
-{"id": 32, "query":"Where do they keep it?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 33, "query":"Is the solution more than nine but less than twenty?","complexity":{"total":6.0,"scope":0.0,"depth":5.0,"ambiguity":1.0}}
-{"id": 34, "query":"Can python eat jaguar in the wild?","complexity":{"total":5.0,"scope":0.0,"depth":0.0,"ambiguity":5.0}}
-{"id": 35, "query":"A few students asked questions.","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 36, "query":"Does it work?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 37, "query":"What are some examples?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 38, "query":"Why is she here?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 39, "query":"Are there more than five options or less than two?","complexity":{"total":7.0,"scope":0.0,"depth":5.0,"ambiguity":2.0}}
-{"id": 40, "query":"Is there a way to do it?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 41, "query":"He compared this to that.","complexity":{"total":5.0,"scope":0.0,"depth":1.0,"ambiguity":4.0}}
-{"id": 42, "query":"Which version is better, v1 or v2?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
-{"id": 43, "query":"Is the river longer than the stream?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
-{"id": 44, "query":"Will it rain or snow tomorrow?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
-{"id": 45, "query":"How do we resolve this issue?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
-{"id": 46, "query":"Is there more than one solution?","complexity":{"total":4.0,"scope":0.0,"depth":2.0,"ambiguity":2.0}}
-{"id": 47, "query":"When they left, who stayed?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
-{"id": 48, "query":"Does Mercury orbit the sun faster than Earth?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 49, "query":"Is the apple red?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
-{"id": 50, "query":"What does it mean when they say it is ambiguous?","complexity":{"total":4.0,"scope":0.0,"depth":0.0,"ambiguity":4.0}}
+{"id":1,"query":"What is the capital of France?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
+{"id":2,"query":"If Alice and Bob go to the market, who buys apples?","complexity":{"total":7.0,"scope":0.0,"depth":4.0,"ambiguity":3.0}}
+{"id":3,"query":"Which planets are larger than Earth and smaller than Jupiter?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
+{"id":4,"query":"Is the sky blue?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
+{"id":5,"query":"A few cats chase a dog; what happens?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":6,"query":"Compare apples versus oranges.","complexity":{"total":5.0,"scope":0.0,"depth":2.0,"ambiguity":3.0}}
+{"id":7,"query":"What are the differences between cats, dogs, and birds?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
+{"id":8,"query":"Who is she referring to when she says it?","complexity":{"total":5.0,"scope":0.0,"depth":1.0,"ambiguity":4.0}}
+{"id":9,"query":"When will they arrive here?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":10,"query":"Is Mercury hotter than Venus?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":11,"query":"Does Python or Java run faster?","complexity":{"total":4.0,"scope":0.0,"depth":1.0,"ambiguity":3.0}}
+{"id":12,"query":"How many people were there?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":13,"query":"He and she went there.","complexity":{"total":7.0,"scope":0.0,"depth":1.0,"ambiguity":6.0}}
+{"id":14,"query":"This or that?","complexity":{"total":5.0,"scope":0.0,"depth":2.0,"ambiguity":3.0}}
+{"id":15,"query":"Is the sum greater than or less than ten?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
+{"id":16,"query":"Where is the nearest hospital?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
+{"id":17,"query":"If it rains, will the game stop?","complexity":{"total":4.0,"scope":0.0,"depth":2.0,"ambiguity":2.0}}
+{"id":18,"query":"Who won the match between A and B?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
+{"id":19,"query":"Compare the results of experiment one and experiment two.","complexity":{"total":2.0,"scope":0.0,"depth":1.0,"ambiguity":1.0}}
+{"id":20,"query":"What is the meaning of life?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
+{"id":21,"query":"They said it would happen then.","complexity":{"total":6.0,"scope":0.0,"depth":0.0,"ambiguity":6.0}}
+{"id":22,"query":"Which is more efficient, solar or wind energy?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
+{"id":23,"query":"Does the jaguar run faster than the cheetah?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":24,"query":"Is there any difference between P and Q?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
+{"id":25,"query":"What happens if we mix hydrogen and oxygen?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
+{"id":26,"query":"She told him to go home.","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":27,"query":"Is New York bigger than Los Angeles?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
+{"id":28,"query":"When this is over, what then?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":29,"query":"Are there several ways to solve it?","complexity":{"total":4.0,"scope":0.0,"depth":0.0,"ambiguity":4.0}}
+{"id":30,"query":"How does it compare to the previous model?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":31,"query":"If both teams score, who wins?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
+{"id":32,"query":"Where do they keep it?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":33,"query":"Is the solution more than nine but less than twenty?","complexity":{"total":6.0,"scope":0.0,"depth":5.0,"ambiguity":1.0}}
+{"id":34,"query":"Can python eat jaguar in the wild?","complexity":{"total":5.0,"scope":0.0,"depth":0.0,"ambiguity":5.0}}
+{"id":35,"query":"A few students asked questions.","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":36,"query":"Does it work?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":37,"query":"What are some examples?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":38,"query":"Why is she here?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":39,"query":"Are there more than five options or less than two?","complexity":{"total":7.0,"scope":0.0,"depth":5.0,"ambiguity":2.0}}
+{"id":40,"query":"Is there a way to do it?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":41,"query":"He compared this to that.","complexity":{"total":5.0,"scope":0.0,"depth":1.0,"ambiguity":4.0}}
+{"id":42,"query":"Which version is better, v1 or v2?","complexity":{"total":3.0,"scope":0.0,"depth":2.0,"ambiguity":1.0}}
+{"id":43,"query":"Is the river longer than the stream?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
+{"id":44,"query":"Will it rain or snow tomorrow?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
+{"id":45,"query":"How do we resolve this issue?","complexity":{"total":2.0,"scope":0.0,"depth":0.0,"ambiguity":2.0}}
+{"id":46,"query":"Is there more than one solution?","complexity":{"total":4.0,"scope":0.0,"depth":2.0,"ambiguity":2.0}}
+{"id":47,"query":"When they left, who stayed?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
+{"id":48,"query":"Does Mercury orbit the sun faster than Earth?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":49,"query":"Is the apple red?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":50,"query":"What does it mean when they say it is ambiguous?","complexity":{"total":4.0,"scope":0.0,"depth":0.0,"ambiguity":4.0}}

@@ -28,6 +28,7 @@ This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
 
 - [x] Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
+- [x] Add antecedent-aware pronoun weighting to the ambiguity heuristic.
 - [x] Implement the `ApiEmbedding` provider, guarded by the `provider-api`
   feature flag.
 - [x] Create the golden-file integration test suite with an initial set of

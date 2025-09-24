@@ -544,12 +544,15 @@ English text.[^10]
 - **Aggregation:** The scores from these risk factors will be combined into a
   single pseudo-entropy value. Laplace smoothing will be applied to ensure a
   stable, non-zero score even for queries with no detected ambiguity signals.
-- **Implementation note:** The initial heuristic uses a shared normalizer for
-  token casing and punctuation. Ambiguous entity matching applies conservative
-  singularization (shared text utils) and uses `regex` word boundaries to avoid
+- **Implementation note:** The heuristic uses a shared normaliser for token
+  casing and punctuation. Ambiguous entity matching applies conservative
+  singularisation (shared text utils) and uses `regex` word boundaries to avoid
   partial matches. Pronouns and vague terms carry unit weight, ambiguous
-  entities count double, and Laplace smoothing adds one to the total.
-  Antecedent resolution is deferred to model-based providers.
+  entities count double, and Laplace smoothing adds one to the total. The
+  antecedent check splits the input into sentences, looks for capitalised
+  tokens and definite noun phrases in the current or previous sentence, and
+  only applies the unresolved-pronoun bonus when no candidate is present. Full
+  resolution remains deferred to model-based providers.
 
 #### Model-backed option (AmbiguityClassifierOnnx)
 
