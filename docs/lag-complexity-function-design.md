@@ -483,6 +483,13 @@ For higher accuracy, the crate will provide model-based estimators.
   vocabulary to guarantee platform parity. The ONNX graph omits
   tokenization-specific nodes, pins opset 17, and includes optional affine
   calibration so that outputs remain deterministic across environments.
+- **Runtime & artefact controls:** The crate exposes an optional `onnx`
+  feature that pulls in a pinned `ort = "2.0"` dependency (bundling ONNX
+  Runtime 1.18). Provider start-up recomputes SHA-256 digests for
+  `depth_transformer_ordinal.onnx`, the INT8 variant, the MLP fallback, and the
+  tokenizer artefacts before constructing inference sessions. Any mismatch
+  raises an error and the provider fails closed, preventing partially loaded
+  state.
 - **Performance roadmap:** Post-training static INT8 quantization and
   intermediate-layer pooling ablations are part of the committed optimization
   plan. These keep CPU latency below 10 ms p95 while shrinking artefact size
@@ -545,6 +552,9 @@ English text.[^10]
 
 - Enabled by the `onnx` feature, this provider uses a lightweight text
   classification model for more nuanced ambiguity detection.
+- **Runtime & artefact controls:** It shares the same pinned `ort` dependency
+  and checksum-verification path as `DepthClassifierOnnx`, refusing to run if
+  model or tokenizer artefacts do not match the recorded digests.
 - **Architecture:** The model could be a fine-tuned DistilBERT
   ([Sanh et al.](https://arxiv.org/abs/1910.01108)) or a similar compact
   transformer, exported to ONNX for efficient inference.[^12]
@@ -1367,8 +1377,9 @@ optimizing for performance.
     (including the INT8 variant and `depth_mlp_log.onnx` fallback) alongside
     the ambiguity classifier.
   - Implement the `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` providers,
-    gated by the `onnx` feature flag, wiring in calibration switches and
-    deterministic tokenization.
+    gated by the `onnx` feature flag, wiring in calibration switches,
+    deterministic tokenization, and fail-closed SHA-256 verification for model
+    and tokenizer artefacts.
   - Implement the `score_batch` method and integrate `rayon` for parallel
     execution.
   - Set up the `criterion` benchmarking suite and implement the initial set of
