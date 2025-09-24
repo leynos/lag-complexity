@@ -16,9 +16,13 @@ const EPSILON: f32 = 1e-6;
 ///
 /// Examples:
 /// - Input with pronoun + ambiguous entity + vague term yields 5.0.
+/// - Pronoun without a nearby antecedent yields 3.0.
+/// - Pronoun anchored by the previous sentence yields 2.0.
 /// - Empty input yields `AmbiguityHeuristicError::Empty`.
 #[rstest]
 #[case("It is about Mercury and some others.", Ok(5.0))]
+#[case("It broke last night.", Ok(3.0))]
+#[case("Alice fixed the radio. It works now?", Ok(2.0))]
 #[case("", Err(AmbiguityHeuristicError::Empty))]
 fn evaluates_ambiguity_heuristic(
     #[case] input: &str,

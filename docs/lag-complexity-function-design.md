@@ -86,8 +86,9 @@ upgraded without impacting the core logic of the consuming agent. This
 modularity also promotes reusability across different agent implementations or
 even other systems that could benefit from a query complexity signal.
 Therefore, the creation of the `lag_complexity` crate is not merely an
-implementation detail; it is a foundational choice that enhances the testability,
-maintainability, and scalability of the entire AI ecosystem it serves.
+implementation detail; it is a foundational choice that enhances the
+testability, maintainability, and scalability of the entire AI ecosystem it
+serves.
 
 ## 1. Crate architecture and public API
 
@@ -504,7 +505,7 @@ clarified before attempting to answer.
 This provides a fast, lightweight signal for common sources of ambiguity in
 English text.[^10]
 
-##### Feature Engineering
+##### Feature Engineering (Ambiguity)
 
 - **Coreference Risk (Anaphora):** The heuristic will count third-person
   pronouns (`it`, `he`, `she`, `they`) and demonstratives (`this`, `that`). The
@@ -523,12 +524,15 @@ English text.[^10]
 - **Aggregation:** The scores from these risk factors will be combined into a
   single pseudo-entropy value. Laplace smoothing will be applied to ensure a
   stable, non-zero score even for queries with no detected ambiguity signals.
-- **Implementation note:** The initial heuristic uses a shared normaliser for
-  token casing and punctuation. Ambiguous entity matching applies conservative
+- **Implementation note:** The heuristic uses a shared normaliser for token
+  casing and punctuation. Ambiguous entity matching applies conservative
   singularisation (shared text utils) and uses `regex` word boundaries to avoid
   partial matches. Pronouns and vague terms carry unit weight, ambiguous
-  entities count double, and Laplace smoothing adds one to the total.
-  Antecedent resolution is deferred to model-based providers.
+  entities count double, and Laplace smoothing adds one to the total. The
+  antecedent check splits the input into sentences, looks for capitalised
+  tokens and definite noun phrases in the current or previous sentence, and
+  only applies the unresolved-pronoun bonus when no candidate is present. Full
+  resolution remains deferred to model-based providers.
 
 #### Model-backed option (AmbiguityClassifierOnnx)
 
@@ -693,11 +697,11 @@ this task. The crate will leverage this capability to maximize throughput.
      `rayon::par_iter()` to process multiple queries in the batch concurrently
      across available CPU cores.
   2. **Intra-Query Parallelism:** Within a single `score` call, the three
-     independent provider functions (`embed`, `estimate`, `entropy_like`) will be
-     executed in parallel using `rayon::join`. This allows the system to overlap
-     I/O-bound operations (like an API call for embeddings) with CPU-bound
-     operations (like running heuristic estimators), significantly reducing the
-     end-to-end latency for a single query.
+     independent provider functions (`embed`, `estimate`, `entropy_like`) will
+     be executed in parallel using `rayon::join`. This allows the system to
+     overlap I/O-bound operations (like an API call for embeddings) with
+     CPU-bound operations (like running heuristic estimators), significantly
+     reducing the end-to-end latency for a single query.
 
 ### Caching strategy
 
@@ -709,9 +713,9 @@ essential for performance and cost reduction.
   `EmbeddingProvider`. Caching the final `Complexity` score is less effective,
   as small variations in the query text would lead to cache misses.
 - **Library Selection:** The `moka` crate will be used for caching.[^14] While
-  `dashmap` is an excellent general-purpose concurrent hash map 42, `moka` is
-  a specialized, high-performance caching library inspired by Java's Caffeine.
-  It provides essential caching features out-of-the-box, such as size-based
+  `dashmap` is an excellent general-purpose concurrent hash map 42, `moka` is a
+  specialized, high-performance caching library inspired by Java's Caffeine. It
+  provides essential caching features out-of-the-box, such as size-based
   eviction (LRU/LFU policies) and time-based expiration (TTL/TTI), which are
   critical for managing the cache's memory footprint and data freshness.
 
@@ -815,8 +819,8 @@ in isolation.
 - The `Schedule::ExpDecay` logic will be tested to confirm that the threshold
   `τ(t)` is always positive and monotonically decreasing as the step `t`
   increases.
-  
-##### Heuristic Components:
+
+##### Heuristic Components
 
 - Tests for `DepthHeuristic` will assert that adding linguistic complexity
   markers (e.g., a subordinating conjunction or a relative clause) never
@@ -837,8 +841,8 @@ test writers might miss.
 - The `score(q)` function must never panic for any valid UTF-8 string `q`.
 - All components of the returned `Complexity` struct (`total`, `scope`,
   `depth`, `ambiguity`) must be non-negative.
-  
-##### Behavioural properties:
+
+##### Behavioural properties
 
 - **Idempotence:** `score(q)` should be equal to `score(q.clone())`.
 - **Scope Order-Insensitivity:** For the `ScopeVariance` component,
@@ -906,13 +910,13 @@ academic datasets and report on its performance.
   be created to automate this process. It will load specified datasets, run the
   `lag_complexity` scorer on the questions, and compute a suite of validation
   metrics.
-  
-#### Dataset-to-Component Mapping:
+
+#### Dataset-to-Component Mapping
 
 - **Reasoning Steps (**`depth`**):** Performance will be measured against
-  multi-hop question-answering datasets like **HotpotQA** 52, **2WikiMultiHopQA**,
-  and **MuSiQue**. The number of supporting facts or annotated reasoning hops will
-  serve as the ground truth for reasoning depth.
+  multi-hop question-answering datasets like **HotpotQA** 52,
+  **2WikiMultiHopQA**, and **MuSiQue**. The number of supporting facts or
+  annotated reasoning hops will serve as the ground truth for reasoning depth.
 
 - **Ambiguity (**`ambiguity`**):** The ambiguity score will be validated
   against datasets designed to study ambiguity, such as **AmbigQA** 38 and
@@ -967,7 +971,7 @@ These benchmarks will isolate and measure the performance of individual,
 critical components to identify potential bottlenecks and guide optimization
 efforts.
 
-#### Provider Latency:
+#### Provider Latency
 
 - `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
@@ -979,8 +983,8 @@ efforts.
 - `ONNX` Model Inference: The latency of a single inference pass for the
   `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` models will be
   benchmarked.
-  
-#### Computational Overhead:
+
+#### Computational Overhead
 
 - The time taken for the variance calculation and the application of `Sigma`
   normalization will be measured to ensure they contribute negligibly to the
@@ -1296,8 +1300,8 @@ defining the primary public interfaces.
   - Initialize the Rust project using `cargo new`.
   - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
     `DepthEstimator`, `AmbiguityEstimator`).
-  - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
-    its sub-types) and derive `serde` traits for configuration types.
+  - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig`
+    and its sub-types) and derive `serde` traits for configuration types.
   - Implement the mathematical logic for variance calculation and all `Sigma`
     normalization strategies.
   - Create the stub for the `lagc` command-line interface binary using the
@@ -1308,7 +1312,7 @@ defining the primary public interfaces.
     environment variables > configuration files.
 
 - **Acceptance Criteria:**
-  
+
   - The crate and all its core types compile successfully.
   - A comprehensive suite of unit tests for the mathematical and normalization
     logic passes.
@@ -1321,7 +1325,7 @@ This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
 
 - **Tasks:**
-  
+
   - Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
   - Implement the `ApiEmbedding` provider (behind the `provider-api` feature
     flag) to enable initial testing with high-quality embeddings.
@@ -1394,9 +1398,9 @@ creating compelling demonstrations.
   - Develop the interactive "Complexity Meter" web page using the WASM module.
   - Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
     Resolver" stakeholder demonstrations.
-  
+
 - **Acceptance Criteria:**
-  
+
   - The Python package can be built, installed via `pip`, and used to score
     queries.
   - The WASM demo is fully functional, interactive, and hosted on a static page.
