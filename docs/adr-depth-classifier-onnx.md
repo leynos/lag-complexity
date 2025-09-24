@@ -13,7 +13,7 @@ ______________________________________________________________________
 The Cognitive Clutch selects between fast heuristic inference and
 logic-augmented generation (LAG) using a composite **Complexity** signal. The
 LAG Complexity design document defines a provider-based architecture where
-independent signals (e.g., depth, ambiguity) are computed, normalised via
+independent signals (e.g., depth, ambiguity) are computed, normalized via
 **Sigma**, and aggregated with weights and schedules. The depth provider must
 output a scalar score that correlates with the compositional reasoning load of
 a textual question while meeting production constraints: low latency,
@@ -26,7 +26,7 @@ Select a model family and ONNX architecture for a depth estimator that:
 
 - Achieves single-digit millisecond latency on CPU and a small memory footprint.
 - Integrates with existing provider traits; returns a scalar **raw depth**
-  compatible with Sigma normalisation and threshold schedules defined in the
+  compatible with Sigma normalization and threshold schedules defined in the
   LAG Complexity design.
 - Preserves determinism and reproducibility across platforms.
 - Provides a path to improved robustness and interpretability over time.
@@ -43,7 +43,7 @@ Select a model family and ONNX architecture for a depth estimator that:
 - **Calibration & monotonicity:** outputs align with ordered difficulty/step
   levels; stable after calibration across domains.
 - **Maintainability & TCO:** viable lifecycle with monitoring, retraining, and
-  quantisation; fallbacks available.
+  quantization; fallbacks available.
 
 ## 4. Options Considered
 
@@ -54,8 +54,8 @@ Select a model family and ONNX architecture for a depth estimator that:
    engineered syntactic/lexical features with Transformer representations;
    ordinal head as in Option 1.
 3. **Fixed-Feature MLP (fallback)** — Feed-forward network over a pure-Rust
-   feature vector predicting a continuous log-steps target; quantised ONNX;
-   used where tokenisation is constrained.
+   feature vector predicting a continuous log-steps target; quantized ONNX;
+   used where tokenization is constrained.
 4. **Hashed n-gram linear/FFN (baseline)** — Extremely small model to validate
    regressions and act as an emergency backup.
 
@@ -63,8 +63,8 @@ Select a model family and ONNX architecture for a depth estimator that:
 
 Adopt **Transformer-Ordinal** as the default architecture for
 `DepthClassifierOnnx`, exported to ONNX and executed with ONNX Runtime on CPU.
-Commit to a near-term optimisation plan (post-training static INT8
-quantisation; intermediate-layer pooling ablation) and a longer-term **Hybrid**
+Commit to a near-term optimization plan (post-training static INT8
+quantization; intermediate-layer pooling ablation) and a longer-term **Hybrid**
 roadmap for increased robustness and interpretability. Ship the **Fixed-Feature
 MLP** as a supported fallback under a feature flag.
 
@@ -86,7 +86,7 @@ depth thresholds.
     a step scale; or
   - **Mid-bin mapping:** count of heads above threshold → representative step
     value.
-- This scalar is returned as the provider’s **raw depth**, then normalised by
+- This scalar is returned as the provider’s **raw depth**, then normalized by
   Sigma and combined per the design document.
 
 ### Backbone & Representation
@@ -99,14 +99,14 @@ depth thresholds.
 ### Graph Notes
 
 - Opset: 17.  
-- Graph includes tokenisation-independent components only; tokenisation
+- Graph includes tokenization-independent components only; tokenization
   performed in Rust using a deterministic vocabulary (e.g., `tokenizers`).
 - Optional calibration added as `Mul`/`Add` after the ordinal expectation;
   otherwise applied in Rust before Sigma.
 
-## 7. Short-Term Optimisations (Committed)
+## 7. Short-Term Optimizations (Committed)
 
-- **Static INT8 quantisation:** apply post-training static quantisation (weights
+- **Static INT8 quantization:** apply post-training static quantization (weights
   and activations) for CPU; benchmark size, latency, and accuracy drift against
   FP32.
 - **Intermediate-layer ablation:** compare final-layer vs multi-layer pooled
@@ -145,9 +145,9 @@ depth thresholds.
 - **Location:** either baked into the ONNX graph (`Mul`/`Add`) or applied in
   provider code before Sigma; both paths preserve determinism and observability.
 
-## 11. Quantisation & Performance Targets
+## 11. Quantization & Performance Targets
 
-- **Quantisation:** post-training static INT8 for Transformer and head; retain
+- **Quantization:** post-training static INT8 for Transformer and head; retain
   FP32 outputs.
 - **Targets:** p95 ≤ 10 ms (single query, CPU), ≤ 2 ms for batch of 16 short
   queries; ≤ 1% absolute accuracy degradation vs FP32; artefact size reduced by
@@ -159,29 +159,33 @@ depth thresholds.
   }`.
 - **Trait:** implements `TextProcessor<Output = f32>`; returns scalar raw depth
   (expected steps or mapped mid-bin).
-- **Tokenisation:** performed in Rust with a pinned vocabulary; deterministic
+- **Tokenization:** performed in Rust with a pinned vocabulary; deterministic
   and locale-safe.
+- **Runtime pinning:** the `ort` crate is fixed to the `2.0.x` series (bundling
+  ONNX Runtime 1.18). Initialization verifies the runtime build ID before
+  constructing inference sessions and fails closed if it diverges from the
+  expected metadata.
 - **Error handling:** ONNX Runtime errors mapped to `Error::Inference` with
   model path, opset, and checksum in diagnostics.
 - **Tracing & metrics:** instrument `process()`; export latency histograms,
   error counters, and token length/batch size tags; integrate with existing
   observability per the design document.
-- **Configuration:** model path, enablement flags, quantisation variant
+- **Configuration:** model path, enablement flags, quantization variant
   selection, and optional in-graph calibration switch; Sigma/Weights/Schedule
   remain unchanged.
 
 ## 13. Fixed-Feature Fallback — MLP-Log
 
-- **Use case:** environments where tokenisation is undesirable or constrained.
+- **Use case:** environments where tokenization is undesirable or constrained.
 - **I/O:** `float32[batch, F] → float32[batch, 1]`, `F ≈ 64–96`.
 - **Head:** `Linear(F,128) → GELU → Linear(128,64) → GELU → Linear(64,1)`.
 - **Target:** `log1p(steps)`; inference maps via `expm1`.
-- **Quantisation:** dynamic or static INT8 for linear layers; FP32 output.
+- **Quantization:** dynamic or static INT8 for linear layers; FP32 output.
 - **Output:** scalar raw depth to Sigma.
 
 ## 14. Testing Strategy
 
-- **Unit:** tokeniser determinism; ordinal head probability semantics;
+- **Unit:** tokenizer determinism; ordinal head probability semantics;
   calibration correctness.
 - **Golden traces:** snapshot raw ordinal-derived depth alongside heuristic and
   fallback MLP on a fixed corpus; fail on drift beyond tolerance.
@@ -207,7 +211,7 @@ depth thresholds.
 - **Ordinality mismatch:** addressed by ordinal head and calibration.
 - **Domain shift & brittleness:** mitigated by hybrid roadmap, diverse training
   data, and periodic recalibration.
-- **Quantisation drift:** maintain FP32 reference; CI checks compare INT8 vs
+- **Quantization drift:** maintain FP32 reference; CI checks compare INT8 vs
   FP32.
 - **TCO:** invest in monitoring, anomaly detection, and scheduled retraining;
   keep fallback model available.
@@ -217,7 +221,7 @@ depth thresholds.
 ## 17. Compliance with LAG Complexity Design
 
 - Respects provider abstraction and returns a scalar depth compatible with
-  Sigma normalisation and weighting.
+  Sigma normalization and weighting.
 - Integrates with tracing, metrics, and golden testing.
 - Keeps split logic (threshold schedules) unchanged; only the depth signal
   source varies.
@@ -227,6 +231,9 @@ depth thresholds.
 
 - **Filename & checksum:** `depth_transformer_ordinal.onnx` (and
   `depth_mlp_log.onnx` fallback) with SHA-256 recorded and verified at load.
+- **Tokenizer artefacts:** `tokenizer.json`, `vocab.txt`/`merges.txt`, or
+  `spiece.model` hashes are pinned alongside the model. Provider start-up
+  recomputes SHA-256 digests for each artefact and fails closed on mismatch.
 - **Versioning:** semantic version in ONNX metadata; minor for calibration
   changes, patch for weight updates without interface changes, major for I/O
   shape changes.
@@ -246,9 +253,10 @@ ______________________________________________________________________
 
 - Nodes: encoder subgraph (attention, FFN), `Sigmoid` × K for ordinal heads,
   optional `Mul`/`Add` calibration, small `Reduce`/`Add` to compute expectation.
-- Inputs: `input_ids: int64[*, seq]`, `attention_mask: int64[*, seq]`.
-- Outputs: `logits_ord: float32[*, K]` and/or `depth_scalar: float32[*, 1]` if
-  expectation is embedded.
+- Inputs: `input_ids: int64[batch, max_seq_len]`,
+  `attention_mask: int64[batch, max_seq_len]`.
+- Outputs: `logits_ord: float32[batch, K]` and/or `depth_scalar: float32[batch,
+  1]` if expectation is embedded.
 
 ### Appendix B — Acceptance Criteria
 
