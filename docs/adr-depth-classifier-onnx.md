@@ -1,8 +1,10 @@
 # Architecture Decision Record: DepthClassifierOnnx — Model Selection & Architecture for the Cognitive Clutch
 
-**Status:** Accepted (Revised) **Date:** 24 September 2025 **Owner:** LAG
-Complexity / Cognitive Clutch **Related:** LAG Complexity design document
-(Complexity Function & Cognitive Clutch)
+**Status:** Accepted (Revised) \
+**Date:** 24 September 2025 \
+**Owner:** LAG Complexity / Cognitive Clutch \
+**Related:** LAG Complexity design document (Complexity Function & Cognitive
+Clutch)
 
 ______________________________________________________________________
 
