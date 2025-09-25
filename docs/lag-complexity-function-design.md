@@ -933,7 +933,7 @@ academic datasets and report on its performance.
   `lag_complexity` scorer on the questions, and compute a suite of validation
   metrics.
 
-#### Dataset-to-Component Mapping
+#### Dataset-to-component mapping
 
 - **Reasoning Steps (**`depth`**):** Performance will be measured against
   multi-hop question-answering datasets like
@@ -998,7 +998,7 @@ These benchmarks will isolate and measure the performance of individual,
 critical components to identify potential bottlenecks and guide optimization
 efforts.
 
-#### Provider Latency
+#### Provider latency
 
 - `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and

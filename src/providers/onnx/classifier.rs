@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use ort::{session::Session, value::TensorRef};
 use tokenizers::{
-    PaddingDirection, PaddingParams, PaddingStrategy, Tokenizer, TruncationDirection,
+    Encoding, PaddingDirection, PaddingParams, PaddingStrategy, Tokenizer, TruncationDirection,
     TruncationParams, TruncationStrategy,
 };
 
@@ -19,6 +19,44 @@ pub struct OnnxTextClassifier {
     max_sequence_length: usize,
     head_count: usize,
     aggregator: OrdinalAggregation,
+}
+
+/// Tokenised request converted to ONNX tensor inputs.
+#[derive(Debug)]
+struct EncodedInput {
+    ids: Vec<i64>,
+    attention: Vec<i64>,
+    type_ids: Vec<i64>,
+}
+
+impl EncodedInput {
+    fn from_encoding(
+        encoding: &Encoding,
+        expected_len: usize,
+    ) -> Result<Self, OnnxClassifierError> {
+        let ids = encoding.get_ids();
+        Self::ensure_length(ids.len(), expected_len)?;
+        let attention = encoding.get_attention_mask();
+        Self::ensure_length(attention.len(), expected_len)?;
+        let type_ids = encoding.get_type_ids();
+        Self::ensure_length(type_ids.len(), expected_len)?;
+        Ok(Self {
+            ids: ids.iter().map(|id| i64::from(*id)).collect(),
+            attention: attention.iter().map(|id| i64::from(*id)).collect(),
+            type_ids: type_ids.iter().map(|id| i64::from(*id)).collect(),
+        })
+    }
+
+    fn ensure_length(length: usize, expected: usize) -> Result<(), OnnxClassifierError> {
+        if length == expected {
+            Ok(())
+        } else {
+            Err(OnnxClassifierError::SequenceLength {
+                expected,
+                actual: length,
+            })
+        }
+    }
 }
 
 impl OnnxTextClassifier {
@@ -100,33 +138,25 @@ impl OnnxTextClassifier {
             .tokenizer
             .encode(input, true)
             .map_err(OnnxClassifierError::Encode)?;
+        let encoded = EncodedInput::from_encoding(&encoding, self.max_sequence_length)?;
+        let type_ids_name = self.input_names.get(2).map(String::as_str);
+        let (output_name, logits) = self.run_session(&encoded, type_ids_name)?;
+        self.aggregate_logits(&output_name, &logits)
+    }
 
-        let ids = encoding.get_ids();
-        let attention = encoding.get_attention_mask();
-
-        if ids.len() != self.max_sequence_length {
-            return Err(OnnxClassifierError::SequenceLength {
-                expected: self.max_sequence_length,
-                actual: ids.len(),
-            });
-        }
-
-        if attention.len() != self.max_sequence_length {
-            return Err(OnnxClassifierError::SequenceLength {
-                expected: self.max_sequence_length,
-                actual: attention.len(),
-            });
-        }
-
-        let ids_vec: Vec<i64> = ids.iter().map(|id| i64::from(*id)).collect();
-        let attention_vec: Vec<i64> = attention.iter().map(|id| i64::from(*id)).collect();
-
-        let ids_tensor =
-            TensorRef::from_array_view(([1usize, self.max_sequence_length], ids_vec.as_slice()))
-                .map_err(OnnxClassifierError::EncodeTensor)?;
+    fn run_session(
+        &self,
+        encoded: &EncodedInput,
+        type_ids_name: Option<&str>,
+    ) -> Result<(String, Vec<f32>), OnnxClassifierError> {
+        let ids_tensor = TensorRef::from_array_view((
+            [1usize, self.max_sequence_length],
+            encoded.ids.as_slice(),
+        ))
+        .map_err(OnnxClassifierError::EncodeTensor)?;
         let attention_tensor = TensorRef::from_array_view((
             [1usize, self.max_sequence_length],
-            attention_vec.as_slice(),
+            encoded.attention.as_slice(),
         ))
         .map_err(OnnxClassifierError::EncodeTensor)?;
 
@@ -135,41 +165,68 @@ impl OnnxTextClassifier {
             .lock()
             .map_err(|_| OnnxClassifierError::SessionPoisoned)?;
 
-        let (input_ids_name, attention_mask_name) =
-            match (self.input_names.first(), self.input_names.get(1)) {
-                (Some(ids), Some(attention)) => (ids.as_str(), attention.as_str()),
-                _ => {
-                    return Err(OnnxClassifierError::InsufficientInputNames {
-                        expected: 2,
-                        actual: self.input_names.len(),
-                    });
-                }
-            };
+        let input_ids_name = self
+            .input_names
+            .first()
+            .ok_or(OnnxClassifierError::MissingInputNames)?
+            .as_str();
+        let attention_mask_name = self
+            .input_names
+            .get(1)
+            .ok_or(OnnxClassifierError::InsufficientInputNames {
+                expected: 2,
+                actual: self.input_names.len(),
+            })?
+            .as_str();
 
-        let outputs = session
-            .run(ort::inputs! {
-                input_ids_name => ids_tensor,
-                attention_mask_name => attention_tensor,
-            })
-            .map_err(OnnxClassifierError::Inference)?;
+        let outputs = match type_ids_name {
+            Some(type_ids_name) => {
+                let type_ids_tensor = TensorRef::from_array_view((
+                    [1usize, self.max_sequence_length],
+                    encoded.type_ids.as_slice(),
+                ))
+                .map_err(OnnxClassifierError::EncodeTensor)?;
+                session
+                    .run(ort::inputs! {
+                        input_ids_name => ids_tensor,
+                        attention_mask_name => attention_tensor,
+                        type_ids_name => type_ids_tensor,
+                    })
+                    .map_err(OnnxClassifierError::Inference)?
+            }
+            None => session
+                .run(ort::inputs! {
+                    input_ids_name => ids_tensor,
+                    attention_mask_name => attention_tensor,
+                })
+                .map_err(OnnxClassifierError::Inference)?,
+        };
 
         let output_name = self
             .output_names
             .first()
-            .ok_or(OnnxClassifierError::MissingOutputNames)?;
+            .ok_or(OnnxClassifierError::MissingOutputNames)?
+            .clone();
         let logits_value =
             outputs
-                .get(output_name)
+                .get(&output_name)
                 .ok_or_else(|| OnnxClassifierError::OutputMissing {
                     name: output_name.clone(),
                 })?;
         let (_, logits) = logits_value
             .try_extract_tensor::<f32>()
             .map_err(OnnxClassifierError::Inference)?;
+        Ok((output_name, logits.to_vec()))
+    }
 
+    fn aggregate_logits(
+        &self,
+        output_name: &str,
+        logits: &[f32],
+    ) -> Result<f32, OnnxClassifierError> {
         if logits.len() != self.head_count {
             return Err(OnnxClassifierError::UnexpectedLogitCount {
-                name: output_name.clone(),
+                name: output_name.to_string(),
                 expected: self.head_count,
                 actual: logits.len(),
             });
