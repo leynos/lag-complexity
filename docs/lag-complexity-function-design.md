@@ -142,7 +142,7 @@ deserializing untrusted data.
 - `Error`: A comprehensive error enum will be defined using `thiserror` to
   provide structured and actionable error information.
 
-  ```rust
+  ```rust,ignore
   pub enum Error {
       #[error("Configuration error: {0}")]
       Config(String),
@@ -1172,7 +1172,7 @@ A central example demonstrates the composition of the default, general-purpose
 providers and the scoring configuration, acting as the primary engine for
 calculating complexity.
 
-```rust
+```rust,ignore
   use lag_complexity::api::{Complexity, ComplexityFn};
   use lag_complexity::config::ScoringConfig;
   use lag_complexity::providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
@@ -1275,7 +1275,7 @@ t_max = 5
 
 Rust code to load the configuration:
 
-```rust
+```rust,ignore
   use lag_complexity::config::ScoringConfig;
   use std::fs;
 
@@ -1292,7 +1292,7 @@ The `trace()` method is a powerful tool for debugging and understanding the
 scorer's behaviour. An example shows how to invoke it and inspect the component
 scores.
 
-```rust
+```rust,ignore
 fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
