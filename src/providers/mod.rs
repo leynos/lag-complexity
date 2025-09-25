@@ -4,6 +4,9 @@
 //! Defines the `TextProcessor` trait and the provider aliases used by the
 //! scoring engine.
 
+#[cfg(feature = "onnx")]
+pub mod onnx;
+
 /// Processes text to produce a structured, thread-safe output.
 ///
 /// Providers for embeddings, depth, and ambiguity all implement this trait via
