@@ -168,8 +168,8 @@ MLP** as a supported fallback under a feature flag.
 - **Tokenization:** performed in Rust with a pinned vocabulary; deterministic
   and locale-safe.
 - **Runtime pinning:** the `ort` crate is fixed to the `2.0.x` series (bundling
-  ONNX Runtime 1.18), ensuring the shipped runtime matches the opset required
-  by the artefacts.
+  ONNX Runtime 1.22, which supports the opset 17 graph), ensuring the shipped
+  runtime matches the opset required by the artefacts.
 - **Error handling:** ONNX Runtime errors mapped to `Error::Inference` with
   model path, opset, and checksum in diagnostics.
 - **Tracing & metrics:** instrument `process()`; export latency histograms,

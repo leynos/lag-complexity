@@ -425,7 +425,7 @@ as accurate as a model-based approach, it serves as an excellent low-latency
 first-pass filter. It operates by identifying and counting linguistic markers
 that often correlate with syntactic and logical complexity.[^9]
 
-##### Feature Engineering (Depth)
+##### Feature engineering (depth)
 
 - **Clause Connectors:** It will identify and score coordinating conjunctions
   (`and`, `or`, `but`) and subordinating conjunctions (`if`, `because`,
@@ -471,9 +471,9 @@ For higher accuracy, the crate will provide model-based estimators.
 
 - `DepthClassifierOnnx`: Enabled by the `onnx` feature, this provider is the
   default production path for depth estimation. It loads a compact
-  Transformer-Ordinal model exported to ONNX and executed on CPU via ONNX
-  Runtime. The architecture choice, performance targets, and operational
-  controls are captured in the dedicated
+  Transformer-Ordinal model exported to Open Neural Network Exchange (ONNX) and
+  executed on CPU via ONNX Runtime. The architecture choice, performance
+  targets, and operational controls are captured in the dedicated
   [`DepthClassifierOnnx` ADR](adr-depth-classifier-onnx.md).
 - **Architecture:** A DistilBERT-class encoder feeds an ordinal regression head
   that predicts `P(depth > τ_k)` for `k` ordered thresholds. The provider
@@ -485,19 +485,19 @@ For higher accuracy, the crate will provide model-based estimators.
   calibration so that outputs remain deterministic across environments.
 - **Runtime & artefact controls:** The crate exposes an optional `onnx`
   feature that pulls in a pinned `ort = "2.0"` dependency (bundling ONNX
-  Runtime 1.18). Provider start-up recomputes SHA-256 digests for
-  `depth_transformer_ordinal.onnx`, the INT8 variant, the MLP fallback, and the
-  tokenizer artefacts before constructing inference sessions. Any mismatch
-  raises an error and the provider fails closed, preventing partially loaded
-  state.
+  Runtime 1.22, which supports opset 17). Provider start-up recomputes SHA-256
+  digests for `depth_transformer_ordinal.onnx`, the INT8 variant, the MLP
+  fallback, and the tokenizer artefacts before constructing inference sessions.
+  Any mismatch raises an error and the provider fails closed, preventing
+  partially loaded state.
 - **Performance roadmap:** Post-training static INT8 quantization and
   intermediate-layer pooling ablations are part of the committed optimization
   plan. These keep CPU latency below 10 ms p95 while shrinking artefact size
   without sacrificing calibration.
 - `DepthClassifierMlpOnnx`: A feature-flagged fallback that consumes the
   engineered feature vector also used by `DepthHeuristic`. It serves
-  tokenization-constrained environments, exports as a compact ONNX MLP with
-  `log1p`/`expm1` scaling, and is quantised for low footprint.
+  tokenization-constrained environments, exports as a compact ONNX multilayer
+  perceptron with `log1p`/`expm1` scaling, and is quantized for low footprint.
 - `DepthFromLLM`: Enabled by the `provider-api` feature, this is the
   highest-fidelity but also highest-latency option.
 - It wraps an API call to an external LLM (e.g., GPT-4o-mini).
@@ -522,7 +522,7 @@ clarified before attempting to answer.
 This provides a fast, lightweight signal for common sources of ambiguity in
 English text.[^10]
 
-##### Feature Engineering (Ambiguity)
+##### Feature engineering (ambiguity)
 
 - **Coreference Risk (Anaphora):** The heuristic will count third-person
   pronouns (`it`, `he`, `she`, `they`) and demonstratives (`this`, `that`). The
