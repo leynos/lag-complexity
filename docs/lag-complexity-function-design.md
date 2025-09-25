@@ -842,7 +842,7 @@ in isolation.
   `τ(t)` is always positive and monotonically decreasing as the step `t`
   increases.
 
-##### Heuristic Components
+##### Heuristic components
 
 - Tests for `DepthHeuristic` will assert that adding linguistic complexity
   markers (e.g., a subordinating conjunction or a relative clause) never
@@ -933,7 +933,7 @@ academic datasets and report on its performance.
   `lag_complexity` scorer on the questions, and compute a suite of validation
   metrics.
 
-#### Dataset-to-Component Mapping
+#### Dataset-to-component mapping
 
 - **Reasoning Steps (**`depth`**):** Performance will be measured against
   multi-hop question-answering datasets like
@@ -998,7 +998,7 @@ These benchmarks will isolate and measure the performance of individual,
 critical components to identify potential bottlenecks and guide optimization
 efforts.
 
-#### Provider Latency
+#### Provider latency
 
 - `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
@@ -1011,7 +1011,7 @@ efforts.
   `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` models will be
   benchmarked.
 
-#### Computational Overhead
+#### Computational overhead
 
 - The time taken for the variance calculation and the application of `Sigma`
   normalization will be measured to ensure they contribute negligibly to the
@@ -1328,8 +1328,7 @@ defining the primary public interfaces.
   - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
     `DepthEstimator`, `AmbiguityEstimator`).
   - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig`
-    and
-    its sub-types) and derive `serde` traits for configuration types.
+    and its sub-types) and derive `serde` traits for configuration types.
   - Implement the mathematical logic for variance calculation and all `Sigma`
     normalization strategies.
   - Create the stub for the `lagc` command-line interface binary using the
