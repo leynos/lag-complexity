@@ -23,6 +23,12 @@ pub use heuristics::{
     AmbiguityHeuristic, AmbiguityHeuristicError, DepthHeuristic, DepthHeuristicError,
     HeuristicComplexity, HeuristicComplexityError,
 };
+#[cfg(feature = "onnx")]
+pub use providers::onnx::{
+    AmbiguityClassifierOnnx, AmbiguityClassifierOnnxError, DepthClassifierOnnx,
+    DepthClassifierOnnxError, OnnxArtefact, OnnxClassifierConfig, OnnxClassifierError,
+    OrdinalAggregation,
+};
 pub use providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider, TextProcessor};
 pub use sigma::Sigma;
 pub use variance::VarianceError;

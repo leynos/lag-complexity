@@ -13,25 +13,25 @@ ______________________________________________________________________
 The Cognitive Clutch selects between fast heuristic inference and
 logic-augmented generation (LAG) using a composite **Complexity** signal. The
 LAG Complexity design document defines a provider-based architecture where
-independent signals (e.g., depth, ambiguity) are computed, normalized via
+independent signals (e.g., depth, ambiguity) are computed, normalised via
 **Sigma**, and aggregated with weights and schedules. The depth provider must
 output a scalar score that correlates with the compositional reasoning load of
 a textual question while meeting production constraints: low latency,
 deterministic behaviour, no network dependencies, and clean integration with
 the Rust codebase (tracing, metrics, golden tests).
 
-## 2. Problem Statement
+## 2. Problem statement
 
 Select a model family and ONNX architecture for a depth estimator that:
 
 - Achieves single-digit millisecond latency on CPU and a small memory footprint.
 - Integrates with existing provider traits; returns a scalar **raw depth**
-  compatible with Sigma normalization and threshold schedules defined in the
+  compatible with Sigma normalisation and threshold schedules defined in the
   LAG Complexity design.
 - Preserves determinism and reproducibility across platforms.
 - Provides a path to improved robustness and interpretability over time.
 
-## 3. Decision Drivers
+## 3. Decision drivers
 
 - **Latency & footprint:** p95 < 10 ms per query on CPU; model artefact compact;
   limited heap churn.
@@ -43,76 +43,81 @@ Select a model family and ONNX architecture for a depth estimator that:
 - **Calibration & monotonicity:** outputs align with ordered difficulty/step
   levels; stable after calibration across domains.
 - **Maintainability & TCO:** viable lifecycle with monitoring, retraining, and
-  quantization; fallbacks available.
+  quantisation; fallbacks available.
 
-## 4. Options Considered
+## 4. Options considered
 
-1. **Transformer-Ordinal (selected)** — Compact Transformer encoder (e.g.,
+1. **Transformer-ordinal (selected)** — Compact Transformer encoder (e.g.,
    DistilBERT-class) exported to ONNX; ordinal regression head over ordered
    depth levels; scalar depth derived from ordinal probabilities.
 2. **Hybrid Transformer + Explicit Features (roadmap)** — Fuse a small set of
    engineered syntactic/lexical features with Transformer representations;
    ordinal head as in Option 1.
-3. **Fixed-Feature MLP (fallback)** — Feed-forward network over a pure-Rust
-   feature vector predicting a continuous log-steps target; quantized ONNX;
-   used where tokenization is constrained.
+3. **Fixed-feature MLP (fallback)** — Feed-forward network over a pure-Rust
+   feature vector predicting a continuous log-steps target; quantised ONNX;
+   used where tokenisation is constrained.
 4. **Hashed n-gram linear/FFN (baseline)** — Extremely small model to validate
    regressions and act as an emergency backup.
 
 ## 5. Decision
 
-Adopt **Transformer-Ordinal** as the default architecture for
+Adopt **Transformer-ordinal** as the default architecture for
 `DepthClassifierOnnx`, exported to ONNX and executed with ONNX Runtime on CPU.
 Commit to a near-term optimization plan (post-training static INT8
-quantization; intermediate-layer pooling ablation) and a longer-term **Hybrid**
-roadmap for increased robustness and interpretability. Ship the **Fixed-Feature
+quantisation; intermediate-layer pooling ablation) and a longer-term **Hybrid**
+roadmap for increased robustness and interpretability. Ship the **Fixed-feature
 MLP** as a supported fallback under a feature flag.
 
-## 6. Selected Architecture — Transformer-Ordinal
+## 6. Selected architecture — Transformer-ordinal
 
-### I/O Signature
+### I/O signature
 
-- Inputs: `input_ids: int64[batch, seq]`, `attention_mask: int64[batch, seq]`
-  (dynamic axes).
+- Inputs: `input_ids: int64[batch, seq]`, `attention_mask: int64[batch, seq]`.
+  The Rust tokeniser right-pads and right-truncates every request to a fixed
+  `seq = max_seq_len` (512 tokens for the launch build). `batch` is dynamic in
+  the ONNX graph, but the provider currently executes single-query batches.
 - Outputs: `logits_ord: float32[batch, K]` where `K` is the number of ordered
-depth thresholds.
+  depth thresholds. The runtime reads the first batch element and discards the
+  rest, preserving compatibility with future batched inference.
 
-### Ordinal Head
+### Ordinal head
 
 - Cumulative/threshold encoding: head `k` predicts `P(depth > τ_k)` via
   `sigmoid`.
-- Scalar depth for the Cognitive Clutch is computed as either:  
-  - **Expected value:** `E[steps] = Σ_k σ(logits_ord[k])`, optionally mapped to
-    a step scale; or
-  - **Mid-bin mapping:** count of heads above threshold → representative step
-    value.
-- This scalar is returned as the provider’s **raw depth**, then normalized by
+- Scalar depth for the Cognitive Clutch is computed as either:
+  - **Expected value:** `E[steps] = Σ_k σ(logits_ord[k])`, yielding a value in
+    the closed range `[0, K]`. The score can then be shifted and scaled onto
+    the calibrated step axis before Sigma normalisation.
+  - **Mid-bin mapping:** count the heads with `σ(logits_ord[k]) ≥ θ` for a
+    configured decision threshold `θ`. Map that integer in `0..=K` to the
+    representative step value for the corresponding bin.
+- This scalar is returned as the provider’s **raw depth**, then normalised by
   Sigma and combined per the design document.
 
-### Backbone & Representation
+### Backbone and representation
 
 - DistilBERT-class encoder (or equivalent lightweight encoder) with
   **multi-layer representation pooling**: concatenate or pool the `[CLS]`
   hidden states from the last 4 layers before the ordinal head. This exploits
   the known stratification of linguistic information across layers.
 
-### Graph Notes
+### Graph notes
 
 - Opset: 17.  
-- Graph includes tokenization-independent components only; tokenization
+- Graph includes tokenisation-independent components only; tokenisation
   performed in Rust using a deterministic vocabulary (e.g., `tokenizers`).
 - Optional calibration added as `Mul`/`Add` after the ordinal expectation;
   otherwise applied in Rust before Sigma.
 
-## 7. Short-Term Optimizations (Committed)
+## 7. Short-term optimisations (committed)
 
-- **Static INT8 quantization:** apply post-training static quantization (weights
+- **Static INT8 quantisation:** apply post-training static quantisation (weights
   and activations) for CPU; benchmark size, latency, and accuracy drift against
   FP32.
 - **Intermediate-layer ablation:** compare final-layer vs multi-layer pooled
   representations; promote the best variant by validation metrics and latency.
 
-## 8. Long-Term Roadmap — Hybrid Fusion
+## 8. Long-term roadmap — hybrid fusion
 
 - **Feature selection:** identify a small, computationally inexpensive set of
   syntactic/lexical features (e.g., Average Dependency Distance,
@@ -125,7 +130,7 @@ depth thresholds.
 - **Objective:** improve robustness to paraphrase and domain shift; increase
   interpretability while keeping latency within targets.
 
-## 9. Training & Labelling (Offline)
+## 9. Training and labelling (offline)
 
 - **Target definition:** ordered depth levels aligned to the LAG Complexity
   notion of “reasoning steps” (bins defined during dataset curation).
@@ -145,47 +150,46 @@ depth thresholds.
 - **Location:** either baked into the ONNX graph (`Mul`/`Add`) or applied in
   provider code before Sigma; both paths preserve determinism and observability.
 
-## 11. Quantization & Performance Targets
+## 11. Quantisation and performance targets
 
-- **Quantization:** post-training static INT8 for Transformer and head; retain
+- **Quantisation:** post-training static INT8 for Transformer and head; retain
   FP32 outputs.
 - **Targets:** p95 ≤ 10 ms (single query, CPU), ≤ 2 ms for batch of 16 short
   queries; ≤ 1% absolute accuracy degradation vs FP32; artefact size reduced by
   ≥ 50%.
 
-## 12. Integration Details
+## 12. Integration details
 
-- **Provider type:** `DepthClassifierOnnx { session, input_name(s), output_name
+- **Provider type:** `DepthClassifierOnnx { session, input_names, output_names
   }`.
 - **Trait:** implements `TextProcessor<Output = f32>`; returns scalar raw depth
   (expected steps or mapped mid-bin).
-- **Tokenization:** performed in Rust with a pinned vocabulary; deterministic
+- **Tokenisation:** performed in Rust with a pinned vocabulary; deterministic
   and locale-safe.
 - **Runtime pinning:** the `ort` crate is fixed to the `2.0.x` series (bundling
-  ONNX Runtime 1.18). Initialization verifies the runtime build ID before
-  constructing inference sessions and fails closed if it diverges from the
-  expected metadata.
+  ONNX Runtime 1.18), ensuring the shipped runtime matches the opset required
+  by the artefacts.
 - **Error handling:** ONNX Runtime errors mapped to `Error::Inference` with
   model path, opset, and checksum in diagnostics.
 - **Tracing & metrics:** instrument `process()`; export latency histograms,
   error counters, and token length/batch size tags; integrate with existing
   observability per the design document.
-- **Configuration:** model path, enablement flags, quantization variant
+- **Configuration:** model path, enablement flags, quantisation variant
   selection, and optional in-graph calibration switch; Sigma/Weights/Schedule
   remain unchanged.
 
-## 13. Fixed-Feature Fallback — MLP-Log
+## 13. Fixed-feature fallback — MLP-log
 
-- **Use case:** environments where tokenization is undesirable or constrained.
+- **Use case:** environments where tokenisation is undesirable or constrained.
 - **I/O:** `float32[batch, F] → float32[batch, 1]`, `F ≈ 64–96`.
 - **Head:** `Linear(F,128) → GELU → Linear(128,64) → GELU → Linear(64,1)`.
 - **Target:** `log1p(steps)`; inference maps via `expm1`.
-- **Quantization:** dynamic or static INT8 for linear layers; FP32 output.
+- **Quantisation:** dynamic or static INT8 for linear layers; FP32 output.
 - **Output:** scalar raw depth to Sigma.
 
-## 14. Testing Strategy
+## 14. Testing strategy
 
-- **Unit:** tokenizer determinism; ordinal head probability semantics;
+- **Unit:** tokeniser determinism; ordinal head probability semantics;
   calibration correctness.
 - **Golden traces:** snapshot raw ordinal-derived depth alongside heuristic and
   fallback MLP on a fixed corpus; fail on drift beyond tolerance.
@@ -198,40 +202,40 @@ depth thresholds.
 - **Ablations:** last-layer vs multi-layer pooling; early vs advanced fusion
   (when enabled).
 
-## 15. Rollout Plan
+## 15. Rollout plan
 
-- Ship Transformer-Ordinal behind the `onnx` feature.
+- Ship Transformer-ordinal behind the `onnx` feature.
 - Retain heuristic depth as a safety net; enable A/B comparison in selected
   services and compare composite scores and traces.
 - Promote to default after benchmarks, calibration, and acceptance criteria are
-  met; keep Fixed-Feature MLP as a documented fallback.
+  met; keep Fixed-feature MLP as a documented fallback.
 
-## 16. Risks & Mitigations
+## 16. Risks and mitigations
 
 - **Ordinality mismatch:** addressed by ordinal head and calibration.
 - **Domain shift & brittleness:** mitigated by hybrid roadmap, diverse training
   data, and periodic recalibration.
-- **Quantization drift:** maintain FP32 reference; CI checks compare INT8 vs
+- **Quantisation drift:** maintain FP32 reference; CI checks compare INT8 vs
   FP32.
 - **TCO:** invest in monitoring, anomaly detection, and scheduled retraining;
   keep fallback model available.
 - **Opset/runtime compatibility:** pin opset; validate ORT versions; verify
   model checksum at load.
 
-## 17. Compliance with LAG Complexity Design
+## 17. Compliance with LAG Complexity design
 
 - Respects provider abstraction and returns a scalar depth compatible with
-  Sigma normalization and weighting.
+  Sigma normalisation and weighting.
 - Integrates with tracing, metrics, and golden testing.
 - Keeps split logic (threshold schedules) unchanged; only the depth signal
   source varies.
 - Provides a documented fallback path and a roadmap for hybrid improvements.
 
-## 18. Operational Details & Versioning
+## 18. Operational details and versioning
 
 - **Filename & checksum:** `depth_transformer_ordinal.onnx` (and
   `depth_mlp_log.onnx` fallback) with SHA-256 recorded and verified at load.
-- **Tokenizer artefacts:** `tokenizer.json`, `vocab.txt`/`merges.txt`, or
+- **Tokeniser artefacts:** `tokenizer.json`, `vocab.txt`/`merges.txt`, or
   `spiece.model` hashes are pinned alongside the model. Provider start-up
   recomputes SHA-256 digests for each artefact and fails closed on mismatch.
 - **Versioning:** semantic version in ONNX metadata; minor for calibration
@@ -240,7 +244,7 @@ depth thresholds.
 - **Licensing:** include training-data and model licence notices alongside the
   artefacts.
 
-## 19. Open Questions
+## 19. Open questions
 
 - Optimal number of ordinal thresholds `K` and bin boundaries for alignment with
   the LAG depth scale.
@@ -249,7 +253,7 @@ depth thresholds.
 
 ______________________________________________________________________
 
-### Appendix A — Minimal ONNX Graph Summary (Transformer-Ordinal)
+### Appendix A — Minimal ONNX graph summary (Transformer-ordinal)
 
 - Nodes: encoder subgraph (attention, FFN), `Sigmoid` × K for ordinal heads,
   optional `Mul`/`Add` calibration, small `Reduce`/`Add` to compute expectation.
@@ -258,7 +262,7 @@ ______________________________________________________________________
 - Outputs: `logits_ord: float32[batch, K]` and/or `depth_scalar: float32[batch,
   1]` if expectation is embedded.
 
-### Appendix B — Acceptance Criteria
+### Appendix B — Acceptance criteria
 
 - Spearman ρ ≥ 0.60 on held-out mixed-domain set; MAE ≤ 1.0 steps (after scalar
   mapping); ECE within target for ordinal heads.

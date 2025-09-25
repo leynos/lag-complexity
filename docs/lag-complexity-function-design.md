@@ -1338,7 +1338,7 @@ defining the primary public interfaces.
     boilerplate. Precedence is: command-line arguments > environment variables
     > configuration files.
 
-- **Acceptance Criteria:**
+- **Acceptance criteria:**
 
   - The crate and all its core types compile successfully.
   - A comprehensive suite of unit tests for the mathematical and normalization
@@ -1359,7 +1359,7 @@ relying on fast, lightweight heuristics.
   - Create the golden-file integration test suite with an initial set of ~50
     curated queries and their expected trace outputs.
 
-- **Acceptance Criteria:**
+- **Acceptance criteria:**
 
   - The `score()` and `trace()` methods are fully functional using the heuristic
     providers.
@@ -1385,7 +1385,7 @@ optimizing for performance.
   - Set up the `criterion` benchmarking suite and implement the initial set of
     micro and macro benchmarks.
 
-- **Acceptance Criteria:**
+- **Acceptance criteria:**
 
   - The ONNX-based providers can be successfully composed into a
     `DefaultComplexity` engine and produce valid scores.
@@ -1408,7 +1408,7 @@ and tuning its parameters.
   - Run the evaluation harness and analyse the results to fine-tune the `Sigma`
     normalization parameters and the weights within the heuristic models.
 
-- **Acceptance Criteria:**
+- **Acceptance criteria:**
 
   - The evaluation harness successfully generates a report (`EVALUATION.md`).
   - The report demonstrates a statistically significant positive correlation
@@ -1429,7 +1429,7 @@ creating compelling demonstrations.
   - Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
     Resolver" stakeholder demonstrations.
 
-- **Acceptance Criteria:**
+- **Acceptance criteria:**
 
   - The Python package can be built, installed via `pip`, and used to score
     queries.
@@ -1452,7 +1452,7 @@ observable production deployment.
   - Finalize the `README.md` to include installation instructions, usage
     examples, and links to benchmarks and evaluation reports.
 
-- **Acceptance Criteria:**
+- **Acceptance criteria:**
 
   - The crate is fully documented, with `cargo doc --open` producing a complete
     and navigable API reference.
