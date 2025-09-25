@@ -425,7 +425,7 @@ as accurate as a model-based approach, it serves as an excellent low-latency
 first-pass filter. It operates by identifying and counting linguistic markers
 that often correlate with syntactic and logical complexity.[^9]
 
-##### Feature Engineering (Depth)
+##### Feature engineering (depth)
 
 - **Clause Connectors:** It will identify and score coordinating conjunctions
   (`and`, `or`, `but`) and subordinating conjunctions (`if`, `because`,
@@ -522,7 +522,7 @@ clarified before attempting to answer.
 This provides a fast, lightweight signal for common sources of ambiguity in
 English text.[^10]
 
-##### Feature Engineering (Ambiguity)
+##### Feature engineering (ambiguity)
 
 - **Coreference Risk (Anaphora):** The heuristic will count third-person
   pronouns (`it`, `he`, `she`, `they`) and demonstratives (`this`, `that`). The
@@ -842,7 +842,7 @@ in isolation.
   `τ(t)` is always positive and monotonically decreasing as the step `t`
   increases.
 
-##### Heuristic Components
+##### Heuristic components
 
 - Tests for `DepthHeuristic` will assert that adding linguistic complexity
   markers (e.g., a subordinating conjunction or a relative clause) never

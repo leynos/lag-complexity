@@ -29,11 +29,22 @@ impl OrdinalAggregation {
     /// # Errors
     ///
     /// Returns `InvalidBinCount` when the mid-bin mapping length does not match `head_count + 1`.
+    /// Returns `InvalidDecisionThreshold` when the decision threshold falls outside `[0.0, 1.0]`.
     pub fn validate(&self, head_count: usize) -> Result<(), OnnxClassifierError> {
         match self {
             Self::ExpectedValue { .. } => Ok(()),
-            Self::MidBin { bin_midpoints, .. } => {
+            Self::MidBin {
+                bin_midpoints,
+                decision_threshold,
+            } => {
                 let expected = head_count + 1;
+                if !(0.0..=1.0).contains(decision_threshold) {
+                    return Err(OnnxClassifierError::InvalidDecisionThreshold {
+                        min: 0.0,
+                        max: 1.0,
+                        actual: *decision_threshold,
+                    });
+                }
                 if bin_midpoints.len() == expected {
                     Ok(())
                 } else {
@@ -58,6 +69,15 @@ mod tests {
             decision_threshold: 0.5,
         };
         assert!(aggregation.validate(2).is_ok());
+        assert!(aggregation.validate(1).is_err());
+    }
+
+    #[test]
+    fn ordinal_aggregation_rejects_out_of_range_threshold() {
+        let aggregation = OrdinalAggregation::MidBin {
+            bin_midpoints: vec![0.0, 1.0],
+            decision_threshold: 1.5,
+        };
         assert!(aggregation.validate(1).is_err());
     }
 }

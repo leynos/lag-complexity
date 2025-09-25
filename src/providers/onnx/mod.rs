@@ -6,12 +6,15 @@ mod errors;
 
 pub use aggregation::OrdinalAggregation;
 pub use artefact::OnnxArtefact;
-pub use classifier::OnnxTextClassifier;
 pub use config::OnnxClassifierConfig;
 pub use errors::{AmbiguityClassifierOnnxError, DepthClassifierOnnxError, OnnxClassifierError};
 
 use crate::providers::TextProcessor;
+use classifier::OnnxTextClassifier;
 
+/// Depth classifier using an ONNX Transformer-Ordinal model.
+///
+/// Returns the expected reasoning steps as a raw depth score for Sigma normalisation.
 #[derive(Debug)]
 pub struct DepthClassifierOnnx {
     inner: OnnxTextClassifier,
@@ -41,6 +44,9 @@ impl TextProcessor for DepthClassifierOnnx {
     }
 }
 
+/// Ambiguity classifier using an ONNX Transformer-Ordinal model.
+///
+/// Returns a raw ambiguity score in probability units for Sigma normalisation.
 #[derive(Debug)]
 pub struct AmbiguityClassifierOnnx {
     inner: OnnxTextClassifier,

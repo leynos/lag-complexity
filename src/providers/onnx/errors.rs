@@ -59,10 +59,13 @@ pub enum OnnxClassifierError {
     },
     #[error("mid-bin mapping requires {expected} bins but found {actual}")]
     InvalidBinCount { expected: usize, actual: usize },
+    #[error("decision threshold must be within [{min}, {max}] but was {actual}")]
+    InvalidDecisionThreshold { min: f32, max: f32, actual: f32 },
 }
 
 /// Errors returned by [`DepthClassifierOnnx`].
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DepthClassifierOnnxError {
     #[error(transparent)]
     Classifier(#[from] OnnxClassifierError),
@@ -70,6 +73,7 @@ pub enum DepthClassifierOnnxError {
 
 /// Errors returned by [`AmbiguityClassifierOnnx`].
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum AmbiguityClassifierOnnxError {
     #[error(transparent)]
     Classifier(#[from] OnnxClassifierError),
