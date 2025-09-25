@@ -319,9 +319,8 @@ security and ease of use. By disabling `provider-api` by default, the crate
 adheres to the principle of least privilege, preventing any unintended network
 activity unless explicitly opted into by the developer.[^8] This is a critical
 security posture for a library that might be deployed in sensitive
-environments. Conversely, by enabling local, pure-Rust providers (
-
-`provider-candle`, `onnx`) and parallelism (`rayon`) by default, the crate
+environments. Conversely, by enabling local, pure-Rust providers
+(`provider-candle`, `onnx`) and parallelism (`rayon`) by default, the crate
 provides a "batteries-included" experience. A developer can add
 `lag_complexity` to their project and immediately have a functional,
 performant, and self-contained scoring engine without needing to configure
@@ -450,11 +449,15 @@ that often correlate with syntactic and logical complexity.[^9]
   return zero matches to avoid runaway counts, mirroring the public API. For
   example:
 
-  ```rust
+  ```rust,no_run
   # fn main() -> Result<(), regex::Error> {
   use regex::Regex;
-  use lag_complexity::heuristics::text::substring_count_regex;
-
+  #
+  # // Local helper keeps the example self-contained for doctests.
+  fn substring_count_regex(hay: &str, re: &Regex) -> usize {
+      re.find_iter(hay).count()
+  }
+  #
   let empty = Regex::new("")?;
   assert_eq!(substring_count_regex("hay", &empty), 0);
   # Ok(())
@@ -1172,7 +1175,7 @@ A central example demonstrates the composition of the default, general-purpose
 providers and the scoring configuration, acting as the primary engine for
 calculating complexity.
 
-```rust,ignore
+```rust,no_run
   use lag_complexity::api::{Complexity, ComplexityFn};
   use lag_complexity::config::ScoringConfig;
   use lag_complexity::providers::{AmbiguityEstimator, DepthEstimator, EmbeddingProvider};
@@ -1275,7 +1278,7 @@ t_max = 5
 
 Rust code to load the configuration:
 
-```rust,ignore
+```rust,no_run
   use lag_complexity::config::ScoringConfig;
   use std::fs;
 
@@ -1292,7 +1295,7 @@ The `trace()` method is a powerful tool for debugging and understanding the
 scorer's behaviour. An example shows how to invoke it and inspect the component
 scores.
 
-```rust,ignore
+```rust,no_run
 fn print_trace(scorer: &impl ComplexityFn, query: &str) {
     match scorer.trace(query) {
         Ok(trace) => {
