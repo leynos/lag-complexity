@@ -587,12 +587,12 @@ production-oriented, industrial-grade system.
 
 #### Table 2: provider implementation trade-offs (depth & ambiguity)
 
-| Provider Type                | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                                 |
-| ---------------------------- | -------- | --------------- | ------------------ | --------------------------- | ------------------------------------------------------------------------ |
-| **Heuristic**                | Low      | Very Low (<1ms) | Negligible         | None                        | Default, low-latency applications, initial signal.                       |
-| **ONNX Transformer-Ordinal** | High     | Low (~5-10ms)   | Low (local CPU)    | `ort` crate, model file     | Production default with deterministic CPU inference and Sigma alignment. |
-| **ONNX MLP Fallback**        | Medium   | Very Low (~2ms) | Low (local CPU)    | `ort` crate, model file     | Tokenization-constrained deployments needing resilience.                 |
-| **External LLM**             | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Systems where accuracy is paramount and latency/cost are acceptable.     |
+| Provider Type                | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                    |
+| ---------------------------- | -------- | --------------- | ------------------ | --------------------------- | ----------------------------------------------------------- |
+| **Heuristic**                | Low      | Very Low (<1ms) | Negligible         | None                        | Default for low-latency deployments; initial signal.        |
+| **ONNX Transformer-Ordinal** | High     | Low (~5-10ms)   | Low (local CPU)    | `ort` crate, model file     | Production default offering deterministic CPU inference.    |
+| **ONNX MLP Fallback**        | Medium   | Very Low (~2ms) | Low (local CPU)    | `ort` crate, model file     | Tokenization-constrained deployments needing resilience.    |
+| **External LLM**             | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Maximum accuracy when higher latency or cost is acceptable. |
 
 ## 3. Configuration deep dive: normalization, scheduling, and halting
 

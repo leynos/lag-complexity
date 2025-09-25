@@ -11,13 +11,13 @@ primary public interfaces.
 - [x] Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
     `DepthEstimator`, `AmbiguityEstimator`).
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
-  normalisation strategies.
+  normalization strategies.
 - [x] Create the stub for the `lagc` CLI binary using `ortho_config`
   (published as `ortho-config` on crates.io) [^hyphen-underscore].
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
-  mathematical and normalisation logic passes.
+  mathematical and normalization logic passes.
 - [x] **Acceptance Criteria**: The `lagc` CLI application can be built and run
   (verify with: `cargo run --bin lagc -- --help`), though it will have no
   functional commands yet.
@@ -40,7 +40,7 @@ relying on fast, lightweight heuristics.
 ## Phase 2 — Model-Backed Providers & Performance (Duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
-optimising for performance.
+optimizing for performance.
 
 - [ ] Train or adapt and export the initial ONNX models for depth and ambiguity
   classification.
@@ -67,13 +67,13 @@ and tuning its parameters.
 - [ ] Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
   calibration (`ECE`) metrics.
 - [ ] Run the evaluation harness and analyse the results to fine-tune the
-  `Sigma` normalisation parameters and the weights within the heuristic models.
+  `Sigma` normalization parameters and the weights within the heuristic models.
 - [ ] **Acceptance Criteria**: The evaluation harness successfully generates a
   report (`EVALUATION.md`).
 - [ ] **Acceptance Criteria**: The report demonstrates a statistically
   significant positive correlation between the crate's component scores and the
   corresponding dataset labels.
-- [ ] **Acceptance Criteria**: The calibrated parameters are finalised and
+- [ ] **Acceptance Criteria**: The calibrated parameters are finalized and
   committed as the default configuration.
 
 ## Phase 4 — Bindings & Demos (Duration: 2 weeks)
@@ -103,7 +103,7 @@ observable production deployment.
 - [ ] Implement the `with_redaction_hook` method for PII scrubbing.
 - [ ] Write comprehensive `rustdoc` documentation for all public APIs,
   including detailed usage examples.
-- [ ] Finalise the `README.md` to include installation instructions, usage
+- [ ] Finalize the `README.md` to include installation instructions, usage
   examples, and links to benchmarks and evaluation reports.
 - [ ] **Acceptance Criteria**: The crate is fully documented, with
   `cargo doc --open` producing a complete and navigable API reference.

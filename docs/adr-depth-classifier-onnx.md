@@ -106,8 +106,9 @@ MLP** as a supported fallback under a feature flag.
 ### Graph notes
 
 - Opset: 17.  
-- Graph includes tokenization-independent components only; tokenization
-  performed in Rust using a deterministic vocabulary (e.g., `tokenizers`).
+- Graph keeps tokenization-independent components only. Rust performs the
+  tokenization with a deterministic `tokenizers` vocabulary so every
+  environment receives identical inputs.
 - Optional calibration added as `Mul`/`Add` after the ordinal expectation;
   otherwise applied in Rust before Sigma.
 
@@ -166,8 +167,8 @@ MLP** as a supported fallback under a feature flag.
   }`.
 - **Trait:** implements `TextProcessor<Output = f32>`; returns scalar raw depth
   (expected steps or mapped mid-bin).
-- **Tokenization:** performed in Rust with a pinned vocabulary; deterministic
-  and locale-safe.
+- **Tokenization:** handled in Rust with a pinned vocabulary, keeping the
+  pipeline deterministic and locale-safe.
 - **Runtime pinning:** the `ort` crate is fixed to the `2.0.x` series (bundling
   ONNX Runtime 1.22, which supports the opset 17 graph), ensuring the shipped
   runtime matches the opset required by the artefacts.
