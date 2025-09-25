@@ -86,8 +86,9 @@ upgraded without impacting the core logic of the consuming agent. This
 modularity also promotes reusability across different agent implementations or
 even other systems that could benefit from a query complexity signal.
 Therefore, the creation of the `lag_complexity` crate is not merely an
-implementation detail; it is a foundational choice that enhances the testability,
-maintainability, and scalability of the entire AI ecosystem it serves.
+implementation detail; it is a foundational choice that enhances the
+testability, maintainability, and scalability of the entire AI ecosystem it
+serves.
 
 ## 1. Crate architecture and public API
 
@@ -424,7 +425,7 @@ as accurate as a model-based approach, it serves as an excellent low-latency
 first-pass filter. It operates by identifying and counting linguistic markers
 that often correlate with syntactic and logical complexity.[^9]
 
-##### Feature Engineering
+##### Feature Engineering (Depth)
 
 - **Clause Connectors:** It will identify and score coordinating conjunctions
   (`and`, `or`, `but`) and subordinating conjunctions (`if`, `because`,
@@ -443,7 +444,7 @@ that often correlate with syntactic and logical complexity.[^9]
 - **Aggregation:** The final heuristic score will be a weighted sum of the
   counts of these features. The weights will be empirically tuned against a
   curated set of multi-hop questions.
-- **Implementation note:** The heuristic uses shared token normalisation and a
+- **Implementation note:** The heuristic uses shared token normalization and a
   pair of weighted tables for tokens and phrases. Word-boundary matching
   (implemented via the `regex` crate) prevents partial hits. Empty patterns
   return zero matches to avoid runaway counts, mirroring the public API. For
@@ -468,18 +469,35 @@ that often correlate with syntactic and logical complexity.[^9]
 
 For higher accuracy, the crate will provide model-based estimators.
 
-- `DepthClassifierOnnx`: Enabled by the `onnx` feature, this provider uses a
-  small, pre-trained model in the ONNX format for fast local inference.
-- **Architecture:** The model will be a simple feed-forward neural network or a
-  gradient-boosted tree model, designed for minimal computational overhead.
-- **Input:** To ensure low latency, the model will not process raw text.
-  Instead, its input will be a compact feature vector derived from the same
-  linguistic signals used by `DepthHeuristic` (e.g., counts of conjunctions,
-  POS tags, dependency patterns). This transforms the task from a complex
-  sequence problem into a simple and fast classification/regression problem on
-  a fixed-size vector.
-- **Output:** The model will output a calibrated continuous value representing
-  the predicted number of reasoning steps.
+- `DepthClassifierOnnx`: Enabled by the `onnx` feature, this provider is the
+  default production path for depth estimation. It loads a compact
+  Transformer-Ordinal model exported to ONNX and executed on CPU via ONNX
+  Runtime. The architecture choice, performance targets, and operational
+  controls are captured in the dedicated
+  [`DepthClassifierOnnx` ADR](adr-depth-classifier-onnx.md).
+- **Architecture:** A DistilBERT-class encoder feeds an ordinal regression head
+  that predicts `P(depth > τ_k)` for `k` ordered thresholds. The provider
+  computes the expected step count (or, optionally, a mid-bin mapping) from the
+  ordinal logits and returns this scalar as the raw depth signal for Sigma.
+- **Tokenization & determinism:** Text is tokenized in Rust using a pinned
+  vocabulary to guarantee platform parity. The ONNX graph omits
+  tokenization-specific nodes, pins opset 17, and includes optional affine
+  calibration so that outputs remain deterministic across environments.
+- **Runtime & artefact controls:** The crate exposes an optional `onnx`
+  feature that pulls in a pinned `ort = "2.0"` dependency (bundling ONNX
+  Runtime 1.18). Provider start-up recomputes SHA-256 digests for
+  `depth_transformer_ordinal.onnx`, the INT8 variant, the MLP fallback, and the
+  tokenizer artefacts before constructing inference sessions. Any mismatch
+  raises an error and the provider fails closed, preventing partially loaded
+  state.
+- **Performance roadmap:** Post-training static INT8 quantization and
+  intermediate-layer pooling ablations are part of the committed optimization
+  plan. These keep CPU latency below 10 ms p95 while shrinking artefact size
+  without sacrificing calibration.
+- `DepthClassifierMlpOnnx`: A feature-flagged fallback that consumes the
+  engineered feature vector also used by `DepthHeuristic`. It serves
+  tokenization-constrained environments, exports as a compact ONNX MLP with
+  `log1p`/`expm1` scaling, and is quantised for low footprint.
 - `DepthFromLLM`: Enabled by the `provider-api` feature, this is the
   highest-fidelity but also highest-latency option.
 - It wraps an API call to an external LLM (e.g., GPT-4o-mini).
@@ -504,7 +522,7 @@ clarified before attempting to answer.
 This provides a fast, lightweight signal for common sources of ambiguity in
 English text.[^10]
 
-##### Feature Engineering
+##### Feature Engineering (Ambiguity)
 
 - **Coreference Risk (Anaphora):** The heuristic will count third-person
   pronouns (`it`, `he`, `she`, `they`) and demonstratives (`this`, `that`). The
@@ -523,9 +541,9 @@ English text.[^10]
 - **Aggregation:** The scores from these risk factors will be combined into a
   single pseudo-entropy value. Laplace smoothing will be applied to ensure a
   stable, non-zero score even for queries with no detected ambiguity signals.
-- **Implementation note:** The initial heuristic uses a shared normaliser for
+- **Implementation note:** The initial heuristic uses a shared normalizer for
   token casing and punctuation. Ambiguous entity matching applies conservative
-  singularisation (shared text utils) and uses `regex` word boundaries to avoid
+  singularization (shared text utils) and uses `regex` word boundaries to avoid
   partial matches. Pronouns and vague terms carry unit weight, ambiguous
   entities count double, and Laplace smoothing adds one to the total.
   Antecedent resolution is deferred to model-based providers.
@@ -534,8 +552,12 @@ English text.[^10]
 
 - Enabled by the `onnx` feature, this provider uses a lightweight text
   classification model for more nuanced ambiguity detection.
-- **Architecture:** The model could be a fine-tuned DistilBERT 34 or a similar
-  compact transformer, exported to ONNX for efficient inference.[^12]
+- **Runtime & artefact controls:** It shares the same pinned `ort` dependency
+  and checksum-verification path as `DepthClassifierOnnx`, refusing to run if
+  model or tokenizer artefacts do not match the recorded digests.
+- **Architecture:** The model could be a fine-tuned DistilBERT
+  ([Sanh et al.](https://arxiv.org/abs/1910.01108)) or a similar compact
+  transformer, exported to ONNX for efficient inference.[^12]
 - **Training Data:** The model would be trained on a dataset specifically
   designed for ambiguity, such as AmbigQA, which contains questions annotated
   with multiple plausible interpretations.[^13]
@@ -562,11 +584,12 @@ production-oriented, industrial-grade system.
 
 #### Table 2: provider implementation trade-offs (depth & ambiguity)
 
-| Provider Type       | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                             |
-| ------------------- | -------- | --------------- | ------------------ | --------------------------- | -------------------------------------------------------------------- |
-| **Heuristic**       | Low      | Very Low (<1ms) | Negligible         | None                        | Default, low-latency applications, initial signal.                   |
-| **ONNX Classifier** | Medium   | Low (~5-20ms)   | Low (local CPU)    | `ort` crate, model file     | Production systems needing a balance of speed and accuracy.          |
-| **External LLM**    | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Systems where accuracy is paramount and latency/cost are acceptable. |
+| Provider Type                | Accuracy | Latency         | Cost (Compute/API) | Dependencies                | Use Case                                                                 |
+| ---------------------------- | -------- | --------------- | ------------------ | --------------------------- | ------------------------------------------------------------------------ |
+| **Heuristic**                | Low      | Very Low (<1ms) | Negligible         | None                        | Default, low-latency applications, initial signal.                       |
+| **ONNX Transformer-Ordinal** | High     | Low (~5-10ms)   | Low (local CPU)    | `ort` crate, model file     | Production default with deterministic CPU inference and Sigma alignment. |
+| **ONNX MLP Fallback**        | Medium   | Very Low (~2ms) | Low (local CPU)    | `ort` crate, model file     | Tokenization-constrained deployments needing resilience.                 |
+| **External LLM**             | High     | High (500ms+)   | High               | `reqwest`, `tokio`, API key | Systems where accuracy is paramount and latency/cost are acceptable.     |
 
 ## 3. Configuration deep dive: normalization, scheduling, and halting
 
@@ -693,11 +716,12 @@ this task. The crate will leverage this capability to maximize throughput.
      `rayon::par_iter()` to process multiple queries in the batch concurrently
      across available CPU cores.
   2. **Intra-Query Parallelism:** Within a single `score` call, the three
-     independent provider functions (`embed`, `estimate`, `entropy_like`) will be
-     executed in parallel using `rayon::join`. This allows the system to overlap
-     I/O-bound operations (like an API call for embeddings) with CPU-bound
-     operations (like running heuristic estimators), significantly reducing the
-     end-to-end latency for a single query.
+     independent provider functions (calling `process()` on the embedding,
+     depth, and ambiguity providers) will be executed in parallel using
+     `rayon::join`. This allows the system to overlap I/O-bound operations
+     (like an API call for embeddings) with CPU-bound operations (like running
+     heuristic estimators), significantly reducing the end-to-end latency for a
+     single query.
 
 ### Caching strategy
 
@@ -709,11 +733,12 @@ essential for performance and cost reduction.
   `EmbeddingProvider`. Caching the final `Complexity` score is less effective,
   as small variations in the query text would lead to cache misses.
 - **Library Selection:** The `moka` crate will be used for caching.[^14] While
-  `dashmap` is an excellent general-purpose concurrent hash map 42, `moka` is
-  a specialized, high-performance caching library inspired by Java's Caffeine.
-  It provides essential caching features out-of-the-box, such as size-based
-  eviction (LRU/LFU policies) and time-based expiration (TTL/TTI), which are
-  critical for managing the cache's memory footprint and data freshness.
+  [`dashmap`](https://crates.io/crates/dashmap) is an excellent general-purpose
+  concurrent hash map, `moka` is a specialized, high-performance caching
+  library inspired by Java's Caffeine. It provides essential caching features
+  out-of-the-box, such as size-based eviction (LRU/LFU policies) and time-based
+  expiration (TTL/TTI), which are critical for managing the cache's memory
+  footprint and data freshness.
 
 - **Implementation:** A `CachingEmbeddingProvider` decorator will be
   implemented. This struct will wrap an existing `EmbeddingProvider` and
@@ -771,9 +796,10 @@ The crate will be designed with security as a primary consideration.
   method `with_redaction_hook`. This allows the consumer to inject a custom
   function that will be applied to all input strings before any processing
   occurs. This hook enables integration with PII scrubbing libraries (e.g.,
-  those inspired by Microsoft's Presidio 49 or other custom solutions 50) and
-  is a critical feature for maintaining data privacy and achieving compliance
-  in regulated domains.
+  those inspired by Microsoft's
+  [Presidio](https://github.com/microsoft/presidio) or other custom solutions)
+  and is a critical feature for maintaining data privacy and achieving
+  compliance in regulated domains.
 
 ### Determinism
 
@@ -815,8 +841,8 @@ in isolation.
 - The `Schedule::ExpDecay` logic will be tested to confirm that the threshold
   `τ(t)` is always positive and monotonically decreasing as the step `t`
   increases.
-  
-##### Heuristic Components:
+
+##### Heuristic Components
 
 - Tests for `DepthHeuristic` will assert that adding linguistic complexity
   markers (e.g., a subordinating conjunction or a relative clause) never
@@ -837,8 +863,8 @@ test writers might miss.
 - The `score(q)` function must never panic for any valid UTF-8 string `q`.
 - All components of the returned `Complexity` struct (`total`, `scope`,
   `depth`, `ambiguity`) must be non-negative.
-  
-##### Behavioural properties:
+
+##### Behavioural properties
 
 - **Idempotence:** `score(q)` should be equal to `score(q.clone())`.
 - **Scope Order-Insensitivity:** For the `ScopeVariance` component,
@@ -906,25 +932,30 @@ academic datasets and report on its performance.
   be created to automate this process. It will load specified datasets, run the
   `lag_complexity` scorer on the questions, and compute a suite of validation
   metrics.
-  
-#### Dataset-to-Component Mapping:
+
+#### Dataset-to-Component Mapping
 
 - **Reasoning Steps (**`depth`**):** Performance will be measured against
-  multi-hop question-answering datasets like **HotpotQA** 52, **2WikiMultiHopQA**,
-  and **MuSiQue**. The number of supporting facts or annotated reasoning hops will
-  serve as the ground truth for reasoning depth.
+  multi-hop question-answering datasets like
+  [**HotpotQA**](https://hotpotqa.github.io),
+  [**2WikiMultiHopQA**](https://github.com/Alab-NII/2wiki-multihop-qa), and
+  [**MuSiQue**](https://arxiv.org/abs/2108.01065). The number of supporting
+  facts or annotated reasoning hops will serve as the ground truth for
+  reasoning depth.
 
 - **Ambiguity (**`ambiguity`**):** The ambiguity score will be validated
-  against datasets designed to study ambiguity, such as **AmbigQA** 38 and
-  **ASQA**. The ground truth will be the dataset's annotation indicating
-  whether a question has multiple plausible interpretations.
+  against datasets designed to study ambiguity, such as **AmbigQA**[^13] and
+  [**ASQA**](https://github.com/nyu-mll/ambigqa/tree/main/asqa). The ground
+  truth will be the dataset's annotation indicating whether a question has
+  multiple plausible interpretations.
 
 - **Semantic Scope (**`scope`**):** As there is no direct ground-truth label
   for "scope," its behaviour will be evaluated indirectly. Using diverse
-  datasets from the **BEIR benchmark** 54 and Semantic Textual Similarity (STS)
-  tasks, the hypothesis is that a set of queries with high conceptual diversity
-  (low average inter-query similarity) should produce a higher average scope
-  score than a set of topically narrow, highly similar queries.
+  datasets from the [**BEIR benchmark**](https://arxiv.org/abs/2104.08663) and
+  Semantic Textual Similarity (STS) tasks, the hypothesis is that a set of
+  queries with high conceptual diversity (low average inter-query similarity)
+  should produce a higher average scope score than a set of topically narrow,
+  highly similar queries.
 - **Evaluation Metrics:**
 
 - **Rank Correlation:** The primary metrics will be **Kendall's Tau (τ)** and
@@ -967,7 +998,7 @@ These benchmarks will isolate and measure the performance of individual,
 critical components to identify potential bottlenecks and guide optimization
 efforts.
 
-#### Provider Latency:
+#### Provider Latency
 
 - `EmbeddingProvider::process`: The latency of this method will be measured for
   each available provider (`ApiEmbedding`, `LocalModelEmbedding` with `tch` and
@@ -979,8 +1010,8 @@ efforts.
 - `ONNX` Model Inference: The latency of a single inference pass for the
   `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` models will be
   benchmarked.
-  
-#### Computational Overhead:
+
+#### Computational Overhead
 
 - The time taken for the variance calculation and the application of `Sigma`
   normalization will be measured to ensure they contribute negligibly to the
@@ -1296,19 +1327,20 @@ defining the primary public interfaces.
   - Initialize the Rust project using `cargo new`.
   - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
     `DepthEstimator`, `AmbiguityEstimator`).
-  - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig` and
+  - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig`
+    and
     its sub-types) and derive `serde` traits for configuration types.
   - Implement the mathematical logic for variance calculation and all `Sigma`
     normalization strategies.
   - Create the stub for the `lagc` command-line interface binary using the
-    `ortho_config` crate (published as `ortho-config` on
-    crates.io)[^hyphen-underscore], which layers command-line arguments,
-    environment variables (prefixed with `LAGC_`), and configuration files
-    without extra boilerplate. Precedence is: command-line arguments >
-    environment variables > configuration files.
+    `ortho_config` crate (published as `ortho-config` on crates.io and imported
+    as `ortho_config`), which layers command-line arguments, environment
+    variables (prefixed with `LAGC_`), and configuration files without extra
+    boilerplate. Precedence is: command-line arguments > environment variables
+    > configuration files.
 
 - **Acceptance Criteria:**
-  
+
   - The crate and all its core types compile successfully.
   - A comprehensive suite of unit tests for the mathematical and normalization
     logic passes.
@@ -1321,7 +1353,7 @@ This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
 
 - **Tasks:**
-  
+
   - Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
   - Implement the `ApiEmbedding` provider (behind the `provider-api` feature
     flag) to enable initial testing with high-quality embeddings.
@@ -1394,9 +1426,9 @@ creating compelling demonstrations.
   - Develop the interactive "Complexity Meter" web page using the WASM module.
   - Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
     Resolver" stakeholder demonstrations.
-  
+
 - **Acceptance Criteria:**
-  
+
   - The Python package can be built, installed via `pip`, and used to score
     queries.
   - The WASM demo is fully functional, interactive, and hosted on a static page.
@@ -1590,7 +1622,3 @@ also understand when a question requires deeper thought.
 [^20]: Rust Wasm Bindgen guide.
 [^21]: pyo3 project documentation.
 [^22]: D. Kahneman, "Thinking, Fast and Slow."
-
-[^hyphen-underscore]: Cargo converts hyphens to underscores for import paths.
-                      The package is `ortho-config` on crates.io and is
-                      imported as `ortho_config` in code.
