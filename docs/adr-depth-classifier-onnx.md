@@ -3,9 +3,9 @@
 **Status:** Accepted (Revised) \
 **Date:** 24 September 2025 \
 **Owner:** LAG Complexity / Cognitive Clutch \
-**Related:**
-[LAG Complexity design document](lag-complexity-function-design.md) (Complexity
-function and Cognitive Clutch)
+**Related:**&nbsp;[LAG Complexity design
+document](lag-complexity-function-design.md). Focuses on the Complexity
+function and Cognitive Clutch.
 
 ______________________________________________________________________
 
