@@ -66,7 +66,7 @@ Adopt **Transformer-ordinal** as the default architecture for
 `DepthClassifierOnnx`, exported to ONNX and executed with ONNX Runtime on CPU.
 Commit to a near-term optimization plan (post-training static INT8
 quantization; intermediate-layer pooling ablation) and a longer-term **Hybrid**
-roadmap for increased robustness and interpretability. Ship the **Fixed-feature
+roadmap for increased robustness and interpretability. Ship the **fixed-feature
 MLP** as a supported fallback under a feature flag.
 
 ## 6. Selected architecture — Transformer-ordinal
