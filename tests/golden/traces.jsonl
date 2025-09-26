@@ -23,7 +23,7 @@
 {"id":23,"query":"Does the jaguar run faster than the cheetah?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
 {"id":24,"query":"Is there any difference between P and Q?","complexity":{"total":3.0,"scope":0.0,"depth":1.0,"ambiguity":2.0}}
 {"id":25,"query":"What happens if we mix hydrogen and oxygen?","complexity":{"total":4.0,"scope":0.0,"depth":3.0,"ambiguity":1.0}}
-{"id":26,"query":"She told him to go home.","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
+{"id":26,"query":"She told him to go home.","complexity":{"total":5.0,"scope":0.0,"depth":0.0,"ambiguity":5.0}}
 {"id":27,"query":"Is New York bigger than Los Angeles?","complexity":{"total":1.0,"scope":0.0,"depth":0.0,"ambiguity":1.0}}
 {"id":28,"query":"When this is over, what then?","complexity":{"total":3.0,"scope":0.0,"depth":0.0,"ambiguity":3.0}}
 {"id":29,"query":"Are there several ways to solve it?","complexity":{"total":4.0,"scope":0.0,"depth":0.0,"ambiguity":4.0}}

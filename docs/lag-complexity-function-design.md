@@ -880,6 +880,10 @@ test writers might miss.
 - **Monotonicity of Edits:** Adding specific complexity-increasing phrases
   (e.g., "versus", "in addition to") should generally lead to a non-decreasing
   `depth` score.
+- **Pronoun Ambiguity Monotonicity:** Randomly injecting unresolved pronouns
+  into arbitrary inputs must never decrease the ambiguity score. Property tests
+  will sample sentences with and without nearby antecedents to ensure the
+  antecedent-aware heuristic remains monotonic.
 
 ### Integration tests
 
