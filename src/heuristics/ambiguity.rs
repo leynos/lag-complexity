@@ -64,6 +64,10 @@ const DEFINITE_ARTICLES: &[&str] = &["the", "this", "that", "these", "those"];
 const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
+static SENTENCE_BOUNDARY_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
+    Regex::new(r"[.!?]+").expect("valid regex")
+});
 static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
     #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
     Regex::new(r"(?i)\ba few\b").expect("valid regex")
@@ -81,24 +85,30 @@ fn score_pronouns(input: &str) -> u32 {
     let mut score = 0;
     let mut previous_has_candidate = false;
     for (has_candidate, sentence) in candidate_presence.iter().copied().zip(sentences.iter()) {
-        let tokens = normalize_tokens(sentence);
         let has_nearby_candidate = has_candidate || previous_has_candidate;
-        for token in tokens {
-            if is_pronoun(&token) {
-                score += PRONOUN_BASE_WEIGHT;
-                if !has_nearby_candidate {
-                    score += UNRESOLVED_PRONOUN_BONUS;
-                }
-            }
-        }
+        score += score_pronouns_in_sentence(sentence, has_nearby_candidate);
         previous_has_candidate = has_candidate;
     }
     score
 }
 
+fn score_pronouns_in_sentence(sentence: &str, has_nearby_candidate: bool) -> u32 {
+    let tokens = normalize_tokens(sentence);
+    let mut sentence_score = 0;
+    for token in tokens {
+        if is_pronoun(&token) {
+            sentence_score += PRONOUN_BASE_WEIGHT;
+            if !has_nearby_candidate {
+                sentence_score += UNRESOLVED_PRONOUN_BONUS;
+            }
+        }
+    }
+    sentence_score
+}
+
 fn split_sentences(input: &str) -> Vec<&str> {
-    input
-        .split(['.', '!', '?'])
+    SENTENCE_BOUNDARY_RE
+        .split(input)
         .map(str::trim)
         .filter(|sentence| !sentence.is_empty())
         .collect()
@@ -116,13 +126,16 @@ fn sentence_has_candidate(sentence: &str) -> bool {
 }
 
 fn has_capitalised_non_pronoun(tokens: &[String]) -> bool {
-    tokens.iter().any(|token| {
-        if !is_capitalised(token) {
-            return false;
+    for token in tokens {
+        if is_capitalised(token) {
+            let mut lower = token.clone();
+            lower.make_ascii_lowercase();
+            if !is_pronoun(lower.as_str()) {
+                return true;
+            }
         }
-        let lower = token.to_lowercase();
-        !is_pronoun(lower.as_str())
-    })
+    }
+    false
 }
 
 fn has_definite_article_noun_pair(tokens: &[String]) -> bool {

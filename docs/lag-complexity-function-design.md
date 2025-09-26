@@ -713,8 +713,8 @@ essential for performance and cost reduction.
   `EmbeddingProvider`. Caching the final `Complexity` score is less effective,
   as small variations in the query text would lead to cache misses.
 - **Library Selection:** The `moka` crate will be used for caching.[^14] While
-  `dashmap` is an excellent general-purpose concurrent hash map 42, `moka` is a
-  specialized, high-performance caching library inspired by Java's Caffeine. It
+  `dashmap` is an excellent general-purpose concurrent hash map; `moka` is a
+  specialised, high-performance caching library inspired by Java's Caffeine. It
   provides essential caching features out-of-the-box, such as size-based
   eviction (LRU/LFU policies) and time-based expiration (TTL/TTI), which are
   critical for managing the cache's memory footprint and data freshness.
