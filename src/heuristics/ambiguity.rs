@@ -64,6 +64,26 @@ const DEFINITE_ARTICLES: &[&str] = &["the", "this", "that", "these", "those"];
 const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
+/// Token metadata reused when scanning for antecedents.
+/// Normalises case once so the heuristic avoids repeated lowercase allocations.
+struct TokenCandidate {
+    original: String,
+    lower: String,
+}
+
+impl TokenCandidate {
+    fn from_raw(token: &str) -> Option<Self> {
+        let trimmed = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
+        if trimmed.is_empty() {
+            return None;
+        }
+        let original = trimmed.to_string();
+        let mut lower = original.clone();
+        lower.make_ascii_lowercase();
+        Some(Self { original, lower })
+    }
+}
+
 static SENTENCE_BOUNDARY_RE: LazyLock<Regex> = LazyLock::new(|| {
     #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
     Regex::new(r"[.!?]+").expect("valid regex")
@@ -115,9 +135,9 @@ fn split_sentences(input: &str) -> Vec<&str> {
 }
 
 fn sentence_has_candidate(sentence: &str) -> bool {
-    let tokens: Vec<String> = sentence
+    let tokens: Vec<TokenCandidate> = sentence
         .split_whitespace()
-        .filter_map(clean_token)
+        .filter_map(TokenCandidate::from_raw)
         .collect();
     if tokens.is_empty() {
         return false;
@@ -125,38 +145,24 @@ fn sentence_has_candidate(sentence: &str) -> bool {
     has_capitalised_non_pronoun(&tokens) || has_definite_article_noun_pair(&tokens)
 }
 
-fn has_capitalised_non_pronoun(tokens: &[String]) -> bool {
+fn has_capitalised_non_pronoun(tokens: &[TokenCandidate]) -> bool {
     for token in tokens {
-        if is_capitalised(token) {
-            let mut lower = token.clone();
-            lower.make_ascii_lowercase();
-            if !is_pronoun(lower.as_str()) {
-                return true;
-            }
+        if is_capitalised(&token.original) && !is_pronoun(token.lower.as_str()) {
+            return true;
         }
     }
     false
 }
 
-fn has_definite_article_noun_pair(tokens: &[String]) -> bool {
+fn has_definite_article_noun_pair(tokens: &[TokenCandidate]) -> bool {
     tokens.windows(2).any(|window| {
         if let [article, noun] = window {
-            let article_lower = article.to_lowercase();
-            DEFINITE_ARTICLES.contains(&article_lower.as_str())
-                && noun.chars().any(char::is_alphabetic)
+            DEFINITE_ARTICLES.contains(&article.lower.as_str())
+                && noun.original.chars().any(char::is_alphabetic)
         } else {
             false
         }
     })
-}
-
-fn clean_token(token: &str) -> Option<String> {
-    let trimmed = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
 
 fn is_capitalised(token: &str) -> bool {
