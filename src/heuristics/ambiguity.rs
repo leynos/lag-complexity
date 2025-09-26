@@ -112,25 +112,29 @@ fn sentence_has_candidate(sentence: &str) -> bool {
     if tokens.is_empty() {
         return false;
     }
-    for token in &tokens {
-        if is_capitalised(token) {
-            let lower = token.to_lowercase();
-            if !is_pronoun(lower.as_str()) {
-                return true;
-            }
+    has_capitalised_non_pronoun(&tokens) || has_definite_article_noun_pair(&tokens)
+}
+
+fn has_capitalised_non_pronoun(tokens: &[String]) -> bool {
+    tokens.iter().any(|token| {
+        if !is_capitalised(token) {
+            return false;
         }
-    }
-    for window in tokens.windows(2) {
+        let lower = token.to_lowercase();
+        !is_pronoun(lower.as_str())
+    })
+}
+
+fn has_definite_article_noun_pair(tokens: &[String]) -> bool {
+    tokens.windows(2).any(|window| {
         if let [article, noun] = window {
             let article_lower = article.to_lowercase();
-            if DEFINITE_ARTICLES.contains(&article_lower.as_str())
+            DEFINITE_ARTICLES.contains(&article_lower.as_str())
                 && noun.chars().any(char::is_alphabetic)
-            {
-                return true;
-            }
+        } else {
+            false
         }
-    }
-    false
+    })
 }
 
 fn clean_token(token: &str) -> Option<String> {

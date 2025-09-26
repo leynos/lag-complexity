@@ -13,7 +13,8 @@ use support::approx_eq;
 
 const EPSILON: f32 = 1e-6;
 const PRONOUN_SAMPLES: &[&str] = &[
-    "It", "He", "She", "They", "This", "That", "Him", "Her", "Them",
+    "It", "He", "She", "They", "This", "That", "Him", "Her", "Them", "it", "he", "she", "they",
+    "this", "that", "him", "her", "them",
 ];
 const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
 
@@ -51,6 +52,31 @@ fn to_sentence(words: &[String]) -> String {
     format!("{}.", words.join(" "))
 }
 
+macro_rules! assert_non_decreasing {
+    ($heuristic:expr, $base:expr, $augmented:expr, $context:expr) => {{
+        let context = $context;
+        let base_result = $heuristic.process($base);
+        prop_assert!(
+            base_result.is_ok(),
+            "{} base sentence should score but returned {base_result:?}",
+            context
+        );
+        let base_score = base_result.unwrap();
+        let augmented_result = $heuristic.process($augmented);
+        prop_assert!(
+            augmented_result.is_ok(),
+            "{} augmented text should score but returned {augmented_result:?}",
+            context
+        );
+        let augmented_score = augmented_result.unwrap();
+        prop_assert!(
+            augmented_score >= base_score,
+            "{} lowered score: base={base_score}, augmented={augmented_score}",
+            context
+        );
+    }};
+}
+
 proptest! {
     #[test]
     fn injecting_unresolved_pronoun_is_monotonic(
@@ -61,25 +87,11 @@ proptest! {
         let pronoun_sentence = format!("{pronoun}.");
         let augmented = format!("{pronoun_sentence} {base_sentence}");
         let h = AmbiguityHeuristic;
-        let base_result = h.process(&base_sentence);
-        prop_assert!(
-            base_result.is_ok(),
-            "base sentence should score but returned {base_result:?}"
-        );
-        let Ok(base_score) = base_result else {
-            unreachable!("checked by prop_assert");
-        };
-        let augmented_result = h.process(&augmented);
-        prop_assert!(
-            augmented_result.is_ok(),
-            "augmented text should score but returned {augmented_result:?}"
-        );
-        let Ok(unresolved_score) = augmented_result else {
-            unreachable!("checked by prop_assert");
-        };
-        prop_assert!(
-            unresolved_score >= base_score,
-            "unresolved pronoun lowered score: base={base_score}, with_pronoun={unresolved_score}"
+        assert_non_decreasing!(
+            &h,
+            &base_sentence,
+            &augmented,
+            "unresolved pronoun"
         );
     }
 
@@ -97,25 +109,11 @@ proptest! {
             "{candidate_sentence} {pronoun_sentence} {base_sentence}"
         );
         let h = AmbiguityHeuristic;
-        let base_result = h.process(&base_sentence);
-        prop_assert!(
-            base_result.is_ok(),
-            "base sentence should score but returned {base_result:?}"
-        );
-        let Ok(base_score) = base_result else {
-            unreachable!("checked by prop_assert");
-        };
-        let anchored_result = h.process(&augmented);
-        prop_assert!(
-            anchored_result.is_ok(),
-            "anchored text should score but returned {anchored_result:?}"
-        );
-        let Ok(anchored_score) = anchored_result else {
-            unreachable!("checked by prop_assert");
-        };
-        prop_assert!(
-            anchored_score >= base_score,
-            "anchored pronoun lowered score: base={base_score}, with_pronoun={anchored_score}"
+        assert_non_decreasing!(
+            &h,
+            &base_sentence,
+            &augmented,
+            "anchored pronoun"
         );
     }
 }
