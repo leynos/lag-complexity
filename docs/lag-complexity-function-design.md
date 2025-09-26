@@ -740,7 +740,7 @@ essential for performance and cost reduction.
   as small variations in the query text would lead to cache misses.
 - **Library Selection:** The `moka` crate will be used for caching.[^14] While
   [`dashmap`](https://crates.io/crates/dashmap) is an excellent general-purpose
-  concurrent hash map, `moka` is a specialized, high-performance caching
+  concurrent hash map; `moka` is a specialised, high-performance caching
   library inspired by Java's Caffeine. It provides essential caching features
   out-of-the-box, such as size-based eviction (LRU/LFU policies) and time-based
   expiration (TTL/TTI), which are critical for managing the cache's memory
