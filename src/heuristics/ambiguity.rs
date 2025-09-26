@@ -55,7 +55,9 @@ impl TextProcessor for AmbiguityHeuristic {
     }
 }
 
-const PRONOUNS: &[&str] = &["it", "he", "she", "they", "this", "that"];
+const PRONOUNS: &[&str] = &[
+    "it", "he", "she", "they", "this", "that", "him", "her", "them",
+];
 const PRONOUN_BASE_WEIGHT: u32 = 1;
 const UNRESOLVED_PRONOUN_BONUS: u32 = 1;
 const DEFINITE_ARTICLES: &[&str] = &["the", "this", "that", "these", "those"];
@@ -159,6 +161,9 @@ mod tests {
     #[case("Plain question", 1.0)]
     #[case("It broke last night.", 3.0)]
     #[case("Alice fixed the radio. It works now?", 2.0)]
+    #[case("He told her to go home.", 5.0)]
+    #[case("Those results are final. It stands.", 2.0)]
+    #[case("It… works!", 3.0)]
     fn scores_expected_values(#[case] query: &str, #[case] expected: f32) {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(query), Ok(expected));
