@@ -180,6 +180,19 @@ fn score_empty_query(test_context: TestContext) {
     let _ = test_context;
 }
 
+#[scenario(path = "tests/features/heuristic_scoring/pronoun_context.feature")]
+fn score_pronoun_with_context(test_context: TestContext) {
+    let _ = test_context;
+}
+
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 1
+)]
+fn score_pronoun_without_antecedent(test_context: TestContext) {
+    let _ = test_context;
+}
+
 #[scenario(path = "tests/features/heuristic_scoring/trace_simple.feature")]
 fn trace_simple_question(test_context: TestContext) {
     let _ = test_context;

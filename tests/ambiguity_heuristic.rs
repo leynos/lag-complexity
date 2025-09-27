@@ -5,20 +5,31 @@
 
 use lag_complexity::TextProcessor;
 use lag_complexity::heuristics::{AmbiguityHeuristic, AmbiguityHeuristicError};
+use proptest::prelude::*;
 use rstest::rstest;
 
 mod support;
 use support::approx_eq;
 
 const EPSILON: f32 = 1e-6;
+const PRONOUN_SAMPLES: &[&str] = &[
+    "It", "He", "She", "They", "This", "That", "Him", "Her", "Them", "His", "Its", "Their",
+    "Theirs", "it", "he", "she", "they", "this", "that", "him", "her", "them", "his", "its",
+    "their", "theirs",
+];
+const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
 
 /// Validate ambiguity scoring and error handling.
 ///
 /// Examples:
 /// - Input with pronoun + ambiguous entity + vague term yields 5.0.
+/// - Pronoun without a nearby antecedent yields 3.0.
+/// - Pronoun anchored by the previous sentence yields 2.0.
 /// - Empty input yields `AmbiguityHeuristicError::Empty`.
 #[rstest]
 #[case("It is about Mercury and some others.", Ok(5.0))]
+#[case("It broke last night.", Ok(3.0))]
+#[case("Alice fixed the radio. It works now?", Ok(2.0))]
 #[case("", Err(AmbiguityHeuristicError::Empty))]
 fn evaluates_ambiguity_heuristic(
     #[case] input: &str,
@@ -35,5 +46,75 @@ fn evaluates_ambiguity_heuristic(
         }
         (Err(err), Err(expected_err)) => assert_eq!(err, expected_err),
         (res, exp) => panic!("expected {exp:?}, got {res:?}"),
+    }
+}
+
+fn to_sentence(words: &[String]) -> String {
+    format!("{}.", words.join(" "))
+}
+
+macro_rules! assert_non_decreasing {
+    ($heuristic:expr, $base:expr, $augmented:expr, $context:expr) => {{
+        let context = $context;
+        let base_result = $heuristic.process($base);
+        prop_assert!(
+            base_result.is_ok(),
+            "{} base sentence should score but returned {base_result:?}",
+            context
+        );
+        let base_score = base_result.unwrap();
+        let augmented_result = $heuristic.process($augmented);
+        prop_assert!(
+            augmented_result.is_ok(),
+            "{} augmented text should score but returned {augmented_result:?}",
+            context
+        );
+        let augmented_score = augmented_result.unwrap();
+        prop_assert!(
+            augmented_score >= base_score,
+            "{} lowered score: base={base_score}, augmented={augmented_score}",
+            context
+        );
+    }};
+}
+
+proptest! {
+    #[test]
+    fn injecting_unresolved_pronoun_is_monotonic(
+        base_words in prop::collection::vec("[a-z]{1,10}", 1..6),
+        pronoun in prop::sample::select(PRONOUN_SAMPLES),
+    ) {
+        let base_sentence = to_sentence(&base_words);
+        let pronoun_sentence = format!("{pronoun}.");
+        let augmented = format!("{pronoun_sentence} {base_sentence}");
+        let h = AmbiguityHeuristic;
+        assert_non_decreasing!(
+            &h,
+            &base_sentence,
+            &augmented,
+            "unresolved pronoun"
+        );
+    }
+
+    #[test]
+    fn injecting_anchored_pronoun_is_monotonic(
+        base_words in prop::collection::vec("[a-z]{1,10}", 1..6),
+        pronoun in prop::sample::select(PRONOUN_SAMPLES),
+        name in prop::sample::select(CANDIDATE_NAMES),
+        verb in "[a-z]{3,12}",
+    ) {
+        let base_sentence = to_sentence(&base_words);
+        let candidate_sentence = format!("{name} {verb}.");
+        let pronoun_sentence = format!("{pronoun}.");
+        let augmented = format!(
+            "{candidate_sentence} {pronoun_sentence} {base_sentence}"
+        );
+        let h = AmbiguityHeuristic;
+        assert_non_decreasing!(
+            &h,
+            &base_sentence,
+            &augmented,
+            "anchored pronoun"
+        );
     }
 }
