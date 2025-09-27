@@ -13,8 +13,9 @@ use support::approx_eq;
 
 const EPSILON: f32 = 1e-6;
 const PRONOUN_SAMPLES: &[&str] = &[
-    "It", "He", "She", "They", "This", "That", "Him", "Her", "Them", "it", "he", "she", "they",
-    "this", "that", "him", "her", "them",
+    "It", "He", "She", "They", "This", "That", "Him", "Her", "Them", "His", "Its", "Their",
+    "Theirs", "it", "he", "she", "they", "this", "that", "him", "her", "them", "his", "its",
+    "their", "theirs",
 ];
 const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
 
