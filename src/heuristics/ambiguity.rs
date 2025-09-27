@@ -8,8 +8,123 @@ use crate::{
     providers::TextProcessor,
 };
 use regex::Regex;
-use std::sync::LazyLock;
+use std::{mem, sync::LazyLock};
 use thiserror::Error;
+
+/// Represents input text for complexity analysis
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct InputText(String);
+
+impl InputText {
+    pub fn new<T: Into<String>>(value: T) -> Self {
+        Self(value.into())
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    #[must_use]
+    pub fn trim(&self) -> Self {
+        Self(self.0.trim().to_owned())
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    #[must_use]
+    pub fn split_sentences(&self) -> Vec<Sentence> {
+        let mut sentences = Vec::new();
+        let mut current = Sentence::default();
+
+        for raw in self.as_str().split_whitespace() {
+            current.push_token(raw);
+
+            if is_sentence_boundary(raw) {
+                sentences.push(mem::take(&mut current));
+            }
+        }
+
+        if !current.is_empty() {
+            sentences.push(current);
+        }
+
+        sentences
+    }
+}
+
+impl From<&str> for InputText {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl From<String> for InputText {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+/// Represents a single sentence extracted from input
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Sentence(String);
+
+impl Sentence {
+    pub fn new<T: Into<String>>(value: T) -> Self {
+        Self(value.into())
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn push_token(&mut self, token: &str) {
+        if !self.0.is_empty() {
+            self.0.push(' ');
+        }
+        self.0.push_str(token);
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Represents a raw token before processing
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RawToken(String);
+
+impl RawToken {
+    pub fn new<T: Into<String>>(value: T) -> Self {
+        Self(value.into())
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for RawToken {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl From<String> for RawToken {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
 
 /// Errors returned by [`AmbiguityHeuristic`].
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -34,24 +149,32 @@ pub enum AmbiguityHeuristicError {
 #[derive(Default, Debug, Clone)]
 pub struct AmbiguityHeuristic;
 
+impl AmbiguityHeuristic {
+    fn process_input(input: &InputText) -> Result<f32, AmbiguityHeuristicError> {
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            return Err(AmbiguityHeuristicError::Empty);
+        }
+
+        let pronouns = score_pronouns(&trimmed);
+        let tokens = normalize_tokens(trimmed.as_str());
+        let ambiguous =
+            weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
+        let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
+        let extras = substring_count_regex(trimmed.as_str(), &A_FEW_RE);
+        let total = pronouns + ambiguous + vague + extras + 1;
+        #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
+        Ok(total as f32)
+    }
+}
+
 impl TextProcessor for AmbiguityHeuristic {
     type Output = f32;
     type Error = AmbiguityHeuristicError;
 
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error> {
-        let trimmed = input.trim();
-        if trimmed.is_empty() {
-            return Err(AmbiguityHeuristicError::Empty);
-        }
-        let pronouns = score_pronouns(trimmed);
-        let tokens = normalize_tokens(trimmed);
-        let ambiguous =
-            weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
-        let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
-        let extras = substring_count_regex(trimmed, &A_FEW_RE);
-        let total = pronouns + ambiguous + vague + extras + 1;
-        #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
-        Ok(total as f32)
+        let input = InputText::new(input);
+        Self::process_input(&input)
     }
 }
 
@@ -92,8 +215,9 @@ struct TokenCandidate {
 }
 
 impl TokenCandidate {
-    fn from_raw(token: &str) -> Option<Self> {
-        let trimmed = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
+    fn from_raw(token: &RawToken) -> Option<Self> {
+        let raw = token.as_str();
+        let trimmed = raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
         if trimmed.is_empty() {
             return None;
         }
@@ -159,63 +283,62 @@ impl TokenCandidate {
     }
 }
 
+struct SentenceAnalysis {
+    has_candidate: bool,
+}
+
+impl SentenceAnalysis {
+    fn from_text(sentence: &Sentence) -> Self {
+        let mut has_candidate = false;
+        let mut pending_article = false;
+        let mut at_sentence_start = true;
+
+        for raw in sentence.as_str().split_whitespace() {
+            if let Some(token) = TokenCandidate::from_raw(&RawToken::from(raw)) {
+                if token.is_candidate(at_sentence_start)
+                    || (pending_article && token.is_likely_noun())
+                {
+                    has_candidate = true;
+                }
+                pending_article = token.is_article();
+            }
+            at_sentence_start = false;
+        }
+
+        Self { has_candidate }
+    }
+
+    fn has_candidate(&self) -> bool {
+        self.has_candidate
+    }
+}
+
 static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
     #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
     Regex::new(r"(?i)\ba few\b").expect("valid regex")
 });
 
-fn score_pronouns(input: &str) -> u32 {
+fn score_pronouns(input: &InputText) -> u32 {
     let mut score = 0;
     let mut previous_has_candidate = false;
-    let mut sentence = String::new();
-    let mut sentence_has_candidate = false;
-    let mut pending_article = false;
-    let mut at_sentence_start = true;
 
-    for raw in input.split_whitespace() {
-        if !sentence.is_empty() {
-            sentence.push(' ');
-        }
-        sentence.push_str(raw);
-
-        if let Some(token) = TokenCandidate::from_raw(raw) {
-            if token.is_candidate(at_sentence_start) || (pending_article && token.is_likely_noun())
-            {
-                sentence_has_candidate = true;
-            }
-
-            pending_article = token.is_article();
-        }
-
-        if is_sentence_boundary(raw) {
-            let has_nearby_candidate = previous_has_candidate || sentence_has_candidate;
-            score += score_pronouns_in_sentence(&sentence, has_nearby_candidate);
-
-            previous_has_candidate = sentence_has_candidate;
-            sentence.clear();
-            sentence_has_candidate = false;
-            pending_article = false;
-            at_sentence_start = true;
-        } else {
-            at_sentence_start = false;
-        }
-    }
-
-    if !sentence.is_empty() {
-        let has_nearby_candidate = previous_has_candidate || sentence_has_candidate;
+    for sentence in input.split_sentences() {
+        let analysis = SentenceAnalysis::from_text(&sentence);
+        let has_nearby_candidate = previous_has_candidate || analysis.has_candidate();
         score += score_pronouns_in_sentence(&sentence, has_nearby_candidate);
+        previous_has_candidate = analysis.has_candidate();
     }
 
     score
 }
 
-fn score_pronouns_in_sentence(sentence: &str, has_nearby_candidate: bool) -> u32 {
+fn score_pronouns_in_sentence(sentence: &Sentence, has_nearby_candidate: bool) -> u32 {
     let mut score = 0;
     // `has_nearby_candidate` includes antecedents from the current sentence
     // and its immediate predecessor, so this helper only tallies pronouns.
 
-    for raw in sentence.split_whitespace() {
-        if let Some(token) = TokenCandidate::from_raw(raw) {
+    for raw in sentence.as_str().split_whitespace() {
+        if let Some(token) = TokenCandidate::from_raw(&RawToken::from(raw)) {
             if token.is_pronoun() {
                 score += PRONOUN_BASE_WEIGHT;
                 if !has_nearby_candidate {
