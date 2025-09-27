@@ -290,14 +290,17 @@ impl TokenCandidate {
     }
 
     fn check_adverb_flag(token: &ProcessedToken) -> u8 {
-        if token.has_letters
-            && token.lowercase.ends_with("ly")
-            && !LY_NOUN_EXCEPTIONS.contains(&token.lowercase.as_str())
-        {
+        if Self::is_sentence_adverb(token) {
             FLAG_SENTENCE_ADVERB
         } else {
             0
         }
+    }
+
+    fn is_sentence_adverb(token: &ProcessedToken) -> bool {
+        token.has_letters
+            && token.lowercase.ends_with("ly")
+            && !LY_NOUN_EXCEPTIONS.contains(&token.lowercase.as_str())
     }
 
     fn check_noun_flag(token: &ProcessedToken) -> u8 {
@@ -324,7 +327,7 @@ impl TokenCandidate {
         self.flags & FLAG_FUNCTION_WORD != 0
     }
 
-    fn is_sentence_adverb(&self) -> bool {
+    fn has_sentence_adverb_flag(&self) -> bool {
         self.flags & FLAG_SENTENCE_ADVERB != 0
     }
 
@@ -356,7 +359,7 @@ impl TokenCandidate {
             && self.is_likely_noun()
             && !self.is_pronoun()
             && !self.is_function_word()
-            && !(at_sentence_start && self.is_sentence_adverb())
+            && !(at_sentence_start && self.has_sentence_adverb_flag())
     }
 }
 
