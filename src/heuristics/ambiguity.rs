@@ -210,39 +210,102 @@ const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
 /// Token metadata reused when scanning for antecedents.
 /// Normalises case once so the heuristic avoids repeated lowercase allocations.
+struct ProcessedToken<'a> {
+    original: &'a str,
+    lowercase: String,
+    has_letters: bool,
+}
+
 struct TokenCandidate {
     flags: u8,
 }
 
 impl TokenCandidate {
     fn from_raw(token: &RawToken) -> Option<Self> {
-        let raw = token.as_str();
+        let processed = Self::preprocess_token(token.as_str())?;
+        let flags = Self::classify_token(&processed);
+        Some(Self { flags })
+    }
+
+    fn preprocess_token(raw: &str) -> Option<ProcessedToken<'_>> {
         let trimmed = raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
         if trimmed.is_empty() {
             return None;
         }
-        let lower = trimmed.to_ascii_lowercase();
+
+        let lowercase = trimmed.to_ascii_lowercase();
         let has_letters = trimmed.chars().any(char::is_alphabetic);
-        let mut flags = 0;
-        if PRONOUNS.contains(&lower.as_str()) {
-            flags |= FLAG_PRONOUN;
+
+        Some(ProcessedToken {
+            original: trimmed,
+            lowercase,
+            has_letters,
+        })
+    }
+
+    fn classify_token(token: &ProcessedToken) -> u8 {
+        Self::check_pronoun_flag(token)
+            | Self::check_capitalisation_flag(token)
+            | Self::check_article_flag(token)
+            | Self::check_function_word_flag(token)
+            | Self::check_adverb_flag(token)
+            | Self::check_noun_flag(token)
+    }
+
+    fn check_pronoun_flag(token: &ProcessedToken) -> u8 {
+        if PRONOUNS.contains(&token.lowercase.as_str()) {
+            FLAG_PRONOUN
+        } else {
+            0
         }
-        if trimmed.chars().next().is_some_and(char::is_uppercase) {
-            flags |= FLAG_CAPITALISED;
+    }
+
+    fn check_capitalisation_flag(token: &ProcessedToken) -> u8 {
+        if token
+            .original
+            .chars()
+            .next()
+            .is_some_and(char::is_uppercase)
+        {
+            FLAG_CAPITALISED
+        } else {
+            0
         }
-        if DEFINITE_ARTICLES.contains(&lower.as_str()) {
-            flags |= FLAG_ARTICLE;
+    }
+
+    fn check_article_flag(token: &ProcessedToken) -> u8 {
+        if DEFINITE_ARTICLES.contains(&token.lowercase.as_str()) {
+            FLAG_ARTICLE
+        } else {
+            0
         }
-        if FUNCTION_WORDS.contains(&lower.as_str()) {
-            flags |= FLAG_FUNCTION_WORD;
+    }
+
+    fn check_function_word_flag(token: &ProcessedToken) -> u8 {
+        if FUNCTION_WORDS.contains(&token.lowercase.as_str()) {
+            FLAG_FUNCTION_WORD
+        } else {
+            0
         }
-        if has_letters && lower.ends_with("ly") && !LY_NOUN_EXCEPTIONS.contains(&lower.as_str()) {
-            flags |= FLAG_SENTENCE_ADVERB;
+    }
+
+    fn check_adverb_flag(token: &ProcessedToken) -> u8 {
+        if token.has_letters
+            && token.lowercase.ends_with("ly")
+            && !LY_NOUN_EXCEPTIONS.contains(&token.lowercase.as_str())
+        {
+            FLAG_SENTENCE_ADVERB
+        } else {
+            0
         }
-        if has_letters {
-            flags |= FLAG_LIKELY_NOUN;
+    }
+
+    fn check_noun_flag(token: &ProcessedToken) -> u8 {
+        if token.has_letters {
+            FLAG_LIKELY_NOUN
+        } else {
+            0
         }
-        Some(Self { flags })
     }
 
     fn is_pronoun(&self) -> bool {
