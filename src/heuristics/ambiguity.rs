@@ -69,6 +69,8 @@ const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 struct TokenCandidate {
     original: String,
     lower: String,
+    is_capitalised: bool,
+    is_pronoun: bool,
 }
 
 impl TokenCandidate {
@@ -80,7 +82,70 @@ impl TokenCandidate {
         let original = trimmed.to_string();
         let mut lower = original.clone();
         lower.make_ascii_lowercase();
-        Some(Self { original, lower })
+        let is_capitalised = original.chars().next().is_some_and(char::is_uppercase);
+        let is_pronoun = PRONOUNS.contains(&lower.as_str());
+        Some(Self {
+            original,
+            lower,
+            is_capitalised,
+            is_pronoun,
+        })
+    }
+
+    fn is_candidate(&self) -> bool {
+        self.is_capitalised && !self.is_pronoun
+    }
+
+    fn is_article(&self) -> bool {
+        DEFINITE_ARTICLES.contains(&self.lower.as_str())
+    }
+
+    fn is_likely_noun(&self) -> bool {
+        self.original.chars().any(char::is_alphabetic)
+    }
+}
+
+struct SentenceAnalysis {
+    tokens: Vec<String>,
+    candidates: Vec<TokenCandidate>,
+}
+
+impl SentenceAnalysis {
+    fn from_text(sentence: &str) -> Self {
+        let tokens = normalize_tokens(sentence);
+        let candidates = sentence
+            .split_whitespace()
+            .filter_map(TokenCandidate::from_raw)
+            .collect();
+        Self { tokens, candidates }
+    }
+
+    fn has_candidate(&self) -> bool {
+        if self.candidates.iter().any(TokenCandidate::is_candidate) {
+            return true;
+        }
+        self.candidates
+            .windows(2)
+            .any(|window| {
+                if let [article, noun] = window {
+                    article.is_article() && noun.is_likely_noun()
+                } else {
+                    false
+                }
+            })
+    }
+
+    fn pronoun_score(&self, has_nearby_candidate: bool) -> u32 {
+        let mut score = 0;
+        for token in &self.tokens {
+            if PRONOUNS.contains(&token.as_str()) {
+                score += PRONOUN_BASE_WEIGHT;
+                if !has_nearby_candidate {
+                    score += UNRESOLVED_PRONOUN_BONUS;
+                }
+            }
+        }
+        score
     }
 }
 
@@ -94,36 +159,20 @@ static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 fn score_pronouns(input: &str) -> u32 {
-    let sentences = split_sentences(input);
-    if sentences.is_empty() {
-        return 0;
-    }
-    let candidate_presence: Vec<bool> = sentences
-        .iter()
-        .map(|sentence| sentence_has_candidate(sentence))
-        .collect();
     let mut score = 0;
     let mut previous_has_candidate = false;
-    for (has_candidate, sentence) in candidate_presence.iter().copied().zip(sentences.iter()) {
+    let mut saw_sentence = false;
+    for analysis in split_sentences(input)
+        .into_iter()
+        .map(SentenceAnalysis::from_text)
+    {
+        saw_sentence = true;
+        let has_candidate = analysis.has_candidate();
         let has_nearby_candidate = has_candidate || previous_has_candidate;
-        score += score_pronouns_in_sentence(sentence, has_nearby_candidate);
+        score += analysis.pronoun_score(has_nearby_candidate);
         previous_has_candidate = has_candidate;
     }
-    score
-}
-
-fn score_pronouns_in_sentence(sentence: &str, has_nearby_candidate: bool) -> u32 {
-    let tokens = normalize_tokens(sentence);
-    let mut sentence_score = 0;
-    for token in tokens {
-        if is_pronoun(&token) {
-            sentence_score += PRONOUN_BASE_WEIGHT;
-            if !has_nearby_candidate {
-                sentence_score += UNRESOLVED_PRONOUN_BONUS;
-            }
-        }
-    }
-    sentence_score
+    if saw_sentence { score } else { 0 }
 }
 
 fn split_sentences(input: &str) -> Vec<&str> {
@@ -132,45 +181,6 @@ fn split_sentences(input: &str) -> Vec<&str> {
         .map(str::trim)
         .filter(|sentence| !sentence.is_empty())
         .collect()
-}
-
-fn sentence_has_candidate(sentence: &str) -> bool {
-    let tokens: Vec<TokenCandidate> = sentence
-        .split_whitespace()
-        .filter_map(TokenCandidate::from_raw)
-        .collect();
-    if tokens.is_empty() {
-        return false;
-    }
-    has_capitalised_non_pronoun(&tokens) || has_definite_article_noun_pair(&tokens)
-}
-
-fn has_capitalised_non_pronoun(tokens: &[TokenCandidate]) -> bool {
-    for token in tokens {
-        if is_capitalised(&token.original) && !is_pronoun(token.lower.as_str()) {
-            return true;
-        }
-    }
-    false
-}
-
-fn has_definite_article_noun_pair(tokens: &[TokenCandidate]) -> bool {
-    tokens.windows(2).any(|window| {
-        if let [article, noun] = window {
-            DEFINITE_ARTICLES.contains(&article.lower.as_str())
-                && noun.original.chars().any(char::is_alphabetic)
-        } else {
-            false
-        }
-    })
-}
-
-fn is_capitalised(token: &str) -> bool {
-    token.chars().next().is_some_and(char::is_uppercase)
-}
-
-fn is_pronoun(token: &str) -> bool {
-    PRONOUNS.contains(&token)
 }
 
 #[cfg(test)]
