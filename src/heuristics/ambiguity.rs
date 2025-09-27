@@ -56,7 +56,8 @@ impl TextProcessor for AmbiguityHeuristic {
 }
 
 const PRONOUNS: &[&str] = &[
-    "it", "he", "she", "they", "this", "that", "him", "her", "them",
+    "it", "he", "she", "they", "this", "that", "him", "her", "them", "his", "its", "their",
+    "theirs",
 ];
 const PRONOUN_BASE_WEIGHT: u32 = 1;
 const UNRESOLVED_PRONOUN_BONUS: u32 = 1;
@@ -64,6 +65,16 @@ const FLAG_PRONOUN: u8 = 1 << 0;
 const FLAG_CAPITALISED: u8 = 1 << 1;
 const FLAG_ARTICLE: u8 = 1 << 2;
 const FLAG_LIKELY_NOUN: u8 = 1 << 3;
+const FLAG_FUNCTION_WORD: u8 = 1 << 4;
+const FUNCTION_WORDS: &[&str] = &[
+    "however",
+    "therefore",
+    "meanwhile",
+    "moreover",
+    "yesterday",
+    "today",
+    "tomorrow",
+];
 const DEFINITE_ARTICLES: &[&str] = &["the", "this", "that", "these", "those"];
 const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
@@ -91,6 +102,9 @@ impl TokenCandidate {
         if DEFINITE_ARTICLES.contains(&lower.as_str()) {
             flags |= FLAG_ARTICLE;
         }
+        if FUNCTION_WORDS.contains(&lower.as_str()) {
+            flags |= FLAG_FUNCTION_WORD;
+        }
         if trimmed.chars().any(char::is_alphabetic) {
             flags |= FLAG_LIKELY_NOUN;
         }
@@ -109,12 +123,19 @@ impl TokenCandidate {
         self.flags & FLAG_ARTICLE != 0
     }
 
+    fn is_function_word(&self) -> bool {
+        self.flags & FLAG_FUNCTION_WORD != 0
+    }
+
     fn is_likely_noun(&self) -> bool {
         self.flags & FLAG_LIKELY_NOUN != 0
     }
 
     fn is_candidate(&self) -> bool {
-        self.is_capitalised() && !self.is_pronoun()
+        self.is_capitalised()
+            && self.is_likely_noun()
+            && !self.is_pronoun()
+            && !self.is_function_word()
     }
 }
 
@@ -187,6 +208,11 @@ mod tests {
     #[case("A few jaguars here", 5.0)]
     #[case("Plain question", 1.0)]
     #[case("It broke last night.", 3.0)]
+    #[case("Yesterday it broke.", 3.0)]
+    #[case("His idea failed.", 3.0)]
+    #[case("Its hinge snapped.", 3.0)]
+    #[case("Their plan stalled.", 3.0)]
+    #[case("Theirs was missing.", 3.0)]
     #[case("Alice fixed the radio. It works now?", 2.0)]
     #[case("He told her to go home.", 5.0)]
     #[case("Those results are final. It stands.", 2.0)]
