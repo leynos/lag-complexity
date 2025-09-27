@@ -60,6 +60,10 @@ const PRONOUNS: &[&str] = &[
 ];
 const PRONOUN_BASE_WEIGHT: u32 = 1;
 const UNRESOLVED_PRONOUN_BONUS: u32 = 1;
+const FLAG_PRONOUN: u8 = 1 << 0;
+const FLAG_CAPITALISED: u8 = 1 << 1;
+const FLAG_ARTICLE: u8 = 1 << 2;
+const FLAG_LIKELY_NOUN: u8 = 1 << 3;
 const DEFINITE_ARTICLES: &[&str] = &["the", "this", "that", "these", "those"];
 const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
@@ -67,10 +71,7 @@ const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 /// Token metadata reused when scanning for antecedents.
 /// Normalises case once so the heuristic avoids repeated lowercase allocations.
 struct TokenCandidate {
-    original: String,
-    lower: String,
-    is_capitalised: bool,
-    is_pronoun: bool,
+    flags: u8,
 }
 
 impl TokenCandidate {
@@ -79,80 +80,44 @@ impl TokenCandidate {
         if trimmed.is_empty() {
             return None;
         }
-        let original = trimmed.to_string();
-        let mut lower = original.clone();
-        lower.make_ascii_lowercase();
-        let is_capitalised = original.chars().next().is_some_and(char::is_uppercase);
-        let is_pronoun = PRONOUNS.contains(&lower.as_str());
-        Some(Self {
-            original,
-            lower,
-            is_capitalised,
-            is_pronoun,
-        })
+        let lower = trimmed.to_ascii_lowercase();
+        let mut flags = 0;
+        if PRONOUNS.contains(&lower.as_str()) {
+            flags |= FLAG_PRONOUN;
+        }
+        if trimmed.chars().next().is_some_and(char::is_uppercase) {
+            flags |= FLAG_CAPITALISED;
+        }
+        if DEFINITE_ARTICLES.contains(&lower.as_str()) {
+            flags |= FLAG_ARTICLE;
+        }
+        if trimmed.chars().any(char::is_alphabetic) {
+            flags |= FLAG_LIKELY_NOUN;
+        }
+        Some(Self { flags })
     }
 
-    fn is_candidate(&self) -> bool {
-        self.is_capitalised && !self.is_pronoun
+    fn is_pronoun(&self) -> bool {
+        self.flags & FLAG_PRONOUN != 0
+    }
+
+    fn is_capitalised(&self) -> bool {
+        self.flags & FLAG_CAPITALISED != 0
     }
 
     fn is_article(&self) -> bool {
-        DEFINITE_ARTICLES.contains(&self.lower.as_str())
+        self.flags & FLAG_ARTICLE != 0
     }
 
     fn is_likely_noun(&self) -> bool {
-        self.original.chars().any(char::is_alphabetic)
+        self.flags & FLAG_LIKELY_NOUN != 0
+    }
+
+    fn is_candidate(&self) -> bool {
+        self.is_capitalised() && !self.is_pronoun()
     }
 }
 
-struct SentenceAnalysis {
-    tokens: Vec<String>,
-    candidates: Vec<TokenCandidate>,
-}
-
-impl SentenceAnalysis {
-    fn from_text(sentence: &str) -> Self {
-        let tokens = normalize_tokens(sentence);
-        let candidates = sentence
-            .split_whitespace()
-            .filter_map(TokenCandidate::from_raw)
-            .collect();
-        Self { tokens, candidates }
-    }
-
-    fn has_candidate(&self) -> bool {
-        if self.candidates.iter().any(TokenCandidate::is_candidate) {
-            return true;
-        }
-        self.candidates
-            .windows(2)
-            .any(|window| {
-                if let [article, noun] = window {
-                    article.is_article() && noun.is_likely_noun()
-                } else {
-                    false
-                }
-            })
-    }
-
-    fn pronoun_score(&self, has_nearby_candidate: bool) -> u32 {
-        let mut score = 0;
-        for token in &self.tokens {
-            if PRONOUNS.contains(&token.as_str()) {
-                score += PRONOUN_BASE_WEIGHT;
-                if !has_nearby_candidate {
-                    score += UNRESOLVED_PRONOUN_BONUS;
-                }
-            }
-        }
-        score
-    }
-}
-
-static SENTENCE_BOUNDARY_RE: LazyLock<Regex> = LazyLock::new(|| {
-    #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
-    Regex::new(r"[.!?]+").expect("valid regex")
-});
 static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
     #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
     Regex::new(r"(?i)\ba few\b").expect("valid regex")
@@ -161,26 +126,55 @@ static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
 fn score_pronouns(input: &str) -> u32 {
     let mut score = 0;
     let mut previous_has_candidate = false;
-    let mut saw_sentence = false;
-    for analysis in split_sentences(input)
-        .into_iter()
-        .map(SentenceAnalysis::from_text)
-    {
-        saw_sentence = true;
-        let has_candidate = analysis.has_candidate();
-        let has_nearby_candidate = has_candidate || previous_has_candidate;
-        score += analysis.pronoun_score(has_nearby_candidate);
-        previous_has_candidate = has_candidate;
+    let mut current_has_candidate = false;
+    let mut pending_article = false;
+    let mut pending_pronouns: Vec<bool> = Vec::new();
+
+    for raw in input.split_whitespace() {
+        if let Some(token) = TokenCandidate::from_raw(raw) {
+            if token.is_candidate() || (pending_article && token.is_likely_noun()) {
+                current_has_candidate = true;
+                pending_pronouns.fill(false);
+            }
+
+            if token.is_pronoun() {
+                score += PRONOUN_BASE_WEIGHT;
+                pending_pronouns.push(!current_has_candidate && !previous_has_candidate);
+            }
+
+            pending_article = token.is_article();
+        }
+
+        if is_sentence_boundary(raw) {
+            for needs_bonus in pending_pronouns.drain(..) {
+                if needs_bonus {
+                    score += UNRESOLVED_PRONOUN_BONUS;
+                }
+            }
+            previous_has_candidate = current_has_candidate;
+            current_has_candidate = false;
+            pending_article = false;
+        }
     }
-    if saw_sentence { score } else { 0 }
+
+    for needs_bonus in pending_pronouns {
+        if needs_bonus {
+            score += UNRESOLVED_PRONOUN_BONUS;
+        }
+    }
+
+    score
 }
 
-fn split_sentences(input: &str) -> Vec<&str> {
-    SENTENCE_BOUNDARY_RE
-        .split(input)
-        .map(str::trim)
-        .filter(|sentence| !sentence.is_empty())
-        .collect()
+fn is_sentence_boundary(token: &str) -> bool {
+    for c in token.chars().rev() {
+        if matches!(c, '"' | '\u{27}' | ')' | ']' | '}') {
+            continue;
+        }
+
+        return matches!(c, '.' | '!' | '?' | '…');
+    }
+    false
 }
 
 #[cfg(test)]
