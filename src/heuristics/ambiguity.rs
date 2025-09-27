@@ -332,6 +332,20 @@ impl TokenCandidate {
         self.flags & FLAG_LIKELY_NOUN != 0
     }
 
+    /// Determines if this token indicates a candidate antecedent in the current context
+    fn indicates_candidate_antecedent(
+        &self,
+        at_sentence_start: bool,
+        pending_article: bool,
+    ) -> bool {
+        self.is_candidate(at_sentence_start) || self.forms_article_noun_pattern(pending_article)
+    }
+
+    /// Checks if this token completes an article-noun pattern for candidate detection
+    fn forms_article_noun_pattern(&self, pending_article: bool) -> bool {
+        pending_article && self.is_likely_noun()
+    }
+
     /// Returns `true` when the token looks noun-like enough to anchor pronouns.
     ///
     /// Sentence-initial capitalised adverbs (for example "However" or "Suddenly")
@@ -358,9 +372,7 @@ impl SentenceAnalysis {
 
         for raw in sentence.as_str().split_whitespace() {
             if let Some(token) = TokenCandidate::from_raw(&RawToken::from(raw)) {
-                if token.is_candidate(at_sentence_start)
-                    || (pending_article && token.is_likely_noun())
-                {
+                if token.indicates_candidate_antecedent(at_sentence_start, pending_article) {
                     has_candidate = true;
                 }
                 pending_article = token.is_article();
