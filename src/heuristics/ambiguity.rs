@@ -411,21 +411,22 @@ fn score_pronouns(input: &InputText) -> u32 {
 }
 
 fn score_pronouns_in_sentence(sentence: &Sentence, has_nearby_candidate: bool) -> u32 {
-    let mut score = 0;
     // `has_nearby_candidate` includes antecedents from the current sentence
     // and its immediate predecessor, so this helper only tallies pronouns.
+    sentence
+        .as_str()
+        .split_whitespace()
+        .filter_map(|raw| TokenCandidate::from_raw(&RawToken::from(raw)))
+        .filter(TokenCandidate::is_pronoun)
+        .map(|_| calculate_pronoun_score(has_nearby_candidate))
+        .sum()
+}
 
-    for raw in sentence.as_str().split_whitespace() {
-        if let Some(token) = TokenCandidate::from_raw(&RawToken::from(raw)) {
-            if token.is_pronoun() {
-                score += PRONOUN_BASE_WEIGHT;
-                if !has_nearby_candidate {
-                    score += UNRESOLVED_PRONOUN_BONUS;
-                }
-            }
-        }
+fn calculate_pronoun_score(has_nearby_candidate: bool) -> u32 {
+    let mut score = PRONOUN_BASE_WEIGHT;
+    if !has_nearby_candidate {
+        score += UNRESOLVED_PRONOUN_BONUS;
     }
-
     score
 }
 
