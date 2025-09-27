@@ -211,6 +211,8 @@ fn score_pronouns(input: &str) -> u32 {
 
 fn score_pronouns_in_sentence(sentence: &str, has_nearby_candidate: bool) -> u32 {
     let mut score = 0;
+    // `has_nearby_candidate` includes antecedents from the current sentence
+    // and its immediate predecessor, so this helper only tallies pronouns.
 
     for raw in sentence.split_whitespace() {
         if let Some(token) = TokenCandidate::from_raw(raw) {
@@ -225,6 +227,7 @@ fn score_pronouns_in_sentence(sentence: &str, has_nearby_candidate: bool) -> u32
 
     score
 }
+
 fn is_sentence_boundary(token: &str) -> bool {
     for c in token.chars().rev() {
         if matches!(c, '"' | '\u{27}' | ')' | ']' | '}') {
