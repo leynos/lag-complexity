@@ -29,6 +29,19 @@ const SENTENCE_ADVERBS: &[&str] = &[
 ];
 const DEMONSTRATIVE_PRONOUNS: &[&str] = &["This", "That"];
 
+/// Helper function to eliminate test duplication for ambiguity scoring assertions
+fn assert_ambiguity_score(text: &str, expected_score: f32, message: &str) {
+    let h = AmbiguityHeuristic;
+    let score = match h.process(text) {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, expected_score, EPSILON),
+        "{message}, got {score}"
+    );
+}
+
 /// Validate ambiguity scoring and error handling.
 ///
 /// Examples:
@@ -65,66 +78,46 @@ fn to_sentence(words: &[String]) -> String {
 
 #[rstest]
 fn article_noun_pattern_anchors_pronoun() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("The engineer repaired it.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 2.0, EPSILON),
-        "expected pronoun anchored score to be 2.0, got {score}"
+    assert_ambiguity_score(
+        "The engineer repaired it.",
+        2.0,
+        "expected pronoun anchored score to be 2.0",
     );
 }
 
 #[rstest]
 fn sentence_initial_adverb_does_not_anchor_pronoun() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("However, it broke.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 3.0, EPSILON),
-        "expected unresolved pronoun score to be 3.0, got {score}"
+    assert_ambiguity_score(
+        "However, it broke.",
+        3.0,
+        "expected unresolved pronoun score to be 3.0",
     );
 }
 
 #[rstest]
 fn article_followed_by_function_word_does_not_anchor_pronoun() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("The very quickly failed. It broke.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 3.0, EPSILON),
-        "expected unresolved pronoun score to be 3.0, got {score}"
+    assert_ambiguity_score(
+        "The very quickly failed. It broke.",
+        3.0,
+        "expected unresolved pronoun score to be 3.0",
     );
 }
 
 #[rstest]
 fn multiple_pronouns_without_antecedent_receive_bonus() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("It and they waited.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 5.0, EPSILON),
-        "expected two unresolved pronouns to yield 5.0, got {score}"
+    assert_ambiguity_score(
+        "It and they waited.",
+        5.0,
+        "expected two unresolved pronouns to yield 5.0",
     );
 }
 
 #[rstest]
 fn antecedent_carries_across_sentence_boundary() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("Alice fixed it. However, they approved.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 3.0, EPSILON),
-        "expected antecedent to suppress the bonus across the boundary, got {score}"
+    assert_ambiguity_score(
+        "Alice fixed it. However, they approved.",
+        3.0,
+        "expected antecedent to suppress the bonus across the boundary",
     );
 }
 
