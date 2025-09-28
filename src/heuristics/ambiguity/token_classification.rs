@@ -48,6 +48,7 @@ static WORD_FLAGS: phf::Map<&'static str, u8> = phf_map! {
     "finally" => FLAG_FUNCTION_WORD,
     "initially" => FLAG_FUNCTION_WORD,
     "eventually" => FLAG_FUNCTION_WORD,
+    "very" => FLAG_FUNCTION_WORD,
 };
 
 static LY_NOUN_EXCEPTIONS: phf::Set<&'static str> = phf_set! {
@@ -155,15 +156,28 @@ impl TokenCandidate {
     }
 
     fn forms_article_noun_pattern(self, pending_article: bool) -> bool {
-        pending_article && self.is_likely_noun()
-    }
-
-    fn is_candidate(self, at_sentence_start: bool) -> bool {
-        self.is_capitalised()
+        pending_article
             && self.is_likely_noun()
             && !self.is_pronoun()
             && !self.is_function_word()
-            && !(at_sentence_start && self.has_sentence_adverb_flag())
+            && !self.has_sentence_adverb_flag()
+    }
+
+    fn is_candidate(self, at_sentence_start: bool) -> bool {
+        if !self.is_capitalised()
+            || !self.is_likely_noun()
+            || self.is_pronoun()
+            || self.is_article()
+            || self.is_function_word()
+        {
+            return false;
+        }
+
+        if at_sentence_start && self.has_sentence_adverb_flag() {
+            return false;
+        }
+
+        true
     }
 }
 
@@ -207,5 +221,19 @@ mod tests {
     fn flags_function_words() {
         let token = candidate("tomorrow");
         assert!(!token.indicates_candidate_antecedent(false, false));
+    }
+
+    #[test]
+    fn article_followed_by_adverb_does_not_anchor() {
+        let article = candidate("the");
+        let adverb = candidate("quickly");
+        assert!(!adverb.indicates_candidate_antecedent(false, article.is_article()));
+    }
+
+    #[test]
+    fn article_followed_by_function_word_does_not_anchor() {
+        let article = candidate("the");
+        let function_word = candidate("very");
+        assert!(!function_word.indicates_candidate_antecedent(false, article.is_article()));
     }
 }

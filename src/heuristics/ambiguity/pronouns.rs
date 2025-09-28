@@ -4,28 +4,27 @@ use super::{InputText, RawToken, Sentence, token_classification::TokenCandidate}
 const PRONOUN_BASE_WEIGHT: u32 = 1;
 const UNRESOLVED_PRONOUN_BONUS: u32 = 1;
 
-pub(crate) fn score_pronouns(input: &InputText) -> u32 {
+/// Scores pronoun ambiguity across sentences.
+///
+/// # Example
+/// ```
+/// # use crate::heuristics::ambiguity::{InputText, score_pronouns};
+/// let score = score_pronouns(&InputText::from("Alice fixed it."));
+/// assert_eq!(score, 1);
+/// ```
+#[must_use]
+pub fn score_pronouns(input: &InputText) -> u32 {
     let mut score = 0;
     let mut previous_has_candidate = false;
 
     for sentence in input.split_sentences() {
-        let scan = AntecedentScanner::from_sentence(&sentence);
-        let has_nearby_candidate = previous_has_candidate || scan.has_candidate();
-        score += score_pronouns_in_sentence(&sentence, has_nearby_candidate);
-        previous_has_candidate = scan.has_candidate();
+        let analysis = SentenceAnalysis::from_sentence(&sentence);
+        let has_nearby_candidate = previous_has_candidate || analysis.has_candidate();
+        score += analysis.score_pronouns(has_nearby_candidate);
+        previous_has_candidate = analysis.has_candidate();
     }
 
     score
-}
-
-fn score_pronouns_in_sentence(sentence: &Sentence, has_nearby_candidate: bool) -> u32 {
-    sentence
-        .as_str()
-        .split_whitespace()
-        .filter_map(|raw| TokenCandidate::from_raw(&RawToken::from(raw)))
-        .filter(|candidate| candidate.is_pronoun())
-        .map(|_| calculate_pronoun_score(has_nearby_candidate))
-        .sum()
 }
 
 fn calculate_pronoun_score(has_nearby_candidate: bool) -> u32 {
@@ -37,12 +36,14 @@ fn calculate_pronoun_score(has_nearby_candidate: bool) -> u32 {
 }
 
 #[derive(Debug, Default)]
-struct AntecedentScanner {
+struct SentenceAnalysis {
+    tokens: Vec<TokenCandidate>,
     has_candidate: bool,
 }
 
-impl AntecedentScanner {
+impl SentenceAnalysis {
     fn from_sentence(sentence: &Sentence) -> Self {
+        let mut tokens = Vec::new();
         let mut has_candidate = false;
         let mut pending_article = false;
         let mut at_sentence_start = true;
@@ -53,15 +54,27 @@ impl AntecedentScanner {
                     has_candidate = true;
                 }
                 pending_article = token.is_article();
+                tokens.push(token);
             }
             at_sentence_start = false;
         }
 
-        Self { has_candidate }
+        Self {
+            tokens,
+            has_candidate,
+        }
     }
 
     fn has_candidate(&self) -> bool {
         self.has_candidate
+    }
+
+    fn score_pronouns(&self, has_nearby_candidate: bool) -> u32 {
+        self.tokens
+            .iter()
+            .filter(|token| token.is_pronoun())
+            .map(|_| calculate_pronoun_score(has_nearby_candidate))
+            .sum()
     }
 }
 
@@ -90,7 +103,7 @@ mod tests {
     #[test]
     fn article_noun_pattern_counts_as_candidate() {
         let sentence = Sentence::new("The device failed.");
-        let scan = AntecedentScanner::from_sentence(&sentence);
-        assert!(scan.has_candidate());
+        let analysis = SentenceAnalysis::from_sentence(&sentence);
+        assert!(analysis.has_candidate());
     }
 }

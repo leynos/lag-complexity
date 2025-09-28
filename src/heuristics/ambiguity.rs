@@ -14,7 +14,7 @@ use thiserror::Error;
 mod pronouns;
 pub(crate) mod token_classification;
 
-pub(crate) use self::pronouns::score_pronouns;
+pub use self::pronouns::score_pronouns;
 
 /// Represents input text for complexity analysis
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
