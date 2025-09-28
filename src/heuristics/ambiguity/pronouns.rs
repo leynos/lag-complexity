@@ -122,30 +122,72 @@ fn classify_token(
 ) -> Option<TokenClassification> {
     let features = extract_features(raw)?;
     let normalised = features.normalised.as_ref();
-    let is_pronoun = matches_pronoun(normalised);
-    let is_article = DEFINITE_ARTICLES.contains(normalised);
-    let is_function_word = FUNCTION_WORDS.contains(normalised);
-    let is_sentence_adverb = features.has_letters
-        && normalised.ends_with("ly")
-        && !LY_NOUN_EXCEPTIONS.contains(normalised);
+    let mut classification = create_basic_classification(normalised);
 
-    let mut classification = TokenClassification {
-        is_pronoun,
-        is_article,
-        ..TokenClassification::default()
-    };
-
-    let noun_like = features.has_letters && !is_pronoun && !is_function_word && !is_sentence_adverb;
-    if (features.starts_with_uppercase
-        && noun_like
-        && !is_article
-        && !(at_sentence_start && is_sentence_adverb))
-        || (pending_article && noun_like)
-    {
+    if should_indicate_candidate(
+        &features,
+        &classification,
+        normalised,
+        at_sentence_start,
+        pending_article,
+    ) {
         classification.indicates_candidate = true;
     }
 
     Some(classification)
+}
+
+fn create_basic_classification(normalised: &str) -> TokenClassification {
+    TokenClassification {
+        is_pronoun: matches_pronoun(normalised),
+        is_article: DEFINITE_ARTICLES.contains(normalised),
+        ..TokenClassification::default()
+    }
+}
+
+fn is_sentence_adverb(features: &TokenFeatures, normalised: &str) -> bool {
+    features.has_letters && normalised.ends_with("ly") && !LY_NOUN_EXCEPTIONS.contains(normalised)
+}
+
+fn is_noun_like(
+    features: &TokenFeatures,
+    classification: &TokenClassification,
+    normalised: &str,
+) -> bool {
+    features.has_letters
+        && !classification.is_pronoun
+        && !FUNCTION_WORDS.contains(normalised)
+        && !is_sentence_adverb(features, normalised)
+}
+
+fn should_indicate_candidate(
+    features: &TokenFeatures,
+    classification: &TokenClassification,
+    normalised: &str,
+    at_sentence_start: bool,
+    pending_article: bool,
+) -> bool {
+    if !is_noun_like(features, classification, normalised) {
+        return false;
+    }
+
+    if pending_article {
+        return true;
+    }
+
+    if !features.starts_with_uppercase {
+        return false;
+    }
+
+    if classification.is_article {
+        return false;
+    }
+
+    if at_sentence_start && is_sentence_adverb(features, normalised) {
+        return false;
+    }
+
+    true
 }
 
 fn extract_features(raw: &str) -> Option<TokenFeatures<'_>> {
