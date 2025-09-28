@@ -18,6 +18,16 @@ const PRONOUN_SAMPLES: &[&str] = &[
     "their", "theirs",
 ];
 const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
+const SENTENCE_ADVERBS: &[&str] = &[
+    "However",
+    "Suddenly",
+    "Finally",
+    "Moreover",
+    "Meanwhile",
+    "Today",
+    "Yesterday",
+];
+const DEMONSTRATIVE_PRONOUNS: &[&str] = &["This", "That"];
 
 /// Validate ambiguity scoring and error handling.
 ///
@@ -154,6 +164,37 @@ proptest! {
             &base_sentence,
             &augmented,
             "anchored pronoun"
+        );
+    }
+
+    #[test]
+    fn capitalised_adverb_prefix_keeps_pronoun_unresolved(
+        adverb in prop::sample::select(SENTENCE_ADVERBS),
+        pronoun in prop::sample::select(PRONOUN_SAMPLES),
+    ) {
+        let sentence = format!("{adverb} {pronoun}.");
+        let h = AmbiguityHeuristic;
+        let score = h
+            .process(&sentence)
+            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        prop_assert!(
+            score >= 3.0,
+            "expected unresolved pronoun score >= 3.0, got {score}"
+        );
+    }
+
+    #[test]
+    fn demonstrative_pronoun_with_verb_is_anchored(
+        pronoun in prop::sample::select(DEMONSTRATIVE_PRONOUNS),
+    ) {
+        let sentence = format!("{pronoun} failed.");
+        let h = AmbiguityHeuristic;
+        let score = h
+            .process(&sentence)
+            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        prop_assert!(
+            approx_eq(score, 2.0, EPSILON),
+            "expected demonstrative pronoun to be anchored by the verb, got {score}"
         );
     }
 }
