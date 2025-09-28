@@ -53,6 +53,45 @@ fn to_sentence(words: &[String]) -> String {
     format!("{}.", words.join(" "))
 }
 
+#[rstest]
+fn article_noun_pattern_anchors_pronoun() {
+    let h = AmbiguityHeuristic;
+    let score = match h.process("The engineer repaired it.") {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, 2.0, EPSILON),
+        "expected pronoun anchored score to be 2.0, got {score}"
+    );
+}
+
+#[rstest]
+fn sentence_initial_adverb_does_not_anchor_pronoun() {
+    let h = AmbiguityHeuristic;
+    let score = match h.process("However, it broke.") {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, 3.0, EPSILON),
+        "expected unresolved pronoun score to be 3.0, got {score}"
+    );
+}
+
+#[rstest]
+fn article_followed_by_function_word_does_not_anchor_pronoun() {
+    let h = AmbiguityHeuristic;
+    let score = match h.process("The very quickly failed. It broke.") {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, 3.0, EPSILON),
+        "expected unresolved pronoun score to be 3.0, got {score}"
+    );
+}
+
 macro_rules! assert_non_decreasing {
     ($heuristic:expr, $base:expr, $augmented:expr, $context:expr) => {{
         let context = $context;
