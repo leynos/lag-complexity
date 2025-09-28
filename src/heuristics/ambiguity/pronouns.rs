@@ -1,5 +1,5 @@
 //! Pronoun scoring logic for the ambiguity heuristic.
-use super::{token_classification::TokenCandidate, InputText, RawToken, Sentence};
+use super::{InputText, RawToken, Sentence, token_classification::TokenCandidate};
 
 const PRONOUN_BASE_WEIGHT: u32 = 1;
 const UNRESOLVED_PRONOUN_BONUS: u32 = 1;

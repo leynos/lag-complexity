@@ -104,10 +104,7 @@ impl TokenCandidate {
             flags.insert(TokenFlags::LIKELY_NOUN);
         }
 
-        if token.has_letters
-            && token.lowercase.ends_with("ly")
-            && !LY_NOUN_EXCEPTIONS.contains(token.lowercase.as_str())
-        {
+        if Self::is_sentence_adverb(token) {
             flags.insert(TokenFlags::SENTENCE_ADVERB);
         }
 
@@ -116,6 +113,13 @@ impl TokenCandidate {
         }
 
         flags
+    }
+
+    /// Determines if a token is a sentence adverb (ends with "ly" but isn't an exceptional noun)
+    fn is_sentence_adverb(token: &ProcessedToken<'_>) -> bool {
+        token.has_letters
+            && token.lowercase.ends_with("ly")
+            && !LY_NOUN_EXCEPTIONS.contains(token.lowercase.as_str())
     }
 
     pub(crate) fn is_pronoun(self) -> bool {
