@@ -164,12 +164,23 @@ impl TokenCandidate {
     }
 
     fn is_candidate(self, at_sentence_start: bool) -> bool {
-        if !self.is_capitalised()
-            || !self.is_likely_noun()
-            || self.is_pronoun()
-            || self.is_article()
-            || self.is_function_word()
-        {
+        if !self.is_capitalised() {
+            return false;
+        }
+
+        if !self.is_likely_noun() {
+            return false;
+        }
+
+        if self.is_pronoun() {
+            return false;
+        }
+
+        if self.is_article() {
+            return false;
+        }
+
+        if self.is_function_word() {
             return false;
         }
 

@@ -18,7 +18,7 @@ pub fn score_pronouns(input: &InputText) -> u32 {
     let mut previous_has_candidate = false;
 
     for sentence in input.split_sentences() {
-        let analysis = SentenceAnalysis::from_sentence(&sentence);
+        let analysis = PronounSentenceAnalysis::from_sentence(&sentence);
         let has_nearby_candidate = previous_has_candidate || analysis.has_candidate();
         score += analysis.score_pronouns(has_nearby_candidate);
         previous_has_candidate = analysis.has_candidate();
@@ -36,12 +36,12 @@ fn calculate_pronoun_score(has_nearby_candidate: bool) -> u32 {
 }
 
 #[derive(Debug, Default)]
-struct SentenceAnalysis {
+struct PronounSentenceAnalysis {
     tokens: Vec<TokenCandidate>,
     has_candidate: bool,
 }
 
-impl SentenceAnalysis {
+impl PronounSentenceAnalysis {
     fn from_sentence(sentence: &Sentence) -> Self {
         let mut tokens = Vec::new();
         let mut has_candidate = false;
@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn article_noun_pattern_counts_as_candidate() {
         let sentence = Sentence::new("The device failed.");
-        let analysis = SentenceAnalysis::from_sentence(&sentence);
+        let analysis = PronounSentenceAnalysis::from_sentence(&sentence);
         assert!(analysis.has_candidate());
     }
 }
