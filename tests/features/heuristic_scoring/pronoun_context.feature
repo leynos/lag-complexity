@@ -28,6 +28,11 @@ Feature: Heuristic scoring - pronoun context
     Then the scored complexity components are 0.0, 0.0, 3.0
     And the scored total is 3.0
 
+  Scenario: scoring idiomatic apostrophe pronoun usage with curly apostrophe
+    When scoring "It’s raining."
+    Then the scored complexity components are 0.0, 0.0, 3.0
+    And the scored total is 3.0
+
   Scenario: scoring antecedent across a sentence boundary
     When scoring "Alice fixed the radio. However, it works."
     Then the scored complexity components are 0.0, 0.0, 2.0

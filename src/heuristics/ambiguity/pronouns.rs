@@ -24,7 +24,7 @@ static LY_NOUN_EXCEPTIONS: phf::Set<&'static str> = phf_set! {
     "assembly", "family", "italy", "july", "supply",
 };
 
-const APOSTROPHE: char = 0x27 as char;
+const APOSTROPHE: char = '\'';
 
 #[derive(Debug)]
 struct TokenFeatures<'a> {
@@ -168,10 +168,12 @@ fn matches_pronoun(normalised: &str) -> bool {
     }
 
     if normalised.contains(APOSTROPHE) {
-        // Allow contractions like "it's" by stripping apostrophes before lookup.
-        let mut stripped = String::with_capacity(normalised.len());
-        stripped.extend(normalised.chars().filter(|&c| c != APOSTROPHE));
-        return PRONOUNS.contains(stripped.as_str());
+        return PRONOUNS.iter().any(|candidate| {
+            normalised
+                .chars()
+                .filter(|&c| c != APOSTROPHE)
+                .eq(candidate.chars())
+        });
     }
 
     false
@@ -384,6 +386,12 @@ mod tests {
     fn candidate_state_survives_sentence_boundary() {
         let score = score_pronouns("Alice repaired it. However, they approved.");
         assert_eq!(score, PRONOUN_BASE_WEIGHT * 2);
+    }
+
+    #[test]
+    fn demonstrative_pronoun_followed_by_verb_is_anchored() {
+        let score = score_pronouns("This failed.");
+        assert_eq!(score, PRONOUN_BASE_WEIGHT);
     }
 
     #[test]

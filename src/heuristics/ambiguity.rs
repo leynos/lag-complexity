@@ -51,7 +51,11 @@ impl AmbiguityHeuristic {
             weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
         let extras = substring_count_regex(trimmed, &A_FEW_RE);
-        let total = pronouns + ambiguous + vague + extras + 1;
+        let total = pronouns
+            .saturating_add(ambiguous)
+            .saturating_add(vague)
+            .saturating_add(extras)
+            .saturating_add(1);
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
         Ok(total as f32)
     }
