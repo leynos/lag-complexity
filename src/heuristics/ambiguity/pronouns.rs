@@ -82,9 +82,10 @@ impl SentenceProcessor {
     }
 
     fn process_token(&mut self, raw: &str) {
-        if let Some(classification) =
-            classify_token(raw, self.at_sentence_start, self.pending_article)
-        {
+        if let Some(features) = extract_features(raw) {
+            let classification =
+                classify_token(&features, self.at_sentence_start, self.pending_article);
+
             if classification.is_pronoun {
                 self.pronouns_in_sentence += 1;
             }
@@ -177,16 +178,14 @@ fn matches_pronoun(normalised: &str) -> bool {
 }
 
 fn classify_token(
-    raw: &str,
+    features: &TokenFeatures,
     at_sentence_start: bool,
     pending_article: bool,
-) -> Option<TokenClassification> {
-    let features = extract_features(raw)?;
-    let normalised = features.normalised.as_ref();
-    let mut classification = create_basic_classification(normalised);
+) -> TokenClassification {
+    let mut classification = create_basic_classification(features);
 
     if should_indicate_candidate(
-        &features,
+        features,
         &classification,
         at_sentence_start,
         pending_article,
@@ -194,10 +193,11 @@ fn classify_token(
         classification.indicates_candidate = true;
     }
 
-    Some(classification)
+    classification
 }
 
-fn create_basic_classification(normalised: &str) -> TokenClassification {
+fn create_basic_classification(features: &TokenFeatures) -> TokenClassification {
+    let normalised = features.normalised.as_ref();
     TokenClassification {
         is_pronoun: matches_pronoun(normalised),
         is_article: DEFINITE_ARTICLES.contains(normalised),
@@ -205,19 +205,17 @@ fn create_basic_classification(normalised: &str) -> TokenClassification {
     }
 }
 
-fn is_sentence_adverb(features: &TokenFeatures, normalised: &str) -> bool {
+fn is_sentence_adverb(features: &TokenFeatures) -> bool {
+    let normalised = features.normalised.as_ref();
     features.has_letters && normalised.ends_with("ly") && !LY_NOUN_EXCEPTIONS.contains(normalised)
 }
 
-fn is_noun_like(
-    features: &TokenFeatures,
-    classification: &TokenClassification,
-    normalised: &str,
-) -> bool {
+fn is_noun_like(features: &TokenFeatures, classification: &TokenClassification) -> bool {
+    let normalised = features.normalised.as_ref();
     features.has_letters
         && !classification.is_pronoun
         && !FUNCTION_WORDS.contains(normalised)
-        && !is_sentence_adverb(features, normalised)
+        && !is_sentence_adverb(features)
 }
 
 fn should_indicate_candidate(
@@ -226,9 +224,7 @@ fn should_indicate_candidate(
     at_sentence_start: bool,
     pending_article: bool,
 ) -> bool {
-    let normalised = features.normalised.as_ref();
-
-    if !is_noun_like(features, classification, normalised) {
+    if !is_noun_like(features, classification) {
         return false;
     }
 
@@ -244,7 +240,7 @@ fn should_indicate_candidate(
         return false;
     }
 
-    if at_sentence_start && is_sentence_adverb(features, normalised) {
+    if at_sentence_start && is_sentence_adverb(features) {
         return false;
     }
 
@@ -392,35 +388,39 @@ mod tests {
 
     #[test]
     fn capitalised_noun_marks_candidate() {
-        let Some(classification) = classify_token("Alice", true, false) else {
-            std::panic::panic_any("expected classification");
+        let Some(features) = extract_features("Alice") else {
+            std::panic::panic_any("expected token features");
         };
+        let classification = classify_token(&features, true, false);
         assert!(classification.indicates_candidate);
         assert!(!classification.is_article);
     }
 
     #[test]
     fn definite_article_sets_flag_without_candidate() {
-        let Some(classification) = classify_token("The", false, false) else {
-            std::panic::panic_any("expected classification");
+        let Some(features) = extract_features("The") else {
+            std::panic::panic_any("expected token features");
         };
+        let classification = classify_token(&features, false, false);
         assert!(classification.is_article);
         assert!(!classification.indicates_candidate);
     }
 
     #[test]
     fn article_followed_by_noun_marks_candidate() {
-        let Some(classification) = classify_token("device", false, true) else {
-            std::panic::panic_any("expected classification");
+        let Some(features) = extract_features("device") else {
+            std::panic::panic_any("expected token features");
         };
+        let classification = classify_token(&features, false, true);
         assert!(classification.indicates_candidate);
     }
 
     #[test]
     fn capitalised_sentence_adverb_is_ignored() {
-        let Some(classification) = classify_token("However", true, false) else {
-            std::panic::panic_any("expected classification");
+        let Some(features) = extract_features("However") else {
+            std::panic::panic_any("expected token features");
         };
+        let classification = classify_token(&features, true, false);
         assert!(!classification.indicates_candidate);
     }
 }
