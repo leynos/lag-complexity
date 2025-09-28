@@ -51,45 +51,106 @@ struct TokenClassification {
 /// ```
 #[must_use]
 pub fn score_pronouns(text: &str) -> u32 {
-    let mut score = 0;
-    let mut previous_has_candidate = false;
-    let mut current_has_candidate = false;
-    let mut pending_article = false;
-    let mut at_sentence_start = true;
-    let mut pronouns_in_sentence: u32 = 0;
+    let mut processor = SentenceProcessor::new();
 
     for raw in text.split_whitespace() {
-        if let Some(classification) = classify_token(raw, at_sentence_start, pending_article) {
+        processor.process_token(raw);
+    }
+
+    processor.finalize_score()
+}
+
+struct SentenceProcessor {
+    score: u32,
+    previous_has_candidate: CandidateFlag,
+    current_has_candidate: CandidateFlag,
+    pending_article: bool,
+    at_sentence_start: bool,
+    pronouns_in_sentence: u32,
+}
+
+impl SentenceProcessor {
+    fn new() -> Self {
+        Self {
+            score: 0,
+            previous_has_candidate: CandidateFlag::default(),
+            current_has_candidate: CandidateFlag::default(),
+            pending_article: false,
+            at_sentence_start: true,
+            pronouns_in_sentence: 0,
+        }
+    }
+
+    fn process_token(&mut self, raw: &str) {
+        if let Some(classification) =
+            classify_token(raw, self.at_sentence_start, self.pending_article)
+        {
             if classification.is_pronoun {
-                pronouns_in_sentence += 1;
+                self.pronouns_in_sentence += 1;
             }
             if classification.indicates_candidate {
-                current_has_candidate = true;
+                self.current_has_candidate.enable();
             }
-            pending_article = classification.is_article;
+            self.pending_article = classification.is_article;
         }
 
         if is_sentence_boundary(raw) {
-            if pronouns_in_sentence > 0 {
-                let has_nearby_candidate = previous_has_candidate || current_has_candidate;
-                score += pronouns_in_sentence * calculate_pronoun_score(has_nearby_candidate);
-            }
-            previous_has_candidate = current_has_candidate;
-            current_has_candidate = false;
-            pronouns_in_sentence = 0;
-            pending_article = false;
-            at_sentence_start = true;
+            self.complete_sentence();
         } else {
-            at_sentence_start = false;
+            self.at_sentence_start = false;
         }
     }
 
-    if pronouns_in_sentence > 0 {
-        let has_nearby_candidate = previous_has_candidate || current_has_candidate;
-        score += pronouns_in_sentence * calculate_pronoun_score(has_nearby_candidate);
+    fn complete_sentence(&mut self) {
+        if self.pronouns_in_sentence > 0 {
+            let has_nearby_candidate =
+                self.previous_has_candidate.is_set() || self.current_has_candidate.is_set();
+            self.score += self.pronouns_in_sentence * calculate_pronoun_score(has_nearby_candidate);
+        }
+
+        self.previous_has_candidate
+            .copy_from(self.current_has_candidate);
+        self.current_has_candidate.clear();
+        self.pronouns_in_sentence = 0;
+        self.pending_article = false;
+        self.at_sentence_start = true;
     }
 
-    score
+    fn finalize_score(mut self) -> u32 {
+        self.complete_sentence();
+        self.score
+    }
+}
+
+#[derive(Clone, Copy)]
+struct CandidateFlag(bool);
+
+impl CandidateFlag {
+    const fn new(value: bool) -> Self {
+        Self(value)
+    }
+
+    const fn is_set(self) -> bool {
+        self.0
+    }
+
+    fn enable(&mut self) {
+        self.0 = true;
+    }
+
+    fn clear(&mut self) {
+        self.0 = false;
+    }
+
+    fn copy_from(&mut self, other: Self) {
+        self.0 = other.0;
+    }
+}
+
+impl Default for CandidateFlag {
+    fn default() -> Self {
+        Self::new(false)
+    }
 }
 
 fn calculate_pronoun_score(has_nearby_candidate: bool) -> u32 {
@@ -127,7 +188,6 @@ fn classify_token(
     if should_indicate_candidate(
         &features,
         &classification,
-        normalised,
         at_sentence_start,
         pending_article,
     ) {
@@ -163,10 +223,11 @@ fn is_noun_like(
 fn should_indicate_candidate(
     features: &TokenFeatures,
     classification: &TokenClassification,
-    normalised: &str,
     at_sentence_start: bool,
     pending_article: bool,
 ) -> bool {
+    let normalised = features.normalised.as_ref();
+
     if !is_noun_like(features, classification, normalised) {
         return false;
     }
@@ -192,11 +253,32 @@ fn should_indicate_candidate(
 
 fn extract_features(raw: &str) -> Option<TokenFeatures<'_>> {
     let cleaned = clean_token(raw)?;
-    let starts_with_uppercase = cleaned.chars().next().is_some_and(char::is_uppercase);
+    let analysis = analyze_characters(cleaned.as_ref());
+    let normalised = if analysis.needs_lowercase {
+        Cow::Owned(cleaned.as_ref().to_ascii_lowercase())
+    } else {
+        cleaned
+    };
+
+    Some(TokenFeatures {
+        normalised,
+        has_letters: analysis.has_letters,
+        starts_with_uppercase: analysis.starts_uppercase,
+    })
+}
+
+struct CharAnalysis {
+    has_letters: bool,
+    needs_lowercase: bool,
+    starts_uppercase: bool,
+}
+
+fn analyze_characters(text: &str) -> CharAnalysis {
+    let starts_uppercase = text.chars().next().is_some_and(char::is_uppercase);
     let mut has_letters = false;
     let mut needs_lowercase = false;
 
-    for ch in cleaned.chars() {
+    for ch in text.chars() {
         if ch.is_alphabetic() {
             has_letters = true;
         }
@@ -205,36 +287,41 @@ fn extract_features(raw: &str) -> Option<TokenFeatures<'_>> {
         }
     }
 
-    let normalised = if needs_lowercase {
-        Cow::Owned(cleaned.to_ascii_lowercase())
-    } else {
-        cleaned
-    };
-
-    Some(TokenFeatures {
-        normalised,
+    CharAnalysis {
         has_letters,
-        starts_with_uppercase,
-    })
+        needs_lowercase,
+        starts_uppercase,
+    }
 }
 
 fn clean_token(raw: &str) -> Option<Cow<'_, str>> {
-    let trimmed = raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != APOSTROPHE);
+    let trimmed = trim_to_valid_chars(raw);
     if trimmed.is_empty() {
         return None;
     }
 
-    if trimmed
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == APOSTROPHE)
-    {
+    if is_already_clean(trimmed) {
         return Some(Cow::Borrowed(trimmed));
     }
 
-    let filtered: String = trimmed
+    filter_to_valid_chars(trimmed).map(|cow| Cow::Owned(cow.into_owned()))
+}
+
+fn trim_to_valid_chars(raw: &str) -> &str {
+    raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != APOSTROPHE)
+}
+
+fn is_already_clean(text: &str) -> bool {
+    text.chars()
+        .all(|c| c.is_alphanumeric() || matches!(c, '-' | APOSTROPHE))
+}
+
+fn filter_to_valid_chars(text: &str) -> Option<Cow<'static, str>> {
+    let filtered: String = text
         .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == APOSTROPHE)
+        .filter(|c| c.is_alphanumeric() || matches!(*c, '-' | APOSTROPHE))
         .collect();
+
     if filtered.is_empty() {
         None
     } else {
