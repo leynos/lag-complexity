@@ -102,6 +102,32 @@ fn article_followed_by_function_word_does_not_anchor_pronoun() {
     );
 }
 
+#[rstest]
+fn multiple_pronouns_without_antecedent_receive_bonus() {
+    let h = AmbiguityHeuristic;
+    let score = match h.process("It and they waited.") {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, 5.0, EPSILON),
+        "expected two unresolved pronouns to yield 5.0, got {score}"
+    );
+}
+
+#[rstest]
+fn antecedent_carries_across_sentence_boundary() {
+    let h = AmbiguityHeuristic;
+    let score = match h.process("Alice fixed it. However, they approved.") {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, 3.0, EPSILON),
+        "expected antecedent to suppress the bonus across the boundary, got {score}"
+    );
+}
+
 macro_rules! assert_non_decreasing {
     ($heuristic:expr, $base:expr, $augmented:expr, $context:expr) => {{
         let context = $context;

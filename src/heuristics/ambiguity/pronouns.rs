@@ -247,4 +247,51 @@ mod tests {
         };
         assert_eq!(features.normalised, "alice's");
     }
+
+    #[test]
+    fn multiple_unresolved_pronouns_accumulate_bonus() {
+        let score = score_pronouns("It and they waited.");
+        let expected = 2 * (PRONOUN_BASE_WEIGHT + UNRESOLVED_PRONOUN_BONUS);
+        assert_eq!(score, expected);
+    }
+
+    #[test]
+    fn candidate_state_survives_sentence_boundary() {
+        let score = score_pronouns("Alice repaired it. However, they approved.");
+        assert_eq!(score, PRONOUN_BASE_WEIGHT * 2);
+    }
+
+    #[test]
+    fn capitalised_noun_marks_candidate() {
+        let Some(classification) = classify_token("Alice", true, false) else {
+            std::panic::panic_any("expected classification");
+        };
+        assert!(classification.indicates_candidate);
+        assert!(!classification.is_article);
+    }
+
+    #[test]
+    fn definite_article_sets_flag_without_candidate() {
+        let Some(classification) = classify_token("The", false, false) else {
+            std::panic::panic_any("expected classification");
+        };
+        assert!(classification.is_article);
+        assert!(!classification.indicates_candidate);
+    }
+
+    #[test]
+    fn article_followed_by_noun_marks_candidate() {
+        let Some(classification) = classify_token("device", false, true) else {
+            std::panic::panic_any("expected classification");
+        };
+        assert!(classification.indicates_candidate);
+    }
+
+    #[test]
+    fn capitalised_sentence_adverb_is_ignored() {
+        let Some(classification) = classify_token("However", true, false) else {
+            std::panic::panic_any("expected classification");
+        };
+        assert!(!classification.indicates_candidate);
+    }
 }

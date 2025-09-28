@@ -217,6 +217,14 @@ fn score_idiomatic_pronoun_usage(test_context: TestContext) {
     let _ = test_context;
 }
 
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 5
+)]
+fn score_cross_sentence_antecedent(test_context: TestContext) {
+    let _ = test_context;
+}
+
 #[scenario(path = "tests/features/heuristic_scoring/trace_simple.feature")]
 fn trace_simple_question(test_context: TestContext) {
     let _ = test_context;

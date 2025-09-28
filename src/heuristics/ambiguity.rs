@@ -116,4 +116,17 @@ mod tests {
         assert_eq!(h.process(""), Err(AmbiguityHeuristicError::Empty));
         assert_eq!(h.process("   \n\t"), Err(AmbiguityHeuristicError::Empty));
     }
+
+    #[rstest]
+    #[case("Word.", true)]
+    #[case("Word?", true)]
+    #[case("Word…", true)]
+    #[case(r#""Who?""#, true)]
+    #[case("Alert!]", true)]
+    #[case("token", false)]
+    #[case(r#"token,""#, false)]
+    #[case(r#"token-""#, false)]
+    fn detects_sentence_boundaries(#[case] token: &str, #[case] expected: bool) {
+        assert_eq!(is_sentence_boundary(token), expected);
+    }
 }
