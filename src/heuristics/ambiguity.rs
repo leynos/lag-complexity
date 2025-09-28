@@ -12,9 +12,9 @@ use std::{mem, sync::LazyLock};
 use thiserror::Error;
 
 mod pronouns;
-mod token_classification;
+pub(crate) mod token_classification;
 
-use self::pronouns::score_pronouns;
+pub(crate) use self::pronouns::score_pronouns;
 
 /// Represents input text for complexity analysis
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

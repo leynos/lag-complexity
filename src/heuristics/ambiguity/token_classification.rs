@@ -1,45 +1,72 @@
+//! Token classification utilities for the ambiguity heuristic.
 use super::RawToken;
+use bitflags::bitflags;
+use phf::{phf_map, phf_set};
 
-const PRONOUNS: &[&str] = &[
-    "it", "he", "she", "they", "this", "that", "him", "her", "them", "his", "its", "their",
-    "theirs",
-];
-const FLAG_PRONOUN: u8 = 1 << 0;
-const FLAG_CAPITALISED: u8 = 1 << 1;
-const FLAG_ARTICLE: u8 = 1 << 2;
-const FLAG_LIKELY_NOUN: u8 = 1 << 3;
-const FLAG_FUNCTION_WORD: u8 = 1 << 4;
-const FLAG_SENTENCE_ADVERB: u8 = 1 << 5;
-const FUNCTION_WORDS: &[&str] = &[
-    "however",
-    "therefore",
-    "meanwhile",
-    "moreover",
-    "yesterday",
-    "today",
-    "tomorrow",
-    "suddenly",
-    "finally",
-    "initially",
-    "eventually",
-];
-const LY_NOUN_EXCEPTIONS: &[&str] = &["assembly", "family", "italy", "july", "supply"];
-const DEFINITE_ARTICLES: &[&str] = &["the", "this", "that", "these", "those"];
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct TokenFlags: u8 {
+        const PRONOUN = 1 << 0;
+        const CAPITALISED = 1 << 1;
+        const ARTICLE = 1 << 2;
+        const LIKELY_NOUN = 1 << 3;
+        const FUNCTION_WORD = 1 << 4;
+        const SENTENCE_ADVERB = 1 << 5;
+    }
+}
 
-/// Token metadata reused when scanning for antecedents.
-/// Normalises case once so the heuristic avoids repeated lowercase allocations.
+const FLAG_PRONOUN: u8 = TokenFlags::PRONOUN.bits();
+const FLAG_ARTICLE: u8 = TokenFlags::ARTICLE.bits();
+const FLAG_FUNCTION_WORD: u8 = TokenFlags::FUNCTION_WORD.bits();
+const FLAG_PRONOUN_AND_ARTICLE: u8 = FLAG_PRONOUN | FLAG_ARTICLE;
+
+static WORD_FLAGS: phf::Map<&'static str, u8> = phf_map! {
+    "it" => FLAG_PRONOUN,
+    "he" => FLAG_PRONOUN,
+    "she" => FLAG_PRONOUN,
+    "they" => FLAG_PRONOUN,
+    "this" => FLAG_PRONOUN_AND_ARTICLE,
+    "that" => FLAG_PRONOUN_AND_ARTICLE,
+    "him" => FLAG_PRONOUN,
+    "her" => FLAG_PRONOUN,
+    "them" => FLAG_PRONOUN,
+    "his" => FLAG_PRONOUN,
+    "its" => FLAG_PRONOUN,
+    "their" => FLAG_PRONOUN,
+    "theirs" => FLAG_PRONOUN,
+    "the" => FLAG_ARTICLE,
+    "these" => FLAG_ARTICLE,
+    "those" => FLAG_ARTICLE,
+    "however" => FLAG_FUNCTION_WORD,
+    "therefore" => FLAG_FUNCTION_WORD,
+    "meanwhile" => FLAG_FUNCTION_WORD,
+    "moreover" => FLAG_FUNCTION_WORD,
+    "yesterday" => FLAG_FUNCTION_WORD,
+    "today" => FLAG_FUNCTION_WORD,
+    "tomorrow" => FLAG_FUNCTION_WORD,
+    "suddenly" => FLAG_FUNCTION_WORD,
+    "finally" => FLAG_FUNCTION_WORD,
+    "initially" => FLAG_FUNCTION_WORD,
+    "eventually" => FLAG_FUNCTION_WORD,
+};
+
+static LY_NOUN_EXCEPTIONS: phf::Set<&'static str> = phf_set! {
+    "assembly", "family", "italy", "july", "supply"
+};
+
 struct ProcessedToken<'a> {
     original: &'a str,
     lowercase: String,
     has_letters: bool,
 }
 
-pub(super) struct TokenCandidate {
-    flags: u8,
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TokenCandidate {
+    flags: TokenFlags,
 }
 
 impl TokenCandidate {
-    pub(super) fn from_raw(token: &RawToken) -> Option<Self> {
+    pub(crate) fn from_raw(token: &RawToken) -> Option<Self> {
         let processed = Self::preprocess_token(token.as_str())?;
         let flags = Self::classify_token(&processed);
         Some(Self { flags })
@@ -61,122 +88,120 @@ impl TokenCandidate {
         })
     }
 
-    fn classify_token(token: &ProcessedToken) -> u8 {
-        Self::check_pronoun_flag(token)
-            | Self::check_capitalisation_flag(token)
-            | Self::check_article_flag(token)
-            | Self::check_function_word_flag(token)
-            | Self::check_adverb_flag(token)
-            | Self::check_noun_flag(token)
-    }
+    fn classify_token(token: &ProcessedToken) -> TokenFlags {
+        let mut flags = TokenFlags::empty();
 
-    fn check_pronoun_flag(token: &ProcessedToken) -> u8 {
-        if PRONOUNS.contains(&token.lowercase.as_str()) {
-            FLAG_PRONOUN
-        } else {
-            0
-        }
-    }
-
-    fn check_capitalisation_flag(token: &ProcessedToken) -> u8 {
         if token
             .original
             .chars()
             .next()
             .is_some_and(char::is_uppercase)
         {
-            FLAG_CAPITALISED
-        } else {
-            0
+            flags.insert(TokenFlags::CAPITALISED);
         }
-    }
 
-    fn check_article_flag(token: &ProcessedToken) -> u8 {
-        if DEFINITE_ARTICLES.contains(&token.lowercase.as_str()) {
-            FLAG_ARTICLE
-        } else {
-            0
-        }
-    }
-
-    fn check_function_word_flag(token: &ProcessedToken) -> u8 {
-        if FUNCTION_WORDS.contains(&token.lowercase.as_str()) {
-            FLAG_FUNCTION_WORD
-        } else {
-            0
-        }
-    }
-
-    fn check_adverb_flag(token: &ProcessedToken) -> u8 {
-        if Self::is_sentence_adverb(token) {
-            FLAG_SENTENCE_ADVERB
-        } else {
-            0
-        }
-    }
-
-    fn is_sentence_adverb(token: &ProcessedToken) -> bool {
-        token.has_letters
-            && token.lowercase.ends_with("ly")
-            && !LY_NOUN_EXCEPTIONS.contains(&token.lowercase.as_str())
-    }
-
-    fn check_noun_flag(token: &ProcessedToken) -> u8 {
         if token.has_letters {
-            FLAG_LIKELY_NOUN
-        } else {
-            0
+            flags.insert(TokenFlags::LIKELY_NOUN);
         }
+
+        if token.has_letters
+            && token.lowercase.ends_with("ly")
+            && !LY_NOUN_EXCEPTIONS.contains(token.lowercase.as_str())
+        {
+            flags.insert(TokenFlags::SENTENCE_ADVERB);
+        }
+
+        if let Some(&word_flags) = WORD_FLAGS.get(token.lowercase.as_str()) {
+            flags.insert(TokenFlags::from_bits_truncate(word_flags));
+        }
+
+        flags
     }
 
-    pub(super) fn is_pronoun(&self) -> bool {
-        self.flags & FLAG_PRONOUN != 0
+    pub(crate) fn is_pronoun(self) -> bool {
+        self.flags.contains(TokenFlags::PRONOUN)
     }
 
-    fn is_capitalised(&self) -> bool {
-        self.flags & FLAG_CAPITALISED != 0
+    fn is_capitalised(self) -> bool {
+        self.flags.contains(TokenFlags::CAPITALISED)
     }
 
-    pub(super) fn is_article(&self) -> bool {
-        self.flags & FLAG_ARTICLE != 0
+    pub(crate) fn is_article(self) -> bool {
+        self.flags.contains(TokenFlags::ARTICLE)
     }
 
-    fn is_function_word(&self) -> bool {
-        self.flags & FLAG_FUNCTION_WORD != 0
+    fn is_function_word(self) -> bool {
+        self.flags.contains(TokenFlags::FUNCTION_WORD)
     }
 
-    fn has_sentence_adverb_flag(&self) -> bool {
-        self.flags & FLAG_SENTENCE_ADVERB != 0
+    fn has_sentence_adverb_flag(self) -> bool {
+        self.flags.contains(TokenFlags::SENTENCE_ADVERB)
     }
 
-    pub(super) fn is_likely_noun(&self) -> bool {
-        self.flags & FLAG_LIKELY_NOUN != 0
+    pub(crate) fn is_likely_noun(self) -> bool {
+        self.flags.contains(TokenFlags::LIKELY_NOUN)
     }
 
-    /// Determines if this token indicates a candidate antecedent in the current context
-    pub(super) fn indicates_candidate_antecedent(
-        &self,
+    pub(crate) fn indicates_candidate_antecedent(
+        self,
         at_sentence_start: bool,
         pending_article: bool,
     ) -> bool {
         self.is_candidate(at_sentence_start) || self.forms_article_noun_pattern(pending_article)
     }
 
-    /// Checks if this token completes an article-noun pattern for candidate detection
-    fn forms_article_noun_pattern(&self, pending_article: bool) -> bool {
+    fn forms_article_noun_pattern(self, pending_article: bool) -> bool {
         pending_article && self.is_likely_noun()
     }
 
-    /// Returns `true` when the token looks noun-like enough to anchor pronouns.
-    ///
-    /// Sentence-initial capitalised adverbs (for example "However" or "Suddenly")
-    /// are ignored so discourse markers do not clear the unresolved-pronoun bonus
-    /// without supporting noun context.
-    fn is_candidate(&self, at_sentence_start: bool) -> bool {
+    fn is_candidate(self, at_sentence_start: bool) -> bool {
         self.is_capitalised()
             && self.is_likely_noun()
             && !self.is_pronoun()
             && !self.is_function_word()
             && !(at_sentence_start && self.has_sentence_adverb_flag())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(raw: &str) -> TokenCandidate {
+        TokenCandidate::from_raw(&RawToken::from(raw))
+            .unwrap_or_else(|| panic!("expected token candidate for {raw}"))
+    }
+
+    #[test]
+    fn classifies_pronoun_flags() {
+        let token = candidate("It");
+        assert!(token.is_pronoun());
+        assert!(!token.is_article());
+    }
+
+    #[test]
+    fn classifies_articles_independently() {
+        let token = candidate("the");
+        assert!(token.is_article());
+        assert!(!token.is_pronoun());
+    }
+
+    #[test]
+    fn identifies_sentence_adverb_at_start() {
+        let token = candidate("However");
+        assert!(!token.indicates_candidate_antecedent(true, false));
+    }
+
+    #[test]
+    fn detects_article_noun_pattern() {
+        let article = candidate("the");
+        let noun = candidate("Device");
+        assert!(noun.indicates_candidate_antecedent(false, article.is_article()));
+    }
+
+    #[test]
+    fn flags_function_words() {
+        let token = candidate("tomorrow");
+        assert!(!token.indicates_candidate_antecedent(false, false));
     }
 }
