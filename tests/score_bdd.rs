@@ -175,6 +175,11 @@ fn score_ambiguous_question(test_context: TestContext) {
     let _ = test_context;
 }
 
+#[scenario(path = "tests/features/heuristic_scoring/ambiguous.feature", index = 1)]
+fn score_ambiguous_lexicon_variants(test_context: TestContext) {
+    let _ = test_context;
+}
+
 #[scenario(path = "tests/features/heuristic_scoring/empty_query.feature")]
 fn score_empty_query(test_context: TestContext) {
     let _ = test_context;

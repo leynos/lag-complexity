@@ -17,7 +17,7 @@ const PRONOUN_SAMPLES: &[&str] = &[
     "Theirs", "it", "he", "she", "they", "this", "that", "him", "her", "them", "his", "its",
     "their", "theirs",
 ];
-const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
+const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Helena", "Sirius", "Tariq"];
 const FUNCTION_WORD_SAMPLES: &[&str] = &[
     "However",
     "Therefore",
@@ -123,6 +123,19 @@ fn antecedent_carries_across_sentence_boundary() {
         "Alice fixed it. However, they approved.",
         3.0,
         "expected antecedent to suppress the bonus across the boundary",
+    );
+}
+
+#[rstest]
+#[case("Mercury.", 3.0)]
+#[case("Mercury-based alloys", 3.0)]
+#[case("Discuss Python's syntax.", 3.0)]
+#[case("Amazon, Nile, and Jordan", 7.0)]
+fn detects_ambiguous_entities_via_regex(#[case] text: &str, #[case] expected: f32) {
+    assert_ambiguity_score(
+        text,
+        expected,
+        "expected curated regex lexicon to mark ambiguous entities",
     );
 }
 
