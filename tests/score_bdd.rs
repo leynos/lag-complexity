@@ -193,6 +193,54 @@ fn score_pronoun_without_antecedent(test_context: TestContext) {
     let _ = test_context;
 }
 
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 2
+)]
+fn score_multiple_pronouns(test_context: TestContext) {
+    let _ = test_context;
+}
+
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 3
+)]
+fn score_multiple_antecedents(test_context: TestContext) {
+    let _ = test_context;
+}
+
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 4
+)]
+fn score_adverb_prefixed_pronoun(test_context: TestContext) {
+    let _ = test_context;
+}
+
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 5
+)]
+fn score_idiomatic_pronoun_usage(test_context: TestContext) {
+    let _ = test_context;
+}
+
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 6
+)]
+fn score_curly_apostrophe_pronoun_usage(test_context: TestContext) {
+    let _ = test_context;
+}
+
+#[scenario(
+    path = "tests/features/heuristic_scoring/pronoun_context.feature",
+    index = 7
+)]
+fn score_cross_sentence_antecedent(test_context: TestContext) {
+    let _ = test_context;
+}
+
 #[scenario(path = "tests/features/heuristic_scoring/trace_simple.feature")]
 fn trace_simple_question(test_context: TestContext) {
     let _ = test_context;

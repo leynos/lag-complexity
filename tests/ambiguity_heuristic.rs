@@ -18,6 +18,34 @@ const PRONOUN_SAMPLES: &[&str] = &[
     "their", "theirs",
 ];
 const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
+const FUNCTION_WORD_SAMPLES: &[&str] = &[
+    "However",
+    "Therefore",
+    "Meanwhile",
+    "Moreover",
+    "Suddenly",
+    "Finally",
+    "Initially",
+    "Eventually",
+    "Today",
+    "Yesterday",
+    "Tomorrow",
+    "Very",
+];
+const DEMONSTRATIVE_PRONOUNS: &[&str] = &["This", "That"];
+
+/// Helper function to eliminate test duplication for ambiguity scoring assertions
+fn assert_ambiguity_score(text: &str, expected_score: f32, message: &str) {
+    let h = AmbiguityHeuristic;
+    let score = match h.process(text) {
+        Ok(score) => score,
+        Err(err) => panic!("expected scoring to succeed: {err:?}"),
+    };
+    assert!(
+        approx_eq(score, expected_score, EPSILON),
+        "{message}, got {score}"
+    );
+}
 
 /// Validate ambiguity scoring and error handling.
 ///
@@ -55,40 +83,46 @@ fn to_sentence(words: &[String]) -> String {
 
 #[rstest]
 fn article_noun_pattern_anchors_pronoun() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("The engineer repaired it.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 2.0, EPSILON),
-        "expected pronoun anchored score to be 2.0, got {score}"
+    assert_ambiguity_score(
+        "The engineer repaired it.",
+        2.0,
+        "expected pronoun anchored score to be 2.0",
     );
 }
 
 #[rstest]
 fn sentence_initial_adverb_does_not_anchor_pronoun() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("However, it broke.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 3.0, EPSILON),
-        "expected unresolved pronoun score to be 3.0, got {score}"
+    assert_ambiguity_score(
+        "However, it broke.",
+        3.0,
+        "expected unresolved pronoun score to be 3.0",
     );
 }
 
 #[rstest]
 fn article_followed_by_function_word_does_not_anchor_pronoun() {
-    let h = AmbiguityHeuristic;
-    let score = match h.process("The very quickly failed. It broke.") {
-        Ok(score) => score,
-        Err(err) => panic!("expected scoring to succeed: {err:?}"),
-    };
-    assert!(
-        approx_eq(score, 3.0, EPSILON),
-        "expected unresolved pronoun score to be 3.0, got {score}"
+    assert_ambiguity_score(
+        "The very quickly failed. It broke.",
+        3.0,
+        "expected unresolved pronoun score to be 3.0",
+    );
+}
+
+#[rstest]
+fn multiple_pronouns_without_antecedent_receive_bonus() {
+    assert_ambiguity_score(
+        "It and they waited.",
+        5.0,
+        "expected two unresolved pronouns to yield 5.0",
+    );
+}
+
+#[rstest]
+fn antecedent_carries_across_sentence_boundary() {
+    assert_ambiguity_score(
+        "Alice fixed it. However, they approved.",
+        3.0,
+        "expected antecedent to suppress the bonus across the boundary",
     );
 }
 
@@ -154,6 +188,54 @@ proptest! {
             &base_sentence,
             &augmented,
             "anchored pronoun"
+        );
+    }
+
+    #[test]
+    fn capitalised_function_word_keeps_pronoun_unresolved(
+        adverb in prop::sample::select(FUNCTION_WORD_SAMPLES),
+        pronoun in prop::sample::select(PRONOUN_SAMPLES),
+    ) {
+        let sentence = format!("{adverb} {pronoun}.");
+        let h = AmbiguityHeuristic;
+        let score = h
+            .process(&sentence)
+            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        prop_assert!(
+            score >= 3.0,
+            "expected unresolved pronoun score >= 3.0, got {score}"
+        );
+    }
+
+    #[test]
+    fn demonstrative_pronoun_with_verb_is_anchored(
+        pronoun in prop::sample::select(DEMONSTRATIVE_PRONOUNS),
+    ) {
+        let sentence = format!("{pronoun} failed.");
+        let h = AmbiguityHeuristic;
+        let score = h
+            .process(&sentence)
+            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        prop_assert!(
+            approx_eq(score, 2.0, EPSILON),
+            "expected demonstrative pronoun to be anchored by the verb, got {score}"
+        );
+    }
+
+    #[test]
+    fn possessive_proper_noun_anchors_pronoun(
+        name in prop::sample::select(CANDIDATE_NAMES),
+        pronoun in prop::sample::select(PRONOUN_SAMPLES),
+        verb in "[a-z]{3,12}",
+    ) {
+        let sentence = format!("{name}'s device failed. {pronoun} {verb}.");
+        let h = AmbiguityHeuristic;
+        let score = h
+            .process(&sentence)
+            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        prop_assert!(
+            approx_eq(score, 2.0, EPSILON),
+            "expected possessive proper noun to anchor the pronoun, got {score}"
         );
     }
 }

@@ -546,10 +546,10 @@ English text.[^10]
   stable, non-zero score even for queries with no detected ambiguity signals.
 - **Implementation note:** The heuristic uses a shared normaliser for token
   casing and punctuation. Ambiguous entity matching applies conservative
-  singularisation (shared text utils) and uses `regex` word boundaries to avoid
+  singularization (shared text utils) and uses `regex` word boundaries to avoid
   partial matches. Pronouns and vague terms carry unit weight, ambiguous
   entities count double, and Laplace smoothing adds one to the total. The
-  antecedent check splits the input into sentences, looks for capitalised
+  antecedent check splits the input into sentences, looks for capitalized
   tokens and definite noun phrases in the current or previous sentence, and
   only applies the unresolved-pronoun bonus when no candidate is present. Full
   resolution remains deferred to model-based providers.
@@ -740,7 +740,7 @@ essential for performance and cost reduction.
   as small variations in the query text would lead to cache misses.
 - **Library Selection:** The `moka` crate will be used for caching.[^14] While
   [`dashmap`](https://crates.io/crates/dashmap) is an excellent general-purpose
-  concurrent hash map; `moka` is a specialised, high-performance caching
+  concurrent hash map; `moka` is a specialized, high-performance caching
   library inspired by Java's Caffeine. It provides essential caching features
   out-of-the-box, such as size-based eviction (LRU/LFU policies) and time-based
   expiration (TTL/TTI), which are critical for managing the cache's memory

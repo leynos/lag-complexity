@@ -8,128 +8,12 @@ use crate::{
     providers::TextProcessor,
 };
 use regex::Regex;
-use std::{mem, sync::LazyLock};
+use std::sync::LazyLock;
 use thiserror::Error;
 
 mod pronouns;
-pub(crate) mod token_classification;
 
 pub use self::pronouns::score_pronouns;
-
-/// Represents input text for complexity analysis
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct InputText(String);
-
-impl InputText {
-    pub fn new<T: Into<String>>(value: T) -> Self {
-        Self(value.into())
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    #[must_use]
-    pub fn trim(&self) -> Self {
-        Self(self.0.trim().to_owned())
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    #[must_use]
-    pub fn split_sentences(&self) -> Vec<Sentence> {
-        let mut sentences = Vec::new();
-        let mut current = Sentence::default();
-
-        for raw in self.as_str().split_whitespace() {
-            current.push_token(raw);
-
-            if is_sentence_boundary(raw) {
-                sentences.push(mem::take(&mut current));
-            }
-        }
-
-        if !current.is_empty() {
-            sentences.push(current);
-        }
-
-        sentences
-    }
-}
-
-impl From<&str> for InputText {
-    fn from(value: &str) -> Self {
-        Self(value.to_owned())
-    }
-}
-
-impl From<String> for InputText {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-/// Represents a single sentence extracted from input
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Sentence(String);
-
-impl Sentence {
-    pub fn new<T: Into<String>>(value: T) -> Self {
-        Self(value.into())
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn push_token(&mut self, token: &str) {
-        if !self.0.is_empty() {
-            self.0.push(' ');
-        }
-        self.0.push_str(token);
-    }
-
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-/// Represents a raw token before processing
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct RawToken(String);
-
-impl RawToken {
-    pub fn new<T: Into<String>>(value: T) -> Self {
-        Self(value.into())
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl From<&str> for RawToken {
-    fn from(value: &str) -> Self {
-        Self(value.to_owned())
-    }
-}
-
-impl From<String> for RawToken {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
 
 /// Errors returned by [`AmbiguityHeuristic`].
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -155,19 +39,23 @@ pub enum AmbiguityHeuristicError {
 pub struct AmbiguityHeuristic;
 
 impl AmbiguityHeuristic {
-    fn process_input(input: &InputText) -> Result<f32, AmbiguityHeuristicError> {
+    fn process_input(input: &str) -> Result<f32, AmbiguityHeuristicError> {
         let trimmed = input.trim();
         if trimmed.is_empty() {
             return Err(AmbiguityHeuristicError::Empty);
         }
 
-        let pronouns = score_pronouns(&trimmed);
-        let tokens = normalize_tokens(trimmed.as_str());
+        let pronouns = score_pronouns(trimmed);
+        let tokens = normalize_tokens(trimmed);
         let ambiguous =
             weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
-        let extras = substring_count_regex(trimmed.as_str(), &A_FEW_RE);
-        let total = pronouns + ambiguous + vague + extras + 1;
+        let extras = substring_count_regex(trimmed, &A_FEW_RE);
+        let total = pronouns
+            .saturating_add(ambiguous)
+            .saturating_add(vague)
+            .saturating_add(extras)
+            .saturating_add(1);
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
         Ok(total as f32)
     }
@@ -178,8 +66,7 @@ impl TextProcessor for AmbiguityHeuristic {
     type Error = AmbiguityHeuristicError;
 
     fn process(&self, input: &str) -> Result<Self::Output, Self::Error> {
-        let input = InputText::new(input);
-        Self::process_input(&input)
+        Self::process_input(input)
     }
 }
 
@@ -191,7 +78,7 @@ static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)\ba few\b").expect("valid regex")
 });
 
-fn is_sentence_boundary(token: &str) -> bool {
+pub(super) fn is_sentence_boundary(token: &str) -> bool {
     for c in token.chars().rev() {
         if matches!(c, '"' | '\u{27}' | ')' | ']' | '}') {
             continue;
@@ -232,5 +119,18 @@ mod tests {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(""), Err(AmbiguityHeuristicError::Empty));
         assert_eq!(h.process("   \n\t"), Err(AmbiguityHeuristicError::Empty));
+    }
+
+    #[rstest]
+    #[case("Word.", true)]
+    #[case("Word?", true)]
+    #[case("Word…", true)]
+    #[case(r#""Who?""#, true)]
+    #[case("Alert!]", true)]
+    #[case("token", false)]
+    #[case(r#"token,""#, false)]
+    #[case(r#"token-""#, false)]
+    fn detects_sentence_boundaries(#[case] token: &str, #[case] expected: bool) {
+        assert_eq!(is_sentence_boundary(token), expected);
     }
 }
