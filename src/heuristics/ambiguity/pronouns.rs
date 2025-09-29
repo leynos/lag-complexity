@@ -1,7 +1,6 @@
 //! Pronoun scoring logic for the ambiguity heuristic.
 use super::is_sentence_boundary;
 use phf::phf_set;
-use std::borrow::Cow;
 
 const PRONOUN_BASE_WEIGHT: u32 = 1;
 const UNRESOLVED_PRONOUN_BONUS: u32 = 1;
@@ -32,12 +31,26 @@ fn is_token_apostrophe(c: char) -> bool {
 }
 
 #[derive(Debug)]
-struct TokenFeatures<'a> {
-    normalised: Cow<'a, str>,
+struct TokenFeatures<'text, 'scratch> {
+    normalised: TokenSlice<'text, 'scratch>,
     has_letters: bool,
     starts_with_uppercase: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum TokenSlice<'text, 'scratch> {
+    Borrowed(&'text str),
+    Buffer(&'scratch str),
+}
+
+impl TokenSlice<'_, '_> {
+    fn as_str(&self) -> &str {
+        match self {
+            TokenSlice::Borrowed(text) => text,
+            TokenSlice::Buffer(buffer) => buffer,
+        }
+    }
+}
 #[derive(Debug, Default)]
 struct TokenClassification {
     is_pronoun: bool,
@@ -72,6 +85,7 @@ struct SentenceProcessor {
     pending_article: bool,
     at_sentence_start: bool,
     pronouns_in_sentence: u32,
+    extractor: FeatureExtractor,
 }
 
 impl SentenceProcessor {
@@ -83,11 +97,12 @@ impl SentenceProcessor {
             pending_article: false,
             at_sentence_start: true,
             pronouns_in_sentence: 0,
+            extractor: FeatureExtractor::new(),
         }
     }
 
     fn process_token(&mut self, raw: &str) {
-        if let Some(features) = extract_features(raw) {
+        if let Some(features) = self.extractor.extract(raw) {
             let classification =
                 classify_token(&features, self.at_sentence_start, self.pending_article);
 
@@ -128,6 +143,38 @@ impl SentenceProcessor {
     }
 }
 
+#[derive(Default)]
+struct FeatureExtractor {
+    cleaned: String,
+    lowercase: String,
+}
+
+impl FeatureExtractor {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn extract<'a>(&'a mut self, raw: &'a str) -> Option<TokenFeatures<'a, 'a>> {
+        let cleaned = clean_token(raw, &mut self.cleaned)?;
+        let text = cleaned.as_str();
+        let analysis = analyze_characters(text);
+
+        let normalised = if analysis.needs_lowercase {
+            self.lowercase.clear();
+            self.lowercase.push_str(text);
+            self.lowercase.make_ascii_lowercase();
+            TokenSlice::Buffer(self.lowercase.as_str())
+        } else {
+            cleaned
+        };
+
+        Some(TokenFeatures {
+            normalised,
+            has_letters: analysis.has_letters,
+            starts_with_uppercase: analysis.starts_uppercase,
+        })
+    }
+}
 #[derive(Clone, Copy)]
 struct CandidateFlag(bool);
 
@@ -185,7 +232,7 @@ fn matches_pronoun(normalised: &str) -> bool {
 }
 
 fn classify_token(
-    features: &TokenFeatures,
+    features: &TokenFeatures<'_, '_>,
     at_sentence_start: bool,
     pending_article: bool,
 ) -> TokenClassification {
@@ -203,8 +250,8 @@ fn classify_token(
     classification
 }
 
-fn create_basic_classification(features: &TokenFeatures) -> TokenClassification {
-    let normalised = features.normalised.as_ref();
+fn create_basic_classification(features: &TokenFeatures<'_, '_>) -> TokenClassification {
+    let normalised = features.normalised.as_str();
     TokenClassification {
         is_pronoun: matches_pronoun(normalised),
         is_article: DEFINITE_ARTICLES.contains(normalised),
@@ -212,13 +259,13 @@ fn create_basic_classification(features: &TokenFeatures) -> TokenClassification 
     }
 }
 
-fn is_sentence_adverb(features: &TokenFeatures) -> bool {
-    let normalised = features.normalised.as_ref();
+fn is_sentence_adverb(features: &TokenFeatures<'_, '_>) -> bool {
+    let normalised = features.normalised.as_str();
     features.has_letters && normalised.ends_with("ly") && !LY_NOUN_EXCEPTIONS.contains(normalised)
 }
 
-fn is_noun_like(features: &TokenFeatures, classification: &TokenClassification) -> bool {
-    let normalised = features.normalised.as_ref();
+fn is_noun_like(features: &TokenFeatures<'_, '_>, classification: &TokenClassification) -> bool {
+    let normalised = features.normalised.as_str();
     features.has_letters
         && !classification.is_pronoun
         && !FUNCTION_WORDS.contains(normalised)
@@ -226,7 +273,7 @@ fn is_noun_like(features: &TokenFeatures, classification: &TokenClassification) 
 }
 
 fn should_indicate_candidate(
-    features: &TokenFeatures,
+    features: &TokenFeatures<'_, '_>,
     classification: &TokenClassification,
     at_sentence_start: bool,
     pending_article: bool,
@@ -254,28 +301,6 @@ fn should_indicate_candidate(
     true
 }
 
-fn extract_features(raw: &str) -> Option<TokenFeatures<'_>> {
-    let cleaned = clean_token(raw)?;
-    let analysis = analyze_characters(cleaned.as_ref());
-    let normalised = if analysis.needs_lowercase {
-        match cleaned {
-            Cow::Borrowed(text) => Cow::Owned(text.to_ascii_lowercase()),
-            Cow::Owned(mut owned) => {
-                owned.make_ascii_lowercase();
-                Cow::Owned(owned)
-            }
-        }
-    } else {
-        cleaned
-    };
-
-    Some(TokenFeatures {
-        normalised,
-        has_letters: analysis.has_letters,
-        starts_with_uppercase: analysis.starts_uppercase,
-    })
-}
-
 struct CharAnalysis {
     has_letters: bool,
     needs_lowercase: bool,
@@ -295,17 +320,17 @@ fn analyze_characters(text: &str) -> CharAnalysis {
     }
 }
 
-fn clean_token(raw: &str) -> Option<Cow<'_, str>> {
+fn clean_token<'a>(raw: &'a str, buffer: &'a mut String) -> Option<TokenSlice<'a, 'a>> {
     let trimmed = trim_to_valid_chars(raw);
     if trimmed.is_empty() {
         return None;
     }
 
     if is_already_clean(trimmed) {
-        return Some(Cow::Borrowed(trimmed));
+        return Some(TokenSlice::Borrowed(trimmed));
     }
 
-    filter_to_valid_chars(trimmed).map(|cow| Cow::Owned(cow.into_owned()))
+    filter_to_valid_chars(trimmed, buffer).map(TokenSlice::Buffer)
 }
 
 fn trim_to_valid_chars(raw: &str) -> &str {
@@ -317,21 +342,21 @@ fn is_already_clean(text: &str) -> bool {
         .all(|c| c.is_alphanumeric() || matches!(c, '-' | APOSTROPHE))
 }
 
-fn filter_to_valid_chars(text: &str) -> Option<Cow<'static, str>> {
-    let mut filtered = String::with_capacity(text.len());
+fn filter_to_valid_chars<'a>(text: &str, buffer: &'a mut String) -> Option<&'a str> {
+    buffer.clear();
 
     for c in text.chars() {
         if c.is_alphanumeric() || c == '-' {
-            filtered.push(c);
+            buffer.push(c);
         } else if is_token_apostrophe(c) {
-            filtered.push(APOSTROPHE);
+            buffer.push(APOSTROPHE);
         }
     }
 
-    if filtered.is_empty() {
+    if buffer.is_empty() {
         None
     } else {
-        Some(Cow::Owned(filtered))
+        Some(buffer.as_str())
     }
 }
 
@@ -383,10 +408,11 @@ mod tests {
 
     #[test]
     fn preserves_apostrophes_when_cleaning() {
-        let Some(features) = extract_features("Alice's") else {
+        let mut extractor = FeatureExtractor::default();
+        let Some(features) = extractor.extract("Alice's") else {
             panic!("expected token features");
         };
-        assert_eq!(features.normalised, "alice's");
+        assert_eq!(features.normalised.as_str(), "alice's");
     }
 
     #[test]
@@ -416,7 +442,8 @@ mod tests {
 
     #[test]
     fn capitalised_noun_marks_candidate() {
-        let Some(features) = extract_features("Alice") else {
+        let mut extractor = FeatureExtractor::default();
+        let Some(features) = extractor.extract("Alice") else {
             panic!("expected token features");
         };
         let classification = classify_token(&features, true, false);
@@ -426,7 +453,8 @@ mod tests {
 
     #[test]
     fn definite_article_sets_flag_without_candidate() {
-        let Some(features) = extract_features("The") else {
+        let mut extractor = FeatureExtractor::default();
+        let Some(features) = extractor.extract("The") else {
             panic!("expected token features");
         };
         let classification = classify_token(&features, false, false);
@@ -436,7 +464,8 @@ mod tests {
 
     #[test]
     fn article_followed_by_noun_marks_candidate() {
-        let Some(features) = extract_features("device") else {
+        let mut extractor = FeatureExtractor::default();
+        let Some(features) = extractor.extract("device") else {
             panic!("expected token features");
         };
         let classification = classify_token(&features, false, true);
@@ -445,7 +474,8 @@ mod tests {
 
     #[test]
     fn capitalised_sentence_adverb_is_ignored() {
-        let Some(features) = extract_features("However") else {
+        let mut extractor = FeatureExtractor::default();
+        let Some(features) = extractor.extract("However") else {
             panic!("expected token features");
         };
         let classification = classify_token(&features, true, false);
