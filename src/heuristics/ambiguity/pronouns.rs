@@ -274,17 +274,8 @@ struct CharAnalysis {
 fn analyze_characters(text: &str) -> CharAnalysis {
     let trimmed = text.trim_matches(APOSTROPHE);
     let starts_uppercase = trimmed.chars().next().is_some_and(char::is_uppercase);
-    let mut has_letters = false;
-    let mut needs_lowercase = false;
-
-    for ch in text.chars() {
-        if ch.is_alphabetic() {
-            has_letters = true;
-        }
-        if ch.is_ascii_uppercase() {
-            needs_lowercase = true;
-        }
-    }
+    let has_letters = text.chars().any(char::is_alphabetic);
+    let needs_lowercase = text.chars().any(|c| c.is_ascii_uppercase());
 
     CharAnalysis {
         has_letters,
