@@ -272,7 +272,8 @@ struct CharAnalysis {
 }
 
 fn analyze_characters(text: &str) -> CharAnalysis {
-    let starts_uppercase = text.chars().next().is_some_and(char::is_uppercase);
+    let trimmed = text.trim_matches(APOSTROPHE);
+    let starts_uppercase = trimmed.chars().next().is_some_and(char::is_uppercase);
     let mut has_letters = false;
     let mut needs_lowercase = false;
 
@@ -391,6 +392,12 @@ mod tests {
     #[test]
     fn demonstrative_pronoun_followed_by_verb_is_anchored() {
         let score = score_pronouns("This failed.");
+        assert_eq!(score, PRONOUN_BASE_WEIGHT);
+    }
+
+    #[test]
+    fn quoted_proper_noun_counts_as_candidate() {
+        let score = score_pronouns("'Alice' said she left.");
         assert_eq!(score, PRONOUN_BASE_WEIGHT);
     }
 
