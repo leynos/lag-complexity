@@ -151,8 +151,7 @@ impl SentenceProcessor {
 
 #[derive(Default)]
 struct FeatureExtractor {
-    cleaned: String,
-    lowercase: String,
+    scratch: String,
 }
 
 impl FeatureExtractor {
@@ -161,11 +160,11 @@ impl FeatureExtractor {
     }
 
     fn extract<'a>(&'a mut self, raw: &'a str) -> Option<TokenFeatures<'a, 'a>> {
-        let status = clean_token(raw, &mut self.cleaned)?;
+        let status = clean_token(raw, &mut self.scratch)?;
         let analysis = {
             let text = match status {
                 CleanStatus::Borrowed(text) => text,
-                CleanStatus::Buffer => self.cleaned.as_str(),
+                CleanStatus::Buffer => self.scratch.as_str(),
             };
             analyze_characters(text)
         };
@@ -173,16 +172,16 @@ impl FeatureExtractor {
         let normalised = match status {
             CleanStatus::Buffer => {
                 if analysis.needs_lowercase {
-                    self.cleaned.make_ascii_lowercase();
+                    self.scratch.make_ascii_lowercase();
                 }
-                TokenSlice::Buffer(self.cleaned.as_str())
+                TokenSlice::Buffer(self.scratch.as_str())
             }
             CleanStatus::Borrowed(text) => {
                 if analysis.needs_lowercase {
-                    self.lowercase.clear();
-                    self.lowercase.push_str(text);
-                    self.lowercase.make_ascii_lowercase();
-                    TokenSlice::Buffer(self.lowercase.as_str())
+                    self.scratch.clear();
+                    self.scratch.push_str(text);
+                    self.scratch.make_ascii_lowercase();
+                    TokenSlice::Buffer(self.scratch.as_str())
                 } else {
                     TokenSlice::Borrowed(text)
                 }
