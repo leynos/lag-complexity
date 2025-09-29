@@ -51,6 +51,12 @@ impl TokenSlice<'_, '_> {
         }
     }
 }
+
+#[derive(Clone, Copy)]
+enum CleanStatus<'text> {
+    Borrowed(&'text str),
+    Buffer,
+}
 #[derive(Debug, Default)]
 struct TokenClassification {
     is_pronoun: bool,
@@ -155,17 +161,32 @@ impl FeatureExtractor {
     }
 
     fn extract<'a>(&'a mut self, raw: &'a str) -> Option<TokenFeatures<'a, 'a>> {
-        let cleaned = clean_token(raw, &mut self.cleaned)?;
-        let text = cleaned.as_str();
-        let analysis = analyze_characters(text);
+        let status = clean_token(raw, &mut self.cleaned)?;
+        let analysis = {
+            let text = match status {
+                CleanStatus::Borrowed(text) => text,
+                CleanStatus::Buffer => self.cleaned.as_str(),
+            };
+            analyze_characters(text)
+        };
 
-        let normalised = if analysis.needs_lowercase {
-            self.lowercase.clear();
-            self.lowercase.push_str(text);
-            self.lowercase.make_ascii_lowercase();
-            TokenSlice::Buffer(self.lowercase.as_str())
-        } else {
-            cleaned
+        let normalised = match status {
+            CleanStatus::Buffer => {
+                if analysis.needs_lowercase {
+                    self.cleaned.make_ascii_lowercase();
+                }
+                TokenSlice::Buffer(self.cleaned.as_str())
+            }
+            CleanStatus::Borrowed(text) => {
+                if analysis.needs_lowercase {
+                    self.lowercase.clear();
+                    self.lowercase.push_str(text);
+                    self.lowercase.make_ascii_lowercase();
+                    TokenSlice::Buffer(self.lowercase.as_str())
+                } else {
+                    TokenSlice::Borrowed(text)
+                }
+            }
         };
 
         Some(TokenFeatures {
@@ -320,17 +341,21 @@ fn analyze_characters(text: &str) -> CharAnalysis {
     }
 }
 
-fn clean_token<'a>(raw: &'a str, buffer: &'a mut String) -> Option<TokenSlice<'a, 'a>> {
+fn clean_token<'text>(raw: &'text str, buffer: &mut String) -> Option<CleanStatus<'text>> {
     let trimmed = trim_to_valid_chars(raw);
     if trimmed.is_empty() {
         return None;
     }
 
     if is_already_clean(trimmed) {
-        return Some(TokenSlice::Borrowed(trimmed));
+        return Some(CleanStatus::Borrowed(trimmed));
     }
 
-    filter_to_valid_chars(trimmed, buffer).map(TokenSlice::Buffer)
+    if filter_to_valid_chars(trimmed, buffer) {
+        Some(CleanStatus::Buffer)
+    } else {
+        None
+    }
 }
 
 fn trim_to_valid_chars(raw: &str) -> &str {
@@ -342,7 +367,7 @@ fn is_already_clean(text: &str) -> bool {
         .all(|c| c.is_alphanumeric() || matches!(c, '-' | APOSTROPHE))
 }
 
-fn filter_to_valid_chars<'a>(text: &str, buffer: &'a mut String) -> Option<&'a str> {
+fn filter_to_valid_chars(text: &str, buffer: &mut String) -> bool {
     buffer.clear();
 
     for c in text.chars() {
@@ -353,11 +378,7 @@ fn filter_to_valid_chars<'a>(text: &str, buffer: &'a mut String) -> Option<&'a s
         }
     }
 
-    if buffer.is_empty() {
-        None
-    } else {
-        Some(buffer.as_str())
-    }
+    !buffer.is_empty()
 }
 
 #[cfg(test)]
