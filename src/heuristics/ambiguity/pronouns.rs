@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn preserves_apostrophes_when_cleaning() {
         let Some(features) = extract_features("Alice's") else {
-            std::panic::panic_any("expected token features");
+            panic!("expected token features");
         };
         assert_eq!(features.normalised, "alice's");
     }
@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn capitalised_noun_marks_candidate() {
         let Some(features) = extract_features("Alice") else {
-            std::panic::panic_any("expected token features");
+            panic!("expected token features");
         };
         let classification = classify_token(&features, true, false);
         assert!(classification.indicates_candidate);
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn definite_article_sets_flag_without_candidate() {
         let Some(features) = extract_features("The") else {
-            std::panic::panic_any("expected token features");
+            panic!("expected token features");
         };
         let classification = classify_token(&features, false, false);
         assert!(classification.is_article);
@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn article_followed_by_noun_marks_candidate() {
         let Some(features) = extract_features("device") else {
-            std::panic::panic_any("expected token features");
+            panic!("expected token features");
         };
         let classification = classify_token(&features, false, true);
         assert!(classification.indicates_candidate);
@@ -440,7 +440,7 @@ mod tests {
     #[test]
     fn capitalised_sentence_adverb_is_ignored() {
         let Some(features) = extract_features("However") else {
-            std::panic::panic_any("expected token features");
+            panic!("expected token features");
         };
         let classification = classify_token(&features, true, false);
         assert!(!classification.indicates_candidate);
