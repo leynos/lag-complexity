@@ -258,7 +258,13 @@ fn extract_features(raw: &str) -> Option<TokenFeatures<'_>> {
     let cleaned = clean_token(raw)?;
     let analysis = analyze_characters(cleaned.as_ref());
     let normalised = if analysis.needs_lowercase {
-        Cow::Owned(cleaned.as_ref().to_ascii_lowercase())
+        match cleaned {
+            Cow::Borrowed(text) => Cow::Owned(text.to_ascii_lowercase()),
+            Cow::Owned(mut owned) => {
+                owned.make_ascii_lowercase();
+                Cow::Owned(owned)
+            }
+        }
     } else {
         cleaned
     };
