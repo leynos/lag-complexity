@@ -18,14 +18,19 @@ const PRONOUN_SAMPLES: &[&str] = &[
     "their", "theirs",
 ];
 const CANDIDATE_NAMES: &[&str] = &["Alice", "Berlin", "Mercury", "Orion", "Sirius"];
-const SENTENCE_ADVERBS: &[&str] = &[
+const FUNCTION_WORD_SAMPLES: &[&str] = &[
     "However",
+    "Therefore",
+    "Meanwhile",
+    "Moreover",
     "Suddenly",
     "Finally",
-    "Moreover",
-    "Meanwhile",
+    "Initially",
+    "Eventually",
     "Today",
     "Yesterday",
+    "Tomorrow",
+    "Very",
 ];
 const DEMONSTRATIVE_PRONOUNS: &[&str] = &["This", "That"];
 
@@ -187,8 +192,8 @@ proptest! {
     }
 
     #[test]
-    fn capitalised_adverb_prefix_keeps_pronoun_unresolved(
-        adverb in prop::sample::select(SENTENCE_ADVERBS),
+    fn capitalised_function_word_keeps_pronoun_unresolved(
+        adverb in prop::sample::select(FUNCTION_WORD_SAMPLES),
         pronoun in prop::sample::select(PRONOUN_SAMPLES),
     ) {
         let sentence = format!("{adverb} {pronoun}.");
@@ -214,6 +219,23 @@ proptest! {
         prop_assert!(
             approx_eq(score, 2.0, EPSILON),
             "expected demonstrative pronoun to be anchored by the verb, got {score}"
+        );
+    }
+
+    #[test]
+    fn possessive_proper_noun_anchors_pronoun(
+        name in prop::sample::select(CANDIDATE_NAMES),
+        pronoun in prop::sample::select(PRONOUN_SAMPLES),
+        verb in "[a-z]{3,12}",
+    ) {
+        let sentence = format!("{name}'s device failed. {pronoun} {verb}.");
+        let h = AmbiguityHeuristic;
+        let score = h
+            .process(&sentence)
+            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        prop_assert!(
+            approx_eq(score, 2.0, EPSILON),
+            "expected possessive proper noun to anchor the pronoun, got {score}"
         );
     }
 }

@@ -24,7 +24,12 @@ static LY_NOUN_EXCEPTIONS: phf::Set<&'static str> = phf_set! {
     "assembly", "family", "italy", "july", "supply",
 };
 
-const APOSTROPHE: char = '\'';
+const APOSTROPHE: char = 0x27u8 as char;
+const CURLY_APOSTROPHE: char = '’';
+
+fn is_token_apostrophe(c: char) -> bool {
+    matches!(c, APOSTROPHE | CURLY_APOSTROPHE)
+}
 
 #[derive(Debug)]
 struct TokenFeatures<'a> {
@@ -167,11 +172,11 @@ fn matches_pronoun(normalised: &str) -> bool {
         return true;
     }
 
-    if normalised.contains(APOSTROPHE) {
+    if normalised.chars().any(is_token_apostrophe) {
         return PRONOUNS.iter().any(|candidate| {
             normalised
                 .chars()
-                .filter(|&c| c != APOSTROPHE)
+                .filter(|&c| !is_token_apostrophe(c))
                 .eq(candidate.chars())
         });
     }
@@ -298,7 +303,7 @@ fn clean_token(raw: &str) -> Option<Cow<'_, str>> {
 }
 
 fn trim_to_valid_chars(raw: &str) -> &str {
-    raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != APOSTROPHE)
+    raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && !is_token_apostrophe(c))
 }
 
 fn is_already_clean(text: &str) -> bool {
@@ -307,10 +312,15 @@ fn is_already_clean(text: &str) -> bool {
 }
 
 fn filter_to_valid_chars(text: &str) -> Option<Cow<'static, str>> {
-    let filtered: String = text
-        .chars()
-        .filter(|c| c.is_alphanumeric() || matches!(*c, '-' | APOSTROPHE))
-        .collect();
+    let mut filtered = String::with_capacity(text.len());
+
+    for c in text.chars() {
+        if c.is_alphanumeric() || c == '-' {
+            filtered.push(c);
+        } else if is_token_apostrophe(c) {
+            filtered.push(APOSTROPHE);
+        }
+    }
 
     if filtered.is_empty() {
         None
@@ -356,6 +366,12 @@ mod tests {
     #[test]
     fn contraction_counts_as_pronoun() {
         let score = score_pronouns("It's raining.");
+        assert_eq!(score, PRONOUN_BASE_WEIGHT + UNRESOLVED_PRONOUN_BONUS);
+    }
+
+    #[test]
+    fn curly_apostrophe_counts_as_pronoun() {
+        let score = score_pronouns("It’s raining.");
         assert_eq!(score, PRONOUN_BASE_WEIGHT + UNRESOLVED_PRONOUN_BONUS);
     }
 

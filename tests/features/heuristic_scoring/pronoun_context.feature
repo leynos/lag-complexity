@@ -18,6 +18,11 @@ Feature: Heuristic scoring - pronoun context
     Then the scored complexity components are 0.0, 0.0, 5.0
     And the scored total is 5.0
 
+  Scenario: scoring multiple antecedents before a pronoun
+    When scoring "Alice and Bob agreed. They signed."
+    Then the scored complexity components are 0.0, 1.0, 2.0
+    And the scored total is 3.0
+
   Scenario: scoring a capitalised adverb before a pronoun
     When scoring "However, it broke."
     Then the scored complexity components are 0.0, 0.0, 3.0
