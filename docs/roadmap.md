@@ -29,8 +29,9 @@ relying on fast, lightweight heuristics.
 
 - [x] Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
 - [x] Add antecedent-aware pronoun weighting to the ambiguity heuristic.
-- [x] Add the regex-based ambiguous entity pre-pass for the heuristic
-  lexicon.
+- [x] Add the case-insensitive, word-boundary regex pre-pass for the curated
+  ambiguous entity lexicon (see `docs/lag-complexity-function-design.md` and PR
+  [#41](https://github.com/leynos/lag-complexity/pull/41)).
 - [x] Implement the `ApiEmbedding` provider, guarded by the `provider-api`
   feature flag.
 - [x] Create the golden-file integration test suite with an initial set of

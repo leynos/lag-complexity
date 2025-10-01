@@ -69,6 +69,8 @@ impl TextProcessor for AmbiguityHeuristic {
     }
 }
 
+/// Scores ambiguous entity matches using a precompiled regex, multiplying the
+/// count by [`AMBIGUOUS_ENTITY_WEIGHT`].
 fn ambiguous_entity_score(text: &str) -> u32 {
     substring_count_regex(text, &AMBIGUOUS_ENTITY_RE).saturating_mul(AMBIGUOUS_ENTITY_WEIGHT)
 }
@@ -93,16 +95,21 @@ const AMBIGUOUS_ENTITY_PATTERN: &str = concat!(
     r")\b",
 );
 
-static AMBIGUOUS_ENTITY_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(AMBIGUOUS_ENTITY_PATTERN)
-        .unwrap_or_else(|err| panic!("invalid ambiguous entity regex: {err}"))
-});
+#[expect(
+    clippy::expect_used,
+    reason = "regex literal should never fail to compile"
+)]
+static AMBIGUOUS_ENTITY_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(AMBIGUOUS_ENTITY_PATTERN).expect("invalid ambiguous entity regex"));
 
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
-static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\ba few\b").unwrap_or_else(|err| panic!("invalid regex for 'a few': {err}"))
-});
+#[expect(
+    clippy::expect_used,
+    reason = "regex literal should never fail to compile"
+)]
+static A_FEW_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\ba few\b").expect("invalid regex for 'a few'"));
 
 pub(super) fn is_sentence_boundary(token: &str) -> bool {
     for c in token.chars().rev() {
@@ -141,9 +148,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Mercuries' orbit.", 3.0)]
-    #[case("Python-powered scripting.", 3.0)]
-    #[case("Amazon; Nile; Jordan; Orion.", 9.0)]
+    #[case("Mercury-class Apple launches.", 5.0)]
+    #[case("Jaguar versus Delta at Orion Station.", 7.0)]
+    #[case("Saturn pipelines for Amazon Nile freight.", 7.0)]
     fn recognises_ambiguous_entities(#[case] query: &str, #[case] expected: f32) {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(query), Ok(expected));

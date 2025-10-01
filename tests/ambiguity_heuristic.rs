@@ -127,10 +127,18 @@ fn antecedent_carries_across_sentence_boundary() {
 }
 
 #[rstest]
-#[case("Mercury.", 3.0)]
-#[case("Mercury-based alloys", 3.0)]
-#[case("Discuss Python's syntax.", 3.0)]
-#[case("Amazon, Nile, and Jordan", 7.0)]
+#[case("Mercuries' orbit.", 3.0)]
+#[case("Jaguar-based drivetrains.", 3.0)]
+#[case("APPLE supply nodes.", 3.0)]
+#[case("Delta-compatible avionics; Orion-guided telescopes.", 5.0)]
+#[case("Saturn's rings with Nile delta flows.", 7.0)]
+#[case(
+    concat!(
+        "Amazon / Nile logistics; Jordan-Mercury shipments; ",
+        "Apple-Orion payloads; Delta's Jaguar Python Saturn kits.",
+    ),
+    21.0,
+)]
 fn detects_ambiguous_entities_via_regex(#[case] text: &str, #[case] expected: f32) {
     assert_ambiguity_score(
         text,
