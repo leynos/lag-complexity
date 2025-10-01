@@ -9,6 +9,6 @@ Feature: Heuristic scoring - ambiguous phrasing
     And the scored total is 2.0
 
   Scenario: scoring curated ambiguous entity lexicon
-    When scoring "Mercury-based alloys or Amazon logistics?"
+    When scoring "Mercury-based alloys and Amazon logistics?"
     Then the scored complexity components are 0.0, 1.0, 5.0
     And the scored total is 6.0

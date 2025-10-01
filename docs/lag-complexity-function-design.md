@@ -544,9 +544,9 @@ English text.[^10]
 - **Aggregation:** The scores from these risk factors will be combined into a
   single pseudo-entropy value. Laplace smoothing will be applied to ensure a
   stable, non-zero score even for queries with no detected ambiguity signals.
-- **Implementation note:** The heuristic uses a shared normaliser for token
+- **Implementation note:** The heuristic uses a shared normalizer for token
   casing and punctuation. Ambiguous entity matching now relies on precompiled
-  word-boundary regexes rather than token-level singularisation, keeping
+  word-boundary regexes rather than token-level singularization, keeping
   pronoun and vague term weighting unchanged. Ambiguous entities still count
   double and Laplace smoothing adds one to the total. The antecedent check
   splits the input into sentences, looks for capitalized tokens and definite
@@ -557,9 +557,10 @@ English text.[^10]
 Implementation update (heuristic baseline): The shipped implementation now
 precompiles a curated lexicon of ambiguous entities—Amazon, Apple, Delta,
 Jaguar, Jordan, Mercury, Nile, Orion, Python, and Saturn—into case-insensitive,
-word-boundary regex patterns. This pre-pass runs before token normalisation so
-capitalised, hyphenated, and punctuated mentions are captured, satisfying the
-design requirement for an NER/regex sweep.
+word-boundary regex patterns. This pre-pass runs before token normalization so
+capitalized, hyphenated, and punctuated mentions are captured, satisfying the
+design requirement for an NER/regex sweep. The alternation compiles into a
+single regex so the scan only traverses the text once.
 
 #### Model-backed option (AmbiguityClassifierOnnx)
 

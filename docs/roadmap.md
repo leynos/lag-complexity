@@ -29,7 +29,8 @@ relying on fast, lightweight heuristics.
 
 - [x] Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
 - [x] Add antecedent-aware pronoun weighting to the ambiguity heuristic.
-- [x] Add the regex-based ambiguous entity pre-pass for the heuristic lexicon.
+- [x] Add the regex-based ambiguous entity pre-pass for the heuristic
+  lexicon.
 - [x] Implement the `ApiEmbedding` provider, guarded by the `provider-api`
   feature flag.
 - [x] Create the golden-file integration test suite with an initial set of
