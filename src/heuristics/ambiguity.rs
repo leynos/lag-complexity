@@ -80,7 +80,7 @@ const AMBIGUOUS_ENTITY_WEIGHT: u32 = 2;
 /// the compiled pattern runs in a single pass.
 const AMBIGUOUS_ENTITY_PATTERN: &str = concat!(
     r"(?i)\b(?:",
-    "mercur(?:y|ies)(?:'s)?",
+    "mercur(?:y|ies)(?:'s|s)?",
     "|apple(?:'s|s)?",
     "|jaguar(?:'s|s)?",
     "|python(?:'s|s)?",
@@ -141,10 +141,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Mercury.", 3.0)]
-    #[case("Mercury-based alloys", 3.0)]
-    #[case("Discuss Python's syntax.", 3.0)]
-    #[case("Amazon, Nile, and Jordan", 7.0)]
+    #[case("Mercuries' orbit.", 3.0)]
+    #[case("Python-powered scripting.", 3.0)]
+    #[case("Amazon; Nile; Jordan; Orion.", 9.0)]
     fn recognises_ambiguous_entities(#[case] query: &str, #[case] expected: f32) {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(query), Ok(expected));

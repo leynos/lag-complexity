@@ -178,8 +178,10 @@ fn score_ambiguous_question(test_context: TestContext) {
 #[scenario(path = "tests/features/heuristic_scoring/ambiguous.feature", index = 1)]
 fn score_ambiguous_lexicon_variants(test_context: TestContext) {
     let components = test_context.scored_ok();
-    assert_close(components.ambiguity(), 5.0);
+    assert_close(components.scope(), 0.0);
     assert_close(components.depth(), 1.0);
+    assert_close(components.ambiguity(), 5.0);
+    assert_close(components.total(), 6.0);
 }
 
 #[scenario(path = "tests/features/heuristic_scoring/empty_query.feature")]
