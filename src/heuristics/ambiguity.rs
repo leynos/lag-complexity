@@ -148,9 +148,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Mercury-class Apple launches.", 5.0)]
-    #[case("Jaguar versus Delta at Orion Station.", 7.0)]
-    #[case("Saturn pipelines for Amazon Nile freight.", 7.0)]
+    #[case("Mercury,Amazon,Nile routes pivot.", 7.0)]
+    #[case("Orion! Delta? Jaguar.", 7.0)]
+    #[case("Amazon; Nile: Mercury.", 7.0)]
     fn recognises_ambiguous_entities(#[case] query: &str, #[case] expected: f32) {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(query), Ok(expected));
