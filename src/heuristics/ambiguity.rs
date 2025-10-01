@@ -4,7 +4,7 @@
 //! terms, and vague references. Uses Laplace smoothing to avoid zero scores.
 
 use crate::{
-    heuristics::text::{normalize_tokens, singularise, substring_count_regex, weighted_count},
+    heuristics::text::{normalize_tokens, substring_count_regex, weighted_count},
     providers::TextProcessor,
 };
 use regex::Regex;
@@ -47,8 +47,7 @@ impl AmbiguityHeuristic {
 
         let pronouns = score_pronouns(trimmed);
         let tokens = normalize_tokens(trimmed);
-        let ambiguous =
-            weighted_count(tokens.iter().map(|t| singularise(t)), AMBIGUOUS_ENTITIES, 2);
+        let ambiguous = ambiguous_entity_score(trimmed);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
         let extras = substring_count_regex(trimmed, &A_FEW_RE);
         let total = pronouns
@@ -70,13 +69,47 @@ impl TextProcessor for AmbiguityHeuristic {
     }
 }
 
-const AMBIGUOUS_ENTITIES: &[&str] = &["mercury", "apple", "jaguar", "python"];
+/// Scores ambiguous entity matches using a precompiled regex, multiplying the
+/// count by [`AMBIGUOUS_ENTITY_WEIGHT`].
+fn ambiguous_entity_score(text: &str) -> u32 {
+    substring_count_regex(text, &AMBIGUOUS_ENTITY_RE).saturating_mul(AMBIGUOUS_ENTITY_WEIGHT)
+}
+
+const AMBIGUOUS_ENTITY_WEIGHT: u32 = 2;
+
+/// Combined regex capturing the curated ambiguity lexicon described in the
+/// design document. `concat!` keeps the alternatives readable while ensuring
+/// the compiled pattern runs in a single pass.
+const AMBIGUOUS_ENTITY_PATTERN: &str = concat!(
+    r"(?i)\b(?:",
+    "mercur(?:y|ies)(?:'s|s)?",
+    "|apple(?:'s|s)?",
+    "|jaguar(?:'s|s)?",
+    "|python(?:'s|s)?",
+    "|nile(?:'s|s)?",
+    "|amazon(?:'s|s)?",
+    "|jordan(?:'s|s)?",
+    "|orion(?:'s|s)?",
+    "|saturn(?:'s|s)?",
+    "|delta(?:'s|s)?",
+    r")\b",
+);
+
+#[expect(
+    clippy::expect_used,
+    reason = "regex literal should never fail to compile"
+)]
+static AMBIGUOUS_ENTITY_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(AMBIGUOUS_ENTITY_PATTERN).expect("invalid ambiguous entity regex"));
+
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
-static A_FEW_RE: LazyLock<Regex> = LazyLock::new(|| {
-    #[expect(clippy::expect_used, reason = "pattern is constant and valid")]
-    Regex::new(r"(?i)\ba few\b").expect("valid regex")
-});
+#[expect(
+    clippy::expect_used,
+    reason = "regex literal should never fail to compile"
+)]
+static A_FEW_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\ba few\b").expect("invalid regex for 'a few'"));
 
 pub(super) fn is_sentence_boundary(token: &str) -> bool {
     for c in token.chars().rev() {
@@ -110,6 +143,15 @@ mod tests {
     #[case("Those results are final. It stands.", 2.0)]
     #[case("It… works!", 3.0)]
     fn scores_expected_values(#[case] query: &str, #[case] expected: f32) {
+        let h = AmbiguityHeuristic;
+        assert_eq!(h.process(query), Ok(expected));
+    }
+
+    #[rstest]
+    #[case("Mercury-class Apple launches.", 5.0)]
+    #[case("Jaguar versus Delta at Orion Station.", 7.0)]
+    #[case("Saturn pipelines for Amazon Nile freight.", 7.0)]
+    fn recognises_ambiguous_entities(#[case] query: &str, #[case] expected: f32) {
         let h = AmbiguityHeuristic;
         assert_eq!(h.process(query), Ok(expected));
     }

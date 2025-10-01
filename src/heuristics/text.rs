@@ -5,7 +5,6 @@
 //! small and focused on scoring logic.
 
 use regex::Regex;
-use std::borrow::Cow;
 use std::collections::HashSet;
 
 /// Split text into lowercase tokens stripped of surrounding punctuation.
@@ -124,36 +123,6 @@ pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
     substring_count_regex(haystack, &re)
 }
 
-/// Naïvely singularise an English token.
-///
-/// Avoids stripping \"s\" from short words like \"this\".
-///
-/// # Examples
-///
-/// ```rust
-/// use lag_complexity::heuristics::text::singularise;
-///
-/// assert_eq!(singularise("jaguars"), "jaguar");
-/// assert_eq!(singularise("this"), "this");
-/// ```
-#[must_use]
-pub fn singularise(token: &str) -> Cow<'_, str> {
-    if should_singularise(token) {
-        Cow::Owned(token.strip_suffix('s').unwrap_or(token).to_string())
-    } else {
-        Cow::Borrowed(token)
-    }
-}
-
-/// Determine whether `singularise` should strip a trailing "s".
-///
-/// This guards against short tokens and a few explicit exceptions where the
-/// final "s" is meaningful.
-fn should_singularise(token: &str) -> bool {
-    const EXCEPTIONS: &[&str] = &["this", "his", "is"];
-    token.len() > 3 && token.ends_with('s') && !EXCEPTIONS.contains(&token)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,12 +172,6 @@ mod tests {
         assert_eq!(substring_count("smores", "more"), 0);
         assert_eq!(substring_count("aaaa", "aa"), 0);
         assert_eq!(substring_count("hay", ""), 0);
-    }
-
-    #[test]
-    fn singularises_tokens() {
-        assert_eq!(singularise("jaguars"), "jaguar");
-        assert_eq!(singularise("this"), "this");
     }
 
     #[test]
