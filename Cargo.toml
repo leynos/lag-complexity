@@ -75,8 +75,8 @@ float_arithmetic = "deny"
 
 [dev-dependencies]
 rstest = "0.26.1"
-rstest-bdd = { git = "https://github.com/leynos/rstest-bdd.git", rev = "7a298dafa1b0c43b4aa711f180732234ad999e86" }
-rstest-bdd-macros = { git = "https://github.com/leynos/rstest-bdd.git", rev = "7a298dafa1b0c43b4aa711f180732234ad999e86" }
+rstest-bdd = "0.1.0-alpha4"
+rstest-bdd-macros = "0.1.0-alpha4"
 assert_cmd = "2.0"
 shlex = "1.3"
 serial_test = "3.1"
