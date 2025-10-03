@@ -46,10 +46,46 @@ relying on fast, lightweight heuristics.
 This phase focuses on enhancing accuracy with model-based providers and
 optimizing for performance.
 
-- [ ] Train or adapt and export the initial ONNX models for depth and ambiguity
-  classification.
-- [ ] Implement the `DepthClassifierOnnx` and `AmbiguityClassifierOnnx`
-  providers, gated by the `onnx` feature flag.
+- [ ] Deliver the depth classifier ONNX artefact as specified in the accepted
+  ADR:
+  - [ ] Fine-tune the DistilBERT ordinal model on ordered depth bins, confirm
+    the expected-value projection matches the Sigma calibration interface, and
+    export the opset 17 graph with pinned tokenizer assets.
+  - [ ] Apply post-training static INT8 quantisation, benchmark CPU latency to
+    p95 ≤ 10 ms, and record calibration coefficients for the provider
+    configuration.
+  - [ ] Publish the model package with checksum manifest, versioned artefact
+    paths, and documentation of fallback MLP expectations.
+- [ ] Produce the ambiguity classifier ONNX artefact aligned with the design
+  document:
+  - [ ] Curate and label the ambiguity dataset (AmbigQA plus curated edge
+    cases) into the Clear / Possibly Ambiguous / Highly Ambiguous classes
+    defined in the design.
+  - [ ] Fine-tune the lightweight transformer, export the ONNX graph with the
+    categorical-to-numeric mapping required by Sigma, and pin the tokenizer
+    vocabulary.
+  - [ ] Quantise and benchmark the graph to meet latency and footprint targets,
+    then publish artefacts and checksum metadata alongside calibration notes.
+- [ ] Implement the `DepthClassifierOnnx` provider behind the `onnx` feature
+  flag:
+  - [ ] Load the opset 17 session through `ort`, enforce checksum validation,
+    and wire the expected-value scalar projection into
+    `TextProcessor<Output = f32>` per the ADR.
+  - [ ] Integrate tracing, metrics, and configuration plumbing (model paths,
+    quantisation variant selection, calibration coefficients) consistent with
+    the Complexity pipeline.
+  - [ ] Extend golden traces and unit tests to cover inference happy paths,
+    error mapping, and deterministic outputs across feature combinations.
+- [ ] Implement the `AmbiguityClassifierOnnx` provider behind the `onnx`
+  feature flag:
+  - [ ] Mirror the runtime scaffolding (session loading, checksum enforcement,
+    feature gating) used by the depth provider while mapping class logits to
+    the numeric ambiguity score expected by Sigma.
+  - [ ] Expose configuration toggles for model variants and calibration, add
+    tracing and metrics instrumentation, and ensure integration with
+    `DefaultComplexity`.
+  - [ ] Expand regression tests and golden traces to validate deterministic
+    scoring and parity with the documented ambiguity thresholds.
 - [ ] Implement the `score_batch` method and integrate `rayon` for parallel
   execution.
 - [ ] Set up the `criterion` benchmarking suite and implement the initial set
