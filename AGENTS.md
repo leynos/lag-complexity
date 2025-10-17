@@ -45,6 +45,7 @@
 - Documentation must use en-GB-oxendict ("-ize" / "-yse" / "-our") spelling
   and grammar. (EXCEPTION: the naming of the "LICENSE" file, which is to be
   left unchanged for community consistency.)
+- A documentation style guide is provided at `docs/documentation-style-guide.md`.
 
 ## Change Quality & Committing
 
@@ -114,8 +115,36 @@ This repository is written in Rust and uses Cargo for building and dependency
 management. Contributors should follow these best practices when working on the
 project:
 
-- Run `make fmt`, `make lint`, and `make test` before committing. These targets
-  wrap `cargo fmt`, `cargo clippy`, and `cargo test` with the appropriate flags.
+- Run `make check-fmt`, `make lint`, and `make test` before committing. These
+  targets wrap the following commands so contributors understand the exact
+  behaviour and policy enforced:
+
+  - `make check-fmt` executes:
+
+    ```sh
+    cargo fmt -- --check
+    ```
+
+    validating formatting across the entire workspace without modifying files.
+
+    Use `make fmt` (`cargo fmt`) to apply formatting fixes reported by the
+    formatter check.
+  - `make lint` executes:
+
+    ```sh
+    cargo clippy --all-targets --all-features -- -D warnings
+    ```
+
+    linting every target with all features enabled and denying all Clippy
+    warnings.
+  - `make test` executes:
+
+    ```sh
+    RUSTFLAGS="-D warnings" cargo test --all-targets --all-features
+    ```
+
+    running the full test suite.
+
 - Clippy warnings MUST be disallowed.
 - Fix any warnings emitted during tests in the code itself rather than
   silencing them.
@@ -125,6 +154,8 @@ project:
   meaningfully named structs.
 - Where a function is returning a large error consider using `Arc` to reduce the
   amount of data returned.
+- Write unit and behavioural tests for new functionality. Run both before and
+  after making any change.
 - Every module **must** begin with a module level (`//!`) comment explaining the
   module's purpose and utility.
 - Document public APIs using Rustdoc comments (`///`) so documentation can be
@@ -140,8 +171,9 @@ project:
 - Lints must not be silenced except as a **last resort**.
 - Lint rule suppressions must be tightly scoped and include a clear reason.
 - Prefer `expect` over `allow`.
-- Where a function is unused with specific features selected, use conditional
-  compilation with `#[cfg]` or `#[cfg_attr]`.
+- Use `rstest` fixtures for shared setup.
+- Replace duplicated tests with `#[rstest(...)]` parameterised cases.
+- Prefer `mockall` for mocks/stubs.
 - Prefer `.expect()` over `.unwrap()`.
 - Use `concat!()` to combine long string literals rather than escaping newlines
   with a backslash.
@@ -158,6 +190,21 @@ project:
       Self(id)
   }
   ```
+
+- Use NewTypes to model domain values and eliminate "integer soup". Reach for
+  `newt-hype` when introducing many homogeneous wrappers that share behaviour;
+  add small shims such as `From<&str>` and `AsRef<str>` for string-backed
+  wrappers. For path-centric wrappers implement `AsRef<Path>` alongside
+  `into_inner()` and `to_path_buf()`; avoid attempting
+  `impl From<Wrapper> for PathBuf` because of the orphan rule. Prefer explicit
+  tuple structs whenever bespoke validation or tailored trait surfaces are
+  required, customising `Deref`, `AsRef`, and `TryFrom` per type. Use
+  `the-newtype` when defining traits and needing blanket implementations that
+  apply across wrappers satisfying `Newtype + AsRef/AsMut<Inner>`, or when
+  establishing a coherent internal convention that keeps trait forwarding
+  consistent without per-type boilerplate. Combine approaches: lean on
+  `newt-hype` for the common case, tuple structs for outliers, and
+  `the-newtype` to unify behaviour when you own the trait definitions.
 
 ### Testing
 
@@ -247,6 +294,31 @@ The following tooling is available in this environment:
   and enables editing by syntax tree patterns.
 - `difft` **(Difftastic)** – Semantic diff tool that compares code structure
   rather than just text differences.
+
+## Python Development Guidelines
+
+For Python development, refer to the detailed guidelines in the `.rules/`
+directory:
+
+- [Python Code Style Guidelines](.rules/python-00.md) - Core Python 3.13 style
+  conventions
+- [Python Context Managers](.rules/python-context-managers.md) - Best practices
+  for context managers
+- [Python Exceptions and
+  Logging(.rules/python-exception-design-raising-handling-and-logging.md) -
+  Throwing, catching and logging exceptions.
+- [Python Generators](.rules/python-generators.md) - Generator and iterator
+  patterns
+- [Python Project Configuration](.rules/python-pyproject.md) - pyproject.toml
+  and packaging
+- [Python Return Patterns](.rules/python-return.md) - Function return
+  conventions
+- [Python Typing](.rules/python-typing.md) - Type annotation best practices
+
+Additional docs:
+
+- [Scripting Standards](docs/scripting-standards.md) - Guidance for writing
+  robust scripts
 
 ## Key Takeaway
 
