@@ -6,12 +6,23 @@ design; within each phase, steps outline coherent workstreams, and tasks define
 measurable deliverables. Actionable tasks are prefixed with checkboxes for easy
 progress tracking.
 
-## Phase 1: Establish reproducible infrastructure baselines
+## Phase 1: Establish self-hosted orchestration baselines
+
+### Step: Deploy Prefect Orion control plane
+
+- [ ] Stand up a Prefect Orion server with Postgres backing, TLS termination,
+      and daily backup restore drills completing inside 30 minutes.
+- [ ] Register dedicated Prefect agents for control and compute queues, proven
+      by smoke flows covering provisioning, training, and teardown paths.
+- [ ] Model secrets, artefact buckets, and Terraform variables with Prefect
+      blocks, including automated rotation tests and alerting on failures.
 
 ### Step: Standardise compute procurement and cost controls
 
-- [ ] Automate g4dn.xlarge, g6.xlarge, and p4d.24xlarge provisioning via
-      Terraform with spot/on-demand toggles validated in sandboxes.
+- [ ] Automate OpenTofu modules for g4dn.xlarge, g6.xlarge, and c6i.xlarge
+      instances with provider parameterisation and teardown under 10 minutes.
+- [ ] Validate spot-to-on-demand fallbacks by injecting capacity failures and
+      confirming retries succeed within three orchestration attempts.
 - [ ] Publish hourly cost benchmarks for each instance class with variance
       thresholds (±5%) and alerting when breached.
 - [ ] Implement spot interruption handling tests that confirm checkpoint resume
@@ -25,6 +36,8 @@ progress tracking.
       replication rehearsal between primary and disaster-recovery regions.
 - [ ] Provide IAM policies granting least-privilege access by pipeline stage,
       validated with automated policy-as-code tests.
+- [ ] Generate metadata manifest templates (experiment ID, git SHA, checksums)
+      and enforce schema validation before artefacts transition phases.
 
 ## Phase 2: Deliver the Python fine-tuning pipeline
 
@@ -48,12 +61,14 @@ progress tracking.
 
 ### Step: Orchestrate resilient training execution
 
-- [ ] Containerise the training entrypoint with dependency pinning and
-      deterministic start-up seeded from environment variables.
+- [ ] Compose a Prefect flow wiring data ingestion, provisioning, training, and
+      teardown tasks with typed parameters and run documentation.
+- [ ] Implement a `provision_training_vm` Prefect task invoking OpenTofu GPU
+      modules and confirm teardown runs on every flow completion path.
 - [ ] Implement checkpoint cadence control ensuring <10 minutes of lost work
       under forced termination in staging drills.
 - [ ] Capture structured metrics (loss, cutpoints, throughput) and emit them to
-      the observability stack with dashboards for experiment comparison.
+      Prefect Orion and the observability stack with comparison dashboards.
 
 ## Phase 3: Operationalise export and optimisation
 
@@ -63,13 +78,15 @@ progress tracking.
       files checked into version control alongside commit hashes.
 - [ ] Add regression tests asserting exported graphs match expected opset,
       input shapes, and dynamic axes for target models.
+- [ ] Execute export and verification Prefect tasks on CPU OpenTofu modules,
+      proving GPU instances are torn down before CPU provisioning.
 - [ ] Store FP32 exports under `/models/onnx/{experiment}/fp32/` with metadata
       capturing opset, optimiser flags, and git references.
 
 ### Step: Enforce parity verification gates
 
 - [ ] Implement parity comparison jobs using `onnxruntime` that evaluate ≥500
-      representative samples with `atol`/`rtol` thresholds from the design.
+      representative samples with `atol=1e-5` and matching `rtol` thresholds.
 - [ ] Fail the pipeline when parity deviations exceed tolerance, surfacing
       diagnostics (max delta tensors, sample inputs) in build artefacts.
 - [ ] Schedule nightly parity spot-checks on retained models to detect drift in
@@ -81,8 +98,8 @@ progress tracking.
       and artefact write-back to `/models/onnx/{experiment}/int8/`.
 - [ ] Measure INT8 throughput versus FP32 on target CPU instances, documenting
       improvements and acceptable accuracy deltas (<1% MAE loss).
-- [ ] Integrate quantised-model verification into CI, including latency smoke
-      tests under realistic batch sizes.
+- [ ] Integrate quantised-model verification into CI with `atol=1e-2`
+      tolerances, including latency smoke tests under realistic batch sizes.
 
 ## Phase 4: Integrate with the Rust inference surface
 
