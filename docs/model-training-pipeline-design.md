@@ -1,899 +1,934 @@
-# Architecting a Production-Grade Fine-Tuning Pipeline: From Cloud-Based Training to Optimized ONNX Deployment in Rust
+# Revised Design: Self-Hosted Prefect Orchestration for End-to-End Model Training Pipeline
 
 ## Executive Summary
 
-This document presents a comprehensive architectural design for a
-production-grade, end-to-end machine learning pipeline. The system is
-engineered to facilitate the fine-tuning of pre-trained transformer models for
-a specialized ordinal regression task, leveraging a Python-based training
-environment on cloud infrastructure. The ultimate deliverable is a highly
-optimized, CPU-centric ONNX (Open Neural Network eXchange) model, designed for
-seamless integration and high-performance inference within a downstream Rust
-application.
+This document describes a revised architectural design for the model training
+pipeline, focusing on **local/self-hosted orchestration with Prefect** and
+**cloud-agnostic ephemeral compute**. The end-to-end system automates
+everything from data ingestion and model fine-tuning to ONNX export,
+quantization, and deployment artifact assembly. We replace any dependency on
+managed cloud workflow services with a **self-hosted Prefect Orion** engine,
+which coordinates **Prefect flows and tasks** running on local infrastructure.
+Model training and evaluation are executed on interruptible **spot instances**
+or on-demand VMs across cloud providers, provisioned on-the-fly with
+**Terraform (via OpenTofu)**. This approach retains aggressive cost
+optimization and fault tolerance via robust checkpointing and resumable
+training. The ultimate deliverable remains a **highly optimized, CPU-centric
+ONNX model** (with INT8 quantization) packaged with its tokenizer and metadata
+for seamless integration into the LAG Complexity Rust application.
 
-The proposed architecture is founded on principles of modularity,
-reproducibility, and aggressive cost optimization. Each stage of the
-pipeline—from data ingestion and model training to ONNX export and
-quantization—is designed as a distinct, containerized, and automated step. This
-approach ensures environmental consistency and facilitates integration with
-modern MLOps orchestration frameworks.
+Key improvements in this design include:
 
-A central theme of this design is the strategic selection and utilization of
-cloud resources to maximize economic efficiency without compromising
-performance. The analysis mandates the use of interruptible compute resources,
-such as AWS Spot Instances, which necessitates a core architectural focus on
-fault tolerance through robust checkpointing and automated resumption. The
-design details a data-driven methodology for selecting compute instances,
-balancing hourly cost against the total time and cost required for model
-convergence.
+- **Local Prefect Orchestration:** We implement the pipeline as a code-first
+  Prefect workflow, running on a self-hosted Prefect Orion server. This
+  eliminates reliance on cloud-managed orchestrators and provides fine-grained
+  control, easy monitoring, and integration with our codebase. All pipeline
+  stages (data prep, training, export, etc.) are Prefect tasks within a single
+  flow, ensuring end-to-end automation and observability.
 
-Technically, the pipeline addresses the nuanced challenge of ordinal regression
-by moving beyond standard classification frameworks. It specifies a custom
-model architecture and a bespoke training loop, implemented by subclassing the
-Hugging Face `Trainer` class to incorporate a cumulative link loss function.
-This ensures the model correctly learns the inherent order of the target labels.
+- **Dynamic Ephemeral Compute via Terraform:** Each heavy compute stage
+  (training, evaluation, etc.) is executed on dedicated ephemeral cloud
+  instances. Prefect tasks use Terraform (OpenTofu distribution) to provision
+  the required **spot or on-demand VM instances** (with GPU for training, CPU
+  for export/evaluation) and tear them down afterward. This ensures
+  **cloud-agnostic deployment** – by swapping Terraform modules, the pipeline
+  can target AWS, GCP, or other providers uniformly. It also maximizes cost
+  efficiency by using spot instances and releasing resources immediately when
+  tasks complete.
 
-The final stages of the pipeline focus on preparing the model for a
-high-performance, CPU-bound production environment. This involves a rigorous,
-multi-step process: exporting the fine-tuned PyTorch model to the ONNX format
-using the Hugging Face `optimum` library, performing mandatory numerical parity
-checks to guarantee model integrity, and applying static INT8 quantization to
-dramatically reduce model size and accelerate inference speed.
+- **Fault Tolerance and Checkpointing:** The pipeline is architected to handle
+  preemptions or failures gracefully. During training, checkpoints are saved
+  frequently to a centralized object store (e.g. S3). If a spot VM is
+  terminated or any error occurs, the Prefect flow can automatically launch a
+  new instance and **resume training from the last checkpoint**. This design
+  ensures that using cheaper interruptible instances does not compromise
+  reliability – a core requirement to reduce training costs by up to 90% using
+  spot pricing.
 
-Finally, the report provides a clear integration path for the consuming Rust
-application. It outlines best practices for using the `ort` crate, including a
-critical strategy for managing shared library dependencies, and provides a code
-pattern for loading the quantized ONNX model, processing inputs, and correctly
-interpreting the model’s output to perform ordinal classification. The result
-is a complete, actionable blueprint for building a sophisticated,
-cost-effective, and robust fine-tuning and deployment system.
+- **Reproducibility and Auditability:** Every component of the pipeline is
+  **version-controlled and logged** for audit. Pipeline configuration (data
+  sources, model hyperparameters, instance types, etc.) is stored in code or
+  config files under version control. Prefect flows record run metadata (e.g.
+  flow run IDs, timestamps, parameters) in the Orion database, providing a
+  detailed audit trail for each model build. All artifacts are persisted with
+  **unique version identifiers** (such as an experiment ID or semantic version)
+  and accompanied by
+  checksums([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L238-L246))
+   and metadata. This guarantees that any model artifact can be traced back to
+  the exact code, data, and environment that produced it, ensuring strict
+  reproducibility. The ONNX model files include a version tag in their metadata
+  and are stored alongside their tokenizer and a `metadata.json` manifest
+  containing training details and metrics. The Rust inference code verifies the
+  artifact integrity via checksum before
+  use([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L240-L247)),
+   closing the loop on end-to-end reliability.
 
-## Section 1: Foundational Architecture and Cloud Infrastructure Selection
+Overall, this revised design maintains the original pipeline’s modularity,
+performance focus, and production readiness, while embedding a **flexible,
+self-hosted orchestration layer** and robust infrastructure automation. In the
+following sections, we detail the architecture and implementation plan,
+including configuration practices, fault-tolerance strategies, and how this
+pipeline interfaces with the existing LAG Complexity infrastructure.
 
-The success of any machine learning pipeline is determined not only by the
-quality of its models but also by the robustness, efficiency, and economic
-viability of its underlying infrastructure. This section establishes the
-foundational architectural principles and presents a data-driven analysis for
-selecting the optimal cloud compute and storage environment. The design choices
-articulated here are interconnected, with infrastructure decisions directly
-influencing code-level implementation requirements for fault tolerance and cost
-management.
+## Section 1: Foundational Architecture and Infrastructure
+
+The success of this machine learning pipeline depends on a robust and efficient
+infrastructure foundation. We outline the core architectural principles and
+infrastructure components that underpin the pipeline, ensuring it meets the
+needs of **fault tolerance**, **cost efficiency**, and **ease of integration**
+with LAG Complexity systems. Key decisions include the choice of **Prefect for
+orchestration** and **Terraform-managed compute** resources, as well as
+containerization and artifact storage strategies. These infrastructure choices
+directly influence how we implement reproducibility, configuration, and
+fault-handling in the pipeline.
 
 ### 1.1 Pipeline Orchestration and Design Philosophy
 
-A production-grade pipeline must be more than a sequence of scripts; it must be
-a resilient, reproducible, and automated system. The following principles form
-the bedrock of this design.
+A production-grade pipeline must be more than a collection of scripts; it
+should function as a **resilient, reproducible, and automated system**. We
+adhere to several core principles in designing the workflow:
 
-#### Core Principles: Modularity, Reproducibility, and Automation
+- **Modularity:** The pipeline is structured as a Directed Acyclic Graph (DAG)
+  of distinct stages: **Data Ingestion**, **Model Training**, **ONNX Export**,
+  **Verification**, **Quantization**, and **Deployment Packaging**. Each stage
+  is a self-contained unit with clearly defined inputs and outputs,
+  communicated via a centralized artifact store. This modular design allows
+  individual stages to be re-run or modified independently without affecting
+  the entire pipeline, simplifies debugging, and lets different team members
+  work in parallel on separate parts of the workflow.
 
-The pipeline is architected as a Directed Acyclic Graph (DAG) of distinct,
-modular stages: Data Ingestion, Model Training, ONNX Export, Parity
-Verification, and Quantization. Each stage is a self-contained unit with
-clearly defined inputs and outputs, which are exclusively passed via a
-centralized artifact store. This modularity provides several key advantages: it
-allows for individual stages to be re-run without executing the entire
-pipeline, simplifies debugging, and enables parallel development by different
-team members on different parts of the workflow.
+- **Reproducibility:** Every component of the pipeline – from OS libraries and
+  Python packages to training hyperparameters – is explicitly pinned or
+  versioned. We use **containerization** (Docker images) and
+  infrastructure-as-code to ensure that a given pipeline run can be exactly
+  replicated in the future. This is critical for auditing and for guaranteeing
+  consistent model behavior between training and production. The pipeline will
+  incorporate configuration files (or Prefect configuration blocks) for all
+  adjustable parameters (dataset version, model architecture, learning rates,
+  instance types, etc.), which are stored in version control. By fixing these
+  inputs or recording them with each run, we make each training execution
+  deterministic and traceable.
 
-Reproducibility is paramount. Every component, from system-level dependencies
-to Python package versions, must be explicitly version-controlled to guarantee
-that a given pipeline run can be perfectly replicated at any point in the
-future. This is essential for auditing, debugging production issues, and
-ensuring consistent model behavior.
+- **Automation:** The entire pipeline – from the initial trigger (which could
+  be a code release, new dataset availability, or a manual kickoff) to the
+  final publishing of model artifacts – is executed **without manual
+  intervention**. Prefect flows handle task scheduling, retries, and
+  notifications. This automation not only reduces human error but also enables
+  rapid iteration and consistent deployments. For example, an engineer can
+  trigger a new model training run with a single command or CI/CD event, and
+  Prefect will orchestrate all steps to produce a ready-to-deploy model package.
 
-Automation is the mechanism that binds these principles together. The entire
-pipeline, from triggering a new training run to the final publication of a
-deployable model artifact, should be executable without manual intervention.
+To enforce reproducibility and isolate dependencies, each stage runs inside a
+**Docker container** (Containerization Strategy). We maintain separate
+container images for different stages: e.g., a GPU-enabled image with PyTorch
+and CUDA for training, and a lightweight CPU image with `onnxruntime` and
+`optimum` for export/quantization. Containerization ensures that the code
+behaves identically whether run on a developer’s machine, a CI runner, or a
+cloud VM, eliminating issues of environment drift.
 
-#### Containerization Strategy
+#### Orchestration with Prefect Orion (Self-Hosted)
 
-To enforce the principle of reproducibility and eliminate environmental drift,
-every stage of the pipeline will be executed within a Docker container.
-Containerization encapsulates the entire runtime environment—including the
-operating system, system libraries (such as CUDA and cuDNN), Python
-interpreter, and all package dependencies—into a single, immutable artifact.
-This approach provides a hermetic seal around each pipeline step, ensuring that
-the code executes identically on a developer’s local machine, a CI/CD runner,
-and the production cloud environment. Separate Dockerfiles will be maintained
-for the GPU-intensive training stage and the CPU-bound export/quantization
-stages to create optimized, lean images for each task.
+In this revised design, we adopt **Prefect Orion** as the workflow
+orchestration engine, running in a self-hosted mode. Prefect is an open-source
+orchestration framework that lets us define the pipeline in Python code and
+manage it via a local Prefect server/UI. This choice aligns with our need for
+**cloud-agnostic, in-house control** and leverages the pipeline’s
+containerized, modular structure (which was originally designed with
+compatibility for orchestrators in mind). Key aspects of our Prefect-based
+orchestration include:
 
-#### Orchestration Framework Compatibility
+- **Flow & Task Definition:** Each pipeline stage is implemented as a Prefect
+  **task** (a Python function or shell operation). These tasks are composed
+  into a single **Prefect flow** that encapsulates the entire end-to-end
+  process. For example, tasks might include: `fetch_data()`,
+  `provision_training_vm()`, `run_training()`, `export_onnx()`,
+  `quantize_model()`, `evaluate_model()`, and `package_artifacts()`. Prefect’s
+  DAG scheduler ensures these run in the correct order with specified
+  dependencies (e.g., training must finish successfully before export starts).
 
-While this document does not mandate a specific workflow orchestration tool,
-the modular, container-based design is intentionally architected for
-compatibility with industry-standard MLOps orchestrators such as Kubeflow
-Pipelines, Argo Workflows, or cloud-native solutions like AWS Step Functions.
-These platforms can consume the containerized stages as individual tasks,
-manage dependencies between them, handle retries, and provide a centralized
-interface for monitoring and management. The adoption of this container-centric
-design is the critical prerequisite that enables future integration with such a
-sophisticated orchestration layer.
+- **Local Orchestration Engine:** We deploy a Prefect Orion server (the
+  orchestration backend) on our infrastructure. This could be a small VM or
+  container that hosts Prefect’s API and UI. The **Prefect agent**, which
+  actually executes tasks, can run on the same server or on dedicated machines.
+  In our design, the agent primarily executes control tasks locally (like
+  coordinating Terraform or data transfer), while heavy ML tasks run on remote
+  compute – as described below. Using Prefect locally gives us a web UI to
+  monitor flows, visualize the DAG, and inspect logs for each task, improving
+  the **observability** of the pipeline for engineers.
 
-### 1.2 Compute Environment Analysis and Cost Modeling
+- **No Cloud Dependencies:** Importantly, by self-hosting Prefect we avoid any
+  vendor lock-in or external service dependency. The orchestrator connects to
+  our own infrastructure (e.g., Terraform, S3, etc.) and does not require AWS
+  Step Functions, Google Vertex Pipelines, or Prefect’s cloud service. This
+  keeps the solution **agnostic to any cloud provider** and fully under our
+  control, aligning with the requirement of no managed cloud workflow services.
 
-The most significant operational expenditure for a model fine-tuning pipeline
-is typically compute resources. Therefore, a rigorous, data-driven approach to
-selecting the compute environment is essential for building a sustainable and
-economically viable system. The analysis must extend beyond a simple comparison
-of hourly instance prices to consider the total cost required to achieve a
-converged model. AWS publishes canonical on-demand pricing tables that form the
-baseline for this analysis and should be reviewed periodically for
-updates.[^12]
+- **Retry and Resumption Logic:** Prefect allows us to implement custom retry
+  logic at the flow or task level. We leverage this to enhance fault tolerance.
+  For instance, the training task will be configured to **retry on failure**,
+  but instead of simply re-running from scratch, it calls a custom routine to
+  resume from the latest checkpoint (more details in Section 2.3). Similarly,
+  if a Terraform provisioning task fails (e.g., due to a spot instance not
+  available), Prefect can retry with exponential backoff or fall back to an
+  on-demand instance. This dynamic handling is coded into the flow, making the
+  pipeline robust against various failure modes.
 
-#### The Cost-Performance Trade-off in GPU Selection
+- **Configuration and Secrets:** Prefect flows can use configuration blocks or
+  environment variables for sensitive info and settings. Cloud credentials (for
+  Terraform or S3) are stored securely (e.g., in Prefect’s secret store or a
+  vault accessible to the runner), and pipeline options (like the target cloud
+  provider, region, instance type, dataset name, etc.) are fed as
+  **parameters** to the flow. For example, an engineer can specify
+  `provider="aws"`, `instance_class="g4dn.xlarge"` for a run, or switch to
+  `provider="gcp"` with equivalent settings without code changes. All such
+  config is centralized and logged. Best practices like not hard-coding
+  credentials in the pipeline code are followed – Prefect’s configuration helps
+  inject these at runtime.
 
-The cloud market offers a wide array of GPU-accelerated instances, each
-presenting a different balance of performance and cost. For the fine-tuning
-task, several instance families across major cloud providers are viable
-candidates.
+By using Prefect in this manner, we ensure that the orchestration layer itself
+is reproducible and under version control (the pipeline code is in our
+repository), and we gain fine control over how tasks are executed and
+recovered. The result is a **data-and-code-driven orchestration** that matches
+the pipeline’s needs for flexibility and reliability.
 
-- **Amazon Web Services (AWS):**
-- `g4dn.xlarge`: Featuring an NVIDIA T4 GPU, 16 GiB of GPU memory, and an
-  on-demand price of approximately $0.526 per hour, this instance represents a
-  strong baseline for cost-effective experimentation and training of moderately
-  sized models.[^1][^2]
-- `g6.xlarge`: A newer generation instance with an NVIDIA L4 GPU and 24 GiB of
-  GPU memory, offering superior performance for a higher on-demand price of
-  around $0.805 per hour.[^3][^4]
-- `p4d.24xlarge`: A high-performance powerhouse equipped with eight NVIDIA A100
-  GPUs (40 GiB each), this instance is designed for large-scale training. Its
-  on-demand price of approximately $21.96 per hour is substantial, but its
-  massive parallelism can drastically reduce training time.[^5]
-- **Alternative Cloud Providers:**
-- **DigitalOcean:** Presents a competitive offering with on-demand GPU
-  Droplets, such as an NVIDIA L40S instance for $1.57 per hour or an NVIDIA
-  H100 instance for $3.39 per hour.[^7]
-- **Scaleway:** A European provider that offers compelling pricing, including
-  an L40S instance at approximately €1.61 per hour.[^8] Providers like Scaleway
-  and Ubicloud are particularly attractive for their generous data egress
-  policies, which can significantly reduce costs compared to AWS.[^9]
+### 1.2 Compute Provisioning and Cloud Infrastructure
 
-A naive comparison of these hourly rates is insufficient. The optimal choice is
-not the instance with the lowest hourly cost, but the one that minimizes the
-_total cost to convergence_. A `p4d.24xlarge` instance, while over 40 times
-more expensive per hour than a `g4dn.xlarge`, may complete a training job more
-than 40 times faster, resulting in a lower total bill. The pipeline design must
-therefore accommodate a flexible strategy: use cheaper, single-GPU instances
-like the `g4dn.xlarge` for iterative development and experimentation, and
-leverage powerful, multi-GPU instances for final, large-scale production
-training runs where time-to-completion is a critical factor.
+Provisioning the right compute environment for each stage is critical for both
+performance and cost management. The pipeline is designed to be
+**cloud-agnostic**, using Terraform to manage infrastructure on any provider.
+We perform a data-driven analysis to choose instance types for each stage and
+automate their lifecycle:
 
-#### Strategic Recommendation: Leveraging AWS Spot Instances
+- **Instance Selection for Training:** Training is the most compute-intensive
+  stage. Based on our analysis of GPU options (AWS g4dn vs g6 vs p4d, etc.) and
+  their cost/performance trade-offs, we target an **NVIDIA T4 or L4 GPU**
+  instance for initial model fine-tuning. For example, AWS’s `g4dn.xlarge`
+  (Tesla T4, ~0.526 USD/hour on-demand) provides a cost-effective baseline, and
+  the newer `g6.xlarge` (L4 GPU) offers more performance at higher cost. The
+  pipeline can be configured to use either, or even scale up to larger
+  multi-GPU instances (like `p4d.24xlarge`) if a bigger model or faster
+  training is needed. Similar options from other providers (GCP, Azure, or even
+  on-prem) are also supported via Terraform modules. The **choice is
+  abstracted** so that switching cloud or instance type is a config change
+  rather than code change.
 
-The single most impactful strategy for reducing compute costs is the
-utilization of AWS Spot Instances. Spot Instances allow access to spare EC2
-capacity at discounts of up to 90% compared to on-demand prices.[^11] For example,
-a `g4dn.xlarge` instance can see its price drop from $0.526 to as low as
-$0.2175 per hour, a saving of over 58%.[^13] A `p4d.24xlarge` can drop from over
-$21/hour to around $6.40/hour.[^6]
+- **Cost Optimization with Spot Instances:** To minimize cost, the pipeline
+  defaults to using **spot/preemptible instances** for training whenever
+  possible. Spot instances can reduce costs by 70-90%, making the pipeline
+  economically efficient. However, because they can be terminated at any time,
+  our design doubles down on fault tolerance via checkpointing (see Section
+  2.3). The Terraform provisioning task can request a spot VM (e.g., AWS EC2
+  Spot or GCP Preemptible VM) for training; if the request is not fulfilled or
+  the instance is reclaimed mid-training, the Prefect flow will handle
+  launching a replacement and resuming training. The **cost modeling** takes
+  into account the expected interruptions and restart overhead, ensuring that
+  even with occasional restarts, using spot instances yields net savings. For
+  cases where spot is not available or for final runs, the pipeline can easily
+  switch to on-demand instances by configuration.
 
-Given these dramatic potential savings, the use of Spot Instances is mandated
-as the default for all training jobs within this pipeline. However, this
-economic decision has a profound architectural consequence: Spot Instances can
-be reclaimed by AWS with only a two-minute warning. This inherent unreliability
-means that the entire training process _must_ be designed for fault tolerance.
-The pipeline must be capable of automatically checkpointing its progress
-frequently and resuming from the last valid checkpoint upon interruption. This
-elevates the role of checkpointing from a convenient feature to a core,
-non-negotiable architectural requirement, a concept that will be detailed
-further in Section 2.
+- **Instance Selection for Export & Evaluation:** After training, subsequent
+  stages (ONNX export, quantization, evaluation) are **CPU-bound** and less
+  intensive. It is wasteful to keep a GPU machine for these. Therefore, the
+  pipeline will **deprovision the GPU VM after training** and spin up a smaller
+  (and cheaper) CPU instance for the export and quantization stages. For
+  example, a standard 4 or 8 vCPU VM (possibly a spot instance as well) is
+  sufficient to run ONNX conversion and quantization. Terraform templates for
+  these stages may use a different instance type (e.g., AWS m5.large or
+  c6i.xlarge) optimized for cost. This strategy of tailoring the instance to
+  the stage ensures we **pay only for what we need** at each step. It also
+  improves reproducibility, as the ONNX export and INT8 quantization will run
+  on a consistent CPU architecture environment for which we can precisely
+  validate performance (important for numerical parity checks).
 
-#### Data Transfer and Ancillary Costs
+- **Terraform Integration:** We manage cloud resources with Terraform
+  (OpenTofu), called programmatically from Prefect tasks. Each compute stage
+  has corresponding Terraform configuration files (or modules) describing the
+  required infrastructure (VM instance, networking, any needed storage or
+  permissions). Prefect tasks use a Terraform CLI command (e.g.,
+  `terraform apply` with appropriate variables) to provision
+  resources([2](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/roadmap.md#L51-L58))([2](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/roadmap.md#L59-L67)).
+   Once the task finishes, another Terraform call (`terraform destroy`) is used
+  to tear down the resources, ensuring no idle costs. Terraform state is stored
+  in a remote backend (or locally on the Prefect server) for consistency – this
+  could be an S3 bucket or local file, as appropriate, given our
+  no-managed-services constraint (an S3 bucket for state is acceptable since
+  it’s just storage). Using Terraform provides an immutable, declarative
+  description of our infrastructure, contributing to pipeline **auditability**.
+  We can track infrastructure changes over time and be confident that each
+  run’s environment matched what was intended (Terraform plan outputs are
+  logged for inspection).
 
-Compute costs are not the only factor. Data transfer (egress) fees can become a
-significant expense, particularly if large model artifacts are moved between
-cloud providers or out to the public internet. AWS charges approximately $0.09
-per GB for the first 10 TB of data egress per month.[^14] In contrast, data
-transfer _within_ the same AWS region (e.g., from an S3 bucket to an EC2
-instance) is free. This strongly incentivizes a design where all pipeline
-components and data assets are co-located within a single cloud region to
-eliminate egress charges. If the final model must be distributed to a
-multi-cloud or on-premises environment, the more generous egress policies of
-providers like Scaleway should be considered during the initial infrastructure
-selection phase.[^10]
+- **Network and Storage Configuration:** Each ephemeral VM is configured to
+  access the central artifact store (e.g., S3 or an on-prem MinIO bucket) where
+  data and model artifacts reside. Terraform attaches appropriate IAM roles or
+  credentials so that the VM can read/write to the artifact store securely. No
+  other long-lived infrastructure (like a permanent Kubernetes cluster or
+  workflow engine) is required – the Prefect orchestrator and short-lived VMs
+  are the only compute resources used. This minimalist approach reduces
+  complexity and avoids maintaining additional services.
 
-#### CPU Instances for Post-Training Tasks
+In summary, the infrastructure layer uses **Terraform-orchestrated, right-sized
+VMs** to execute pipeline tasks on the optimal hardware, and Prefect to glue
+these stages together. This yields a highly efficient setup: for example,
+launching a spot `g4dn.xlarge` for training an ordinal regression model and
+automatically terminating it upon completion, then spinning up a cheap CPU VM
+for export and quantization. All these transitions are seamless to the user –
+from their perspective, they run a Prefect flow and get a finished model, while
+under the hood the orchestrator handled all provisioning. **Figure 1** below
+illustrates the architecture:
 
-The ONNX export, verification, and quantization stages of the pipeline are
-computationally less demanding and do not require GPU acceleration. Executing
-these steps on an expensive GPU instance is wasteful and inefficient.
-Therefore, the design specifies that these post-training tasks should be run on
-cost-effective, general-purpose CPU instances. An AWS `t4g.large` instance at
-approximately $0.0672 per hour[^15] or a similarly priced DigitalOcean Basic
-Droplet[^16] provides more than sufficient compute power for these tasks at a
-fraction of the cost of a GPU instance.
+([2](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/roadmap.md#L51-L58))
 
-The following table summarizes the key characteristics of suitable GPU
-instances for the fine-tuning stage, providing a clear basis for data-driven
-selection.
+*(Figure 1: High-level pipeline orchestration. A Prefect flow running on a
+self-hosted Orion server coordinates tasks: provisioning cloud VMs via
+Terraform, running containerized training on a GPU spot instance (with periodic
+checkpoints saved to S3), exporting and quantizing the model on a separate CPU
+instance, then assembling the final artifacts in the artifact store. Each
+stage’s resources are torn down after use. This design balances cost (using
+spot instances and appropriate hardware per task) with reliability (via
+checkpointing and automated retries).)*
 
-| Provider     | Instance Name  | GPU(s)         | GPU RAM (Total) | vCPUs | System RAM | On-Demand Price/hr | Est. Spot Price/hr |
-| ------------ | -------------- | -------------- | --------------- | ----- | ---------- | ------------------ | ------------------ |
-| AWS          | `g4dn.xlarge`  | 1x NVIDIA T4   | 16 GiB          | 4     | 16 GiB     | $0.526             | ~$0.22             |
-| AWS          | `g6.xlarge`    | 1x NVIDIA L4   | 24 GiB          | 4     | 16 GiB     | $0.805             | ~$0.35             |
-| AWS          | `p4d.24xlarge` | 8x NVIDIA A100 | 320 GiB         | 96    | 1152 GiB   | $21.958            | ~$6.40             |
-| DigitalOcean | GPU Droplet    | 1x NVIDIA L40S | 48 GB           | 8     | 64 GiB     | $1.57              | N/A                |
-| DigitalOcean | GPU Droplet    | 1x NVIDIA H100 | 80 GB           | 20    | 240 GiB    | $3.39              | N/A                |
-| Scaleway     | GPU Instance   | 1x NVIDIA L40S | 48 GB           | 8     | 48 GB      | €1.61 (~$1.72)     | N/A                |
+### 1.3 Artifact Storage and Configuration Management
 
-### 1.3 Data and Model Storage Strategy
+All intermediate and final artifacts are stored in a **central artifact
+repository**, for example an S3 bucket (`lag-complexity-artifacts`) accessible
+to all pipeline components. This storage acts as the single source of truth for
+data and model artifacts, reinforcing reproducibility:
 
-A robust and well-organized storage strategy is critical for managing the
-various artifacts generated and consumed by the pipeline. A centralized cloud
-object storage service (such as AWS S3, DigitalOcean Spaces, or Scaleway Object
-Storage) will serve as the single source of truth for all data, models, and
-metadata.
+- **Data Artifacts:** Raw datasets, processed datasets, and calibration subsets
+  are stored under versioned paths (e.g., `/datasets/raw/<name>/` and
+  `/datasets/processed/<name>/v1/`). The pipeline’s data ingestion stage will
+  retrieve data from these paths, ensuring that training is based on a fixed
+  snapshot of data. If data preparation is handled by a separate process, it
+  will drop the prepared data in this store, and our pipeline simply consumes
+  it. Alternatively, Prefect can also orchestrate data processing as a
+  preliminary flow/task if needed.
 
-#### Centralized Artifact Repository and Bucket Structure
+- **Model Artifacts and Checkpoints:** During training, checkpoints and final
+  model weights are saved to S3 (see Section 2.3 for structure). After
+  training, we have a fine-tuned PyTorch model saved under, e.g.,
+  `/models/fine-tuned/<experiment_id>/final/`. The export stage will read from
+  this location. ONNX models are exported to
+  `/models/onnx/<experiment_id>/fp32/model.onnx`, and quantized models to
+  `/models/onnx/<experiment_id>/int8/model_quantized.onnx`. By using the
+  `experiment_id` (or a semantic version identifier) in the path, we isolate
+  each run’s outputs. We also maintain a **checksum manifest** for each model
+  (recording SHA-256 of the ONNX files and
+  tokenizer)([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L238-L246)),
+   stored alongside the model, to be used by the Rust service for verification
+  at load time.
 
-To ensure clarity, version control, and ease of access, a standardized and
-strictly enforced directory structure will be implemented within the designated
-object storage bucket. This structure logically separates raw data from
-processed data, base models from fine-tuned artifacts, and intermediate
-checkpoints from final, deployable models.
+- **Configuration and Code Versioning:** The exact configuration of each run
+  (git commit of code, Docker image tags, hyperparameters, etc.) is captured.
+  For example, the flow can log the git commit hash of the training code and
+  include it in the metadata file. The `metadata.json` in the deployment
+  package (see Section 4.1) will contain fields for experiment ID, base model
+  used, and possibly references to the code version or config used. This ties
+  back into auditability – one can always reconstruct the training context from
+  the artifacts alone.
 
-- `/datasets/raw/{dataset_name}/`: Contains the original, immutable datasets as
-  they are first acquired.
-- `/datasets/processed/{dataset_name}/`: Stores datasets that have been
-  cleaned, tokenized, and prepared for consumption by the training script. This
-  will also house the calibration dataset required for quantization.
-- `/models/base/{model_name}/`: A cache for the pre-trained models and
-  tokenizers downloaded from the Hugging Face Hub. This prevents redundant
-  downloads on subsequent pipeline runs.
-- `/models/fine-tuned/{experiment_id}/checkpoints/`: The location for storing
-  intermediate model checkpoints during training. This directory is essential
-  for the fault-tolerant Spot Instance strategy.
-- `/models/fine-tuned/{experiment_id}/final/`: The final, fully trained PyTorch
-  model artifact.
-- `/models/onnx/{experiment_id}/fp32/`: The exported ONNX model in its initial
-  32-bit floating-point format.
-- `/models/onnx/{experiment_id}/int8/`: The final, quantized, and verified
-  8-bit integer ONNX model, which is the ultimate deployable artifact of the
-  pipeline.
+- **Secure Access:** Access to the artifact store is controlled via credentials
+  that the Prefect tasks and VMs have. The Prefect agent (running the
+  orchestration) might use an AWS IAM role or keys (if on AWS) to manage S3.
+  The ephemeral instances receive limited-permission credentials (by Terraform
+  attaching an IAM role or by injecting short-lived tokens) that allow them to
+  pull only the needed dataset and push back checkpoints and models. This
+  principle of least privilege secures our pipeline against accidental or
+  malicious misuse.
 
-This structured approach transforms the object store from a simple file
-repository into a versioned and auditable MLOps artifact store, forming the
-connective tissue that links each modular stage of the pipeline.
+With the foundational architecture set, we now turn to the detailed
+implementation of each pipeline stage, explaining how the Prefect-orchestrated
+tasks perform data ingestion, training with checkpointing, model export, and
+artifact packaging.
 
-## Section 2: The Python Fine-Tuning Pipeline: A Step-by-Step Implementation Guide
+## Section 2: The Fine-Tuning Pipeline Implementation (Training Phase)
 
-This section provides a detailed, implementation-focused blueprint for the core
-fine-tuning stage of the pipeline. The implementation is designed in Python,
-leveraging the Hugging Face ecosystem. A significant focus is placed on
-addressing the specific challenge of ordinal regression, which requires a
-departure from standard classification techniques and necessitates a custom
-implementation within the `Trainer` framework.
+This section provides a step-by-step walkthrough of the pipeline’s core model
+training stages, highlighting how Prefect orchestration and our fault-tolerant
+design come into play. The model in question is an ordinal regression
+classifier (as per the LAG Complexity project’s depth classifier requirements),
+fine-tuned from a Transformer. We describe each stage from initializing the
+environment on the ephemeral VM, through the custom training loop with
+checkpointing, to saving the final model. The focus is on how these steps are
+wrapped in Prefect tasks and made resilient to failures.
 
 ### 2.1 Stage 1: Environment Setup and Data Ingestion
 
-Each training job begins as a self-contained, ephemeral process within its
-Docker container. The first responsibility of the training script is to
-initialize its environment and securely fetch all necessary artifacts from the
-centralized object storage repository.
+Each training job runs in an isolated environment on a **Terraform-provisioned
+VM** (with a GPU for model training). When the Prefect flow reaches the
+training stage, it executes the following steps:
 
-#### Script Initialization and Artifact Download
+**Provisioning and Bootstrapping**: The **`provision_training_vm`** task in the
+Prefect flow applies our Terraform template for a GPU instance (as decided in
+Section 1.2). Once the instance is up, the flow proceeds to an
+**`execute_training`** task. We have two main strategies for running the
+training code on the remote VM:
 
-The Python script will be initiated with a set of parameters defining the
-experiment, such as the base model name, the dataset identifier, and a unique
-experiment ID. It will use a cloud-specific SDK (e.g., `boto3` for AWS) to
-establish a connection with the object storage service. The script will then
-programmatically download the required assets based on the predefined bucket
-structure: the pre-trained base model from `/models/base/` and the processed
-dataset from `/datasets/processed/`. This practice ensures that the training
-job is deterministic and relies solely on the versioned artifacts in the
-central repository, rather than on potentially mutable local files or direct
-internet downloads.
+- **Container Startup via User Data:** The VM’s user-data script (or Terraform
+  remote-exec provisioner) automatically pulls the appropriate Docker image and
+  launches the training script inside the container. For example, on AWS we
+  attach a user-data that does
+  <!-- markdownlint-disable-next-line MD013 -->
+  `docker run -e PREFECT_RUN_ID=... -v /tmp/outputs:/outputs myregistry/lag-trainer:latest python train.py --experiment <ID> ...`.
+   The Prefect flow will wait until the training container signals completion
+  (this could be done by the training script calling back to Prefect or simply
+  by monitoring cloud instance status/logs).
 
-#### Model and Tokenizer Loading
+- **SSH and Prefect Remote Calls:** Alternatively, the Prefect task can SSH
+  into the instance and invoke the training script (either directly on the host
+  or via Docker). Prefect’s ability to run tasks on remote infrastructure can
+  be extended by having a lightweight Prefect agent on the VM, but for
+  simplicity, SSH + Docker CLI is sufficient. The flow would look like:
+  provision VM → (over SSH) start container → monitor logs.
 
-Once the artifacts are downloaded to the local filesystem of the container, the
-script will use the highly flexible Hugging Face `AutoModel` and
-`AutoTokenizer` classes. These classes can infer the correct model architecture
-and tokenizer configuration directly from the downloaded files, providing a
-robust mechanism for loading the components into memory and preparing them for
-the fine-tuning process.[^17]
+Regardless of approach, **the training job begins as a self-contained Docker
+container on the new VM**. The container image includes all necessary
+dependencies (Ubuntu base with CUDA drivers, PyTorch, HuggingFace Transformers,
+our training code, etc.). When the training script starts, it performs
+environment initialization and data ingestion:
+
+- It loads configuration (passed via command-line args or env vars), including
+  the model checkpoint to start from (if any), dataset name, and
+  hyperparameters.
+
+- It establishes a secure connection to the artifact store (e.g., using AWS SDK
+  with credentials available on the VM).
+
+- **Data Download:** The script downloads the required data artifacts from the
+  centralized store. This includes the processed training dataset and
+  validation dataset (e.g., under `/datasets/processed/<dataset_name>/vX/`) and
+  possibly a pre-trained base model checkpoint if we start from a published
+  base model. By pulling from versioned artifact storage, we ensure the job
+  isn’t using any stale or local data – it’s using exactly the data that’s been
+  prepared and approved for this training run. This makes the run deterministic
+  and reproducible. The downloaded data is stored locally on the VM (inside the
+  container’s filesystem) for fast access during training.
+
+- **Model & Tokenizer Loading:** With data in place, the script loads the model
+  architecture. We fine-tune a pre-trained transformer (e.g., DistilBERT) for
+  ordinal regression. Using Hugging Face’s APIs, the code either:
+
+- Loads a base model checkpoint (if starting from a pre-trained weight, e.g.,
+  `distilbert-base-uncased`) and then adapts it for our task.
+
+- Or if resuming a partially trained model (in case of a retry after a
+  failure), it will load the last checkpoint’s model state (more on this in
+  Stage 3).
+
+The **tokenizer** is loaded similarly, either from the Hugging Face Hub or from
+the saved files corresponding to the base model. We ensure the **tokenizer
+files are pinned** (the vocab and merges for BPE, etc.) so that the same
+tokenizer is used during training and later in production. In fact, these files
+will later be included in the deployment package. At this point, the training
+container’s environment is fully set up with code, data, model, and tokenizer
+ready.
 
 ### 2.2 Stage 2: Model Fine-Tuning for Ordinal Regression
 
-The core of the fine-tuning process lies in adapting a standard transformer
-model to the specific requirements of ordinal regression. A naive approach
-using a standard classification head and cross-entropy loss is fundamentally
-flawed for this task. Such a setup treats all misclassifications as equally
-severe; for example, it would penalize the misclassification of “very positive”
-as “positive” with the same magnitude as misclassifying it as “very negative.”
-This ignores the inherent ordered relationship between the labels, which is the
-defining characteristic of an ordinal problem.[^18] Practical guides that adapt
-transformer regressors for text data surface the same challenge and motivate
-bespoke ordinal treatments.[^19] To address this, both the model’s architecture
-and the training loss calculation must be fundamentally altered.
+The core training logic fine-tunes the model to predict an ordinal output (for
+example, the “depth” of a question’s reasoning chain). Standard classification
+approaches are insufficient for ordinal data, so we implement a custom solution
+as described in the project’s design:
 
-#### Model Head Modification
+- **Model Architecture Adaptation:** Instead of the typical multi-class
+  classification head (which would output logits for each class and use
+  softmax), we use a single scalar regression head plus a set of learned
+  cutpoint thresholds for ordinal categories. In practice, we load the
+  pre-trained transformer (e.g., DistilBERT) up to the final hidden layer, then
+  replace its classifier head with a new head: a single linear layer that
+  outputs one raw score *f(X)* per input. This score will later be interpreted
+  against learned thresholds to produce class probabilities.
 
-The standard `AutoModelForSequenceClassification` from Hugging Face typically
-includes a classification head composed of a linear layer that outputs a vector
-of logits, with one logit for each class. For ordinal regression, this head is
-unsuitable. Instead, the base transformer model (e.g., BERT, RoBERTa) will be
-loaded, and its classification head will be replaced with a new, simpler head
-consisting of a single linear layer. This layer will output a single, unbounded
-scalar value for each input example.[^20] Community implementations of
-regression-ready ViT heads follow the same simplification strategy, replacing
-the multi-logit classifier with a scalar regressor.[^21] This scalar, which can
-be denoted as f(X), represents the model’s learned position for the input X on
-a continuous latent scale. It does not directly represent a class probability
-but rather a score that will be used to derive those probabilities.
+- **Custom Loss Function (Cumulative Link Loss):** We override the training
+  loop’s loss computation to implement an ordinal regression loss.
+  Specifically, we introduce K-1 trainable cutpoints (for K ordinal classes)
+  and use the **cumulative link** (logistic) function to map the model’s output
+  f(X) and these cutpoints to class probabilities. The loss is the negative
+  log-likelihood of the true class under this probability distribution. We
+  realize this by creating a custom `Trainer` subclass (e.g.,
+  `OrdinalRegressionTrainer`) that overrides `compute_loss`. This subclass
+  cleanly encapsulates the ordinal-specific logic without needing to rewrite
+  the entire training loop. It ensures that mis-predictions are penalized in
+  proportion to their distance from the true class (e.g., predicting class 0
+  when true class is 4 incurs more loss than predicting class 3 when true is 4).
 
-#### Custom Loss Function and Trainer Subclass
+- **Training Loop and HF Trainer Integration:** We leverage Hugging Face’s
+  `Trainer` API for the main loop, which handles batching, optimizer steps, and
+  scheduling. Our custom trainer is configured with appropriate
+  `TrainingArguments`. Notably, we enable frequent evaluation and checkpoint
+  saving: `evaluation_strategy="steps"` and `save_strategy="steps"` with a
+  relatively frequent `save_steps` (for example, every 100 steps). We also set
+  `save_total_limit` to keep only the last few checkpoints locally (to save
+  disk), but since we upload them to S3, nothing is truly lost. These settings
+  are crucial for fault tolerance on spot instances – by saving state every N
+  steps, we limit how far back we would need to roll in case of interruption.
 
-The most robust and maintainable way to implement the specialized logic for
-ordinal regression is to encapsulate it within a custom subclass of the Hugging
-Face `Trainer`. The `Trainer` API is explicitly designed to be extensible,
-allowing for methods like `compute_loss` to be overridden to introduce custom
-training behaviour without rewriting the entire training loop from
-scratch.[^22][^23]
-This approach is superior to using external callbacks or complex data
-transformations as it cleanly integrates the domain-specific logic into the
-core training machinery.
+- **Real-time Metrics and Logging:** The training script records key metrics
+  (loss, accuracy per class, etc.) on each evaluation cycle (or per epoch if
+  using epoch-based eval). These metrics are both logged to stdout (and thus
+  visible in Prefect’s task logs if streamed) and saved to a file (or directly
+  sent to the Prefect Orion server as a heartbeat). This visibility allows the
+  team to monitor training progress in the Prefect UI live. Moreover, after
+  training, these metrics (especially on a validation set) can be saved as part
+  of the `metadata.json` for the model artifact, giving a summary of model
+  performance for later review.
 
-The implementation will take the form of a new class,
-`OrdinalRegressionTrainer(Trainer)`.
+The Prefect flow doesn’t interfere during the training epoch loop – it simply
+monitors the remote training task’s status. If training completes successfully,
+the next stage will begin. If training fails or is halted (e.g., VM
+interruption), Prefect will catch that and trigger the fault recovery process
+as described next.
 
-- **Initialization (**`__init__`**):** The constructor of this class will be
-  extended to accept the number of ordinal classes, `num_classes`. It will then
-  initialize a set of K−1 trainable parameters, known as “cutpoints” or
-  “thresholds,” represented as `c_0, c_1,..., c_{K-2}`. These will be
-  initialized as a `torch.nn.Parameter` tensor.[^20]
-- **Loss Computation (**`compute_loss`**):** The core logic will reside in the
-  overridden `compute_loss` method. For each batch of inputs, this method will
-  perform the following steps:
+### 2.3 Stage 3: Checkpointing and Fault-Tolerant Training
 
-1. Execute the model’s forward pass to obtain the batch of scalar outputs, f(X).
-2. Use these scalar outputs and the learned cutpoints to compute the
-   probability of each of the K ordinal classes. This is achieved using a
-   cumulative link function, typically the logistic (sigmoid) function,
-   $\sigma(z) = \frac{1}{1 + e^{-z}}$. The probability of an input belonging to
-   class $k$ is calculated as the difference between the cumulative probabilities
-   defined by the cutpoints[^24]:
+Fault tolerance via checkpointing is a **cornerstone of this pipeline’s
+design**, enabling us to use transient cheap instances without risking training
+progress. Here’s how it works:
 
-   $$
-   P(y = k \mid X) =
-   \begin{cases}
-   \sigma(c_0 - f(X)) & \text{if } k = 0 \\
-   \sigma(c_k - f(X)) - \sigma(c_{k-1} - f(X)) & \text{if } 0 < k < K - 1 \\
-   1 - \sigma(c_{K-2} - f(X)) & \text{if } k = K - 1
-   \end{cases}
-   $$
+**Frequent Checkpointing to Object Storage:** We configure the Hugging Face
+`Trainer` to save checkpoints every few hundred steps. Each checkpoint is a
+folder containing the model’s weights, optimizer state, scheduler state, etc.
+We implement a custom `TrainerCallback` (integrated in the training script) to
+**sync checkpoints to S3** (artifact store) whenever one is saved. For example,
+after each `save_steps` interval, the callback triggers and uses `boto3` (or
+the cloud SDK) to upload the checkpoint directory to a path like
+`s3://lag-complexity-artifacts/models/checkpoints/<experiment_id>/step-XXXX/`.
+This happens asynchronously in the background thread of the training process to
+minimize delay. Only the latest few checkpoints might be kept to avoid spamming
+storage, but the final checkpoint will definitely be there. By writing to
+durable storage off the VM, we ensure that even if the VM disappears, our
+progress up to the last checkpoint is safe.
 
-3. With these
-calculated probabilities, the standard negative log-likelihood loss is computed
-against the true labels. This becomes the primary loss term that drives the
-learning of both the base model’s weights and the cutpoint parameters.
-4. A critical constraint in ordinal regression is that the cutpoints must
-   remain in ascending order (i.e., $c_0 < c_1 < \dots < c_{K-2}$). This
-   constraint must be enforced. This can be achieved either by adding a penalty
-   term to the loss function that penalizes out-of-order cutpoints or, more
-   directly, by implementing a post-gradient-update step (similar to the
-   `AscensionCallback` in the `spacecutter` library) that re-sorts or clips the
-   cutpoint values after each optimizer step.[^20]
+**Interruption Handling and Resume:** Prefect monitors the training task. If
+the VM is terminated (spot interruption) or the training script crashes due to
+some non-fatal error, the Prefect task for training will fail. On failure, our
+flow’s logic kicks in:
 
-#### Training Configuration
+- The **`execute_training`** task is set to retry (with a limit, e.g., 3
+  retries). Before retrying, we run a recovery sub-routine: the Prefect flow
+  queries the artifact store to find the latest checkpoint for this experiment
+  (by listing `.../checkpoints/<experiment_id>/` and finding the highest step
+  or latest timestamp).
 
-The standard `TrainingArguments` class will be used to configure the training
-run. To support the fault-tolerant architecture required for Spot Instances,
-key parameters will be set to ensure frequent state saving.
-`evaluation_strategy` and `save_strategy` will be set to `"steps"`, and
-`save_steps` will be configured to a reasonably small value (e.g., every 100 or
-500 steps). This ensures that a recent checkpoint is always available in the
-event of an interruption.[^22]
+- The flow then **provisions a new VM** (another spot instance or on-demand if
+  urgent). On this new VM, it restarts the training container but this time
+  passes an argument to resume from the checkpoint path. Our training script
+  supports a `--resume_from <checkpoint_path>` parameter.
 
-### 2.3 Stage 3: Checkpointing and Model Versioning
+- At startup, if `resume_from` is provided, the script downloads that
+  checkpoint from S3 onto the VM, and then calls
+  `trainer.train(resume_from_checkpoint=local_checkpoint_dir)`. Hugging Face’s
+  Trainer will then load the model weights and optimizer states from that
+  checkpoint and continue training as if nothing happened. Thanks to this
+  mechanism, an interruption results in at most the loss of a few hundred
+  training steps (since last checkpoint).
 
-The ability to save and resume training is not merely a convenience but a
-cornerstone of the pipeline’s economic viability and robustness. The
-interaction between the `Trainer`’s built-in checkpointing capabilities and the
-centralized object store is what enables the use of cost-effective but
-unreliable Spot Instances.
+- The pipeline thus transforms a potentially catastrophic spot interruption
+  into a minor hiccup – training simply continues after a short delay to
+  reprovision.
 
-#### Fault-Tolerant Checkpointing to Object Storage
+The **fault-tolerance strategy** is configured and tested to ensure that if,
+for instance, a spot instance averages 6 hours before interruption and training
+takes 12 hours, the job will likely resume once or twice and finish
+successfully within, say, 13 hours total, while costing a fraction of an
+on-demand instance.
 
-The `Trainer`’s `output_dir` will be pointed to a temporary directory within
-the running container. When the `Trainer` saves a checkpoint (as dictated by
-the `save_strategy`), it writes the model weights, optimizer state, and trainer
-state to this local directory. To persist this state beyond the life of the
-container, a custom `TrainerCallback` will be implemented. This callback will
-trigger on the `on_save` event, and its sole responsibility will be to
-synchronize the contents of the local checkpoint directory with the appropriate
-versioned path in the S3 bucket
-(`/models/fine-tuned/{experiment_id}/checkpoints/`).
+**Final Model Save:** Once training finishes (either in the first attempt or
+after resumes), the script performs a final save of the model using
+`trainer.save_model()`. This produces the complete fine-tuned model files
+(PyTorch `pytorch_model.bin` or similar, config.json, etc.) in the container.
+We upload this final model artifact to a designated S3 path: e.g.,
+`s3://.../models/fine-tuned/<experiment_id>/final/`. This final artifact is
+what the next stages (export & quantization) will consume. We also tag this
+with a version number or commit hash if needed, and ensure the **checkpoint
+callback** has flushed any last checkpoint (though final model is usually more
+important than intermediate checkpoints now).
 
-#### Resuming from a Checkpoint
+At this point, the training VM’s job is done. The Prefect flow will signal
+Terraform to destroy the GPU VM to save cost. We have a fine-tuned model in the
+artifact store and are ready to transition to the model optimization phase.
 
-The training script will be designed to be resumable. It will accept an
-optional parameter specifying a checkpoint from which to resume. If this
-parameter is provided, the script will first download the specified checkpoint
-directory from S3 to the container’s local filesystem. This local path is then
-passed to the `trainer.train(resume_from_checkpoint=...)` method.[^22] The
-`Trainer` will handle the rest, correctly loading the model weights, optimizer
-state, and learning rate scheduler state, and seamlessly continuing the
-training run from where it left off. This mechanism is the key that transforms
-a potentially catastrophic Spot Instance interruption into a minor, recoverable
-delay.
+## Section 3: Model Export, Verification, and Optimization for Inference
 
-#### Final Model Upload
+After obtaining the trained PyTorch model, the pipeline transitions to
+preparing it for efficient production use. This involves converting the model
+to ONNX format, verifying the conversion’s correctness, and applying INT8
+quantization for performance. We orchestrate these as separate stages, each
+running in a controlled environment (here, a CPU instance as discussed).
+Prefect ensures these steps happen sequentially and only proceed if the
+previous step succeeds (especially the verification step acts as a gate – any
+parity mismatch stops the pipeline).
 
-Upon the successful completion of the entire training process (i.e.,
-`trainer.train()` returns without error), the script will execute one final
-save operation using `trainer.save_model()`. The resulting final model
-artifact, which includes the model weights and configuration files, will be
-uploaded to the designated final model path in the S3 artifact store:
-`/models/fine-tuned/{experiment_id}/final/`. This marks the successful
-completion of the fine-tuning stage and signals that the artifact is ready for
-the subsequent export and optimization stages.
+### 3.1 Export to ONNX with Hugging Face Optimum
 
-## Section 3: Model Export and Optimization for Production Inference
+We use the **Hugging Face Optimum** library to export the PyTorch model to
+ONNX. The rationale is that Optimum provides a high-level, validated pathway
+for conversion, including graph optimizations, which is superior to manual
+`torch.onnx.export` approaches.
 
-With a fine-tuned PyTorch model artifact secured in the central repository, the
-pipeline transitions from training to production preparation. This phase is
-critical for transforming the large, framework-dependent training artifact into
-a lightweight, portable, and highly optimized inference engine. The process
-involves exporting the model to the ONNX format, rigorously verifying its
-numerical integrity, and applying quantization to maximize performance on CPU
-hardware.
+**Execution Environment:** The Prefect flow now runs an **`provision_cpu_vm`**
+task to launch a CPU-only VM (likely with Docker installed). On this VM, we run
+a container (from a CPU-based image that has `optimum` and `onnxruntime`
+installed). This container will perform the export. By isolating this in a
+fresh environment, we ensure that the ONNX export uses a clean state and the
+correct versions of ONNX and Optimum, and we avoid any chance that GPU-specific
+dependencies interfere (since ONNX export doesn’t need a GPU).
 
-### 3.1 Exporting from PyTorch to ONNX with Hugging Face Optimum
+**Export Process:** The `export_model` task (running in the container on the
+CPU VM) will do roughly:
 
-The ONNX format serves as a universal intermediate representation for machine
-learning models, enabling them to be executed across a wide variety of hardware
-and software platforms.[^25] For this pipeline, the recommended and most robust
-tool for converting Hugging Face models is the `optimum` library. It is an
-official extension of the `transformers` library specifically designed for
-performance optimization and deployment, offering a more stable and
-feature-rich interface than legacy export methods.[^27][^28]
+```bash
+optimum-cli export onnx \
+    --model /tmp/model/final/ \   # path where we downloaded the fine-tuned PT model
+    --task text-classification \
+    --opset 17 \
+    --optimized_model_dir /tmp/model/onnx/fp32/
+```
 
-#### The Export Process
+We first download the final fine-tuned model from S3 to the local filesystem
+(e.g., under `/tmp/model/final/`). We then invoke the optimum CLI as above. Key
+points:
 
-The export will be performed using the `optimum` command-line interface (CLI),
-which provides a streamlined and declarative way to handle the conversion. The
-process will be executed in a new pipeline stage on a cost-effective CPU
-instance.
+- We specify `--task text-classification` because our ordinal regression model
+  is essentially a classification model in structure (one hidden state to
+  scalar output). This ensures Optimum knows how to wrap the model’s forward
+  pass appropriately.
 
-The core command is as follows:
+- We choose `opset_version=17` for ONNX, which is aligned with our inference
+  environment (ONNX Runtime 1.22 as per the
+  ADR([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L170-L178))).
+   Opset 17 includes support for all needed ops (like LayerNormalization) and
+  ensures portability across platforms.
 
-optimum-cli export onnx --model /path/to/fine-tuned/pytorch/model --task
-text-classification onnx/fp32/
+- Optimum can also apply graph optimizations. We may use an `--optimize O3`
+  level, which fuses operations and etc., as suggested by HF documentation
+  (this corresponds to e.g. constant folding, layer norm fusion, etc., without
+  requiring hardware-specific optimizations).
 
-#### Key Configuration Parameters
+- The output is a directory (we named it `onnx/fp32`) containing `model.onnx`
+  and some Optimum metadata (and possibly an `optimum_config.json` capturing
+  how the export was done for reproducibility).
 
-Several parameters in the export command are crucial for generating a correct
-and flexible ONNX model.
+Once the export command runs, we have an ONNX model (floating-point precision)
+stored locally. We upload this to the artifact store:
+`s3://.../models/onnx/<experiment_id>/fp32/model.onnx`. Alongside, we save the
+Optimum export config if available. This completes the conversion, but **we do
+not yet tear down the CPU VM**, because we will continue to use it for
+verification and quantization.
 
-- `--model`: This argument points to the local directory containing the final,
-  fine-tuned PyTorch model saved in Section 2.3.
-- `--task`: This parameter guides `optimum` on how to configure the model’s
-  graph for a specific use case. Even though the task is ordinal regression,
-  the underlying architecture is that of a sequence classifier. Specifying
-  `text-classification` will correctly configure the inputs and the base
-  transformer architecture.
-- `opset_version`: The ONNX opset version determines the set of available
-  operators in the exported graph. A modern but widely supported version, such
-  as 17, is recommended. This version includes native support for complex
-  operators like `LayerNormalization`, which can lead to a cleaner and more
-  efficient graph.[^29] The choice must be cross-referenced with the compatibility
-  matrix of the target ONNX Runtime version to ensure support.[^30]
-- `dynamic_axes`: A critical feature for production is the ability to handle
-  inputs of varying sizes (e.g., different batch sizes or sentence lengths).
-  The `optimum` exporter automatically configures dynamic axes for the
-  `batch_size` and `sequence_length` dimensions for standard tasks, which is
-  essential for a real-world inference service.[^26]
+### 3.2 Post-Export Verification (Parity Check between PyTorch and ONNX)
 
-The resulting `model.onnx` file, along with its configuration, will be uploaded
-to the designated path in the artifact store:
-`/models/onnx/{experiment_id}/fp32/`.
+Before moving on, we must verify that the ONNX model behaves identically to the
+original PyTorch model. This stage is implemented to ensure **numerical
+parity** – a critical quality gate to catch any conversion issues. The Prefect
+flow runs a task `verify_onnx_parity` on the same CPU VM (in the same container
+or a new one with necessary libraries):
 
-Optimum also exposes dedicated configuration classes that persist the export
-settings, allowing reproducible regeneration of ONNX artefacts without manual
-flag management in future runs.[^31]
+**Procedure:**
 
-### 3.2 Post-Export Verification and Parity Analysis
+- **Load Models:** Load the fine-tuned PyTorch model in memory (we can either
+  reload it from the saved weights or still have it from before export) and
+  load the ONNX model using ONNX Runtime (`onnxruntime.InferenceSession`).
 
-The conversion from PyTorch to ONNX is a complex translation process that can,
-in some cases, introduce subtle numerical discrepancies or structural errors.
-Deploying a model without verifying its correctness is a significant
-operational risk. Therefore, an automated verification step is a mandatory
-quality gate in this pipeline. The deployable artifact is not merely the
-`.onnx` file itself, but the `.onnx` file accompanied by a guarantee of
-numerical parity with its PyTorch parent.
+- **Prepare Test Data:** We use a sample of validation data (or training data)
+  for testing. The pipeline can retrieve a small batch (say 100 examples) from
+  the dataset for this purpose. Ideally, the **calibration dataset** for
+  quantization can double as this test set, or we take random samples from
+  validation. These samples are preprocessed (tokenized) exactly as in training.
 
-#### Verification Procedure
+- **Run Inference on Both:** For each sample input, run a forward pass through
+  the PyTorch model (in PyTorch) and through the ONNX model (using
+  `session.run`). Collect the outputs.
 
-This automated step will execute immediately after the ONNX export and will
-programmatically compare the behavior of the two models.
+- **Compare Outputs:** We compute the difference between outputs. Since
+  floating point arithmetic and ONNX transformations might introduce tiny
+  differences, we do not expect bit-for-bit identical outputs. Instead, we use
+  a tolerance-based comparison like
+  `numpy.allclose(pytorch_output, onnx_output, atol=1e-5)`. We also ensure the
+  shapes and general structure of outputs are as expected. Given our model
+  outputs a single scalar (plus maybe the cutpoint logits for internal use),
+  the comparison is straightforward.
 
-1. **Load Models:** The script will load the original fine-tuned PyTorch model
-   and the newly created ONNX model into memory. The ONNX model will be loaded
-   using an `onnxruntime.InferenceSession`.
-2. **Generate Test Inputs:** A representative sample of inputs (e.g., 100-1,000
-   examples from the validation set) will be prepared.
-3. **Dual Inference:** For each input, inference will be run through both the
-   PyTorch model and the ONNX Runtime session.
-4. **Compare Outputs:** The output tensors from both models will be compared
-   element-wise. Due to the nature of floating-point arithmetic, a direct
-   equality check is too strict. Instead, a comparison with a small tolerance
-   is used, for example, via
-   `numpy.allclose(pytorch_output, onnx_output, atol=1e-5)`. The
-   `torch.onnx.verification` module also offers utilities for this purpose.[^32]
-5. **Gate:** If the maximum absolute difference between the outputs exceeds the
-   predefined tolerance for any of the test inputs, the verification step
-   fails. This failure will halt the entire pipeline, preventing a potentially
-   corrupt model from proceeding to the quantization and deployment stages.
+- **Pass/Fail Gate:** If **any** sample’s output differs beyond the tolerance
+  threshold, we consider the verification failed. This triggers the pipeline to
+  halt. Prefect will mark the flow run as failed and notify us. Such a failure
+  indicates something went wrong in the export (e.g., an unsupported operation
+  or numerical instability). Engineers would need to investigate, possibly
+  adjust the export parameters or fix an issue in the model code, and re-run
+  the pipeline. This gate ensures we do not deploy a model that doesn’t match
+  the training outcomes.
+
+If the outputs match within tolerance for all test inputs, we log a success.
+The Prefect UI can record this as a checkpoint that the parity test passed. We
+may also save a summary of this test (like max difference observed) into the
+model’s metadata.
+
+With a verified ONNX FP32 model, we proceed to optimize it.
 
 ### 3.3 Performance Optimization via INT8 Quantization
 
-The final optimization step is designed to prepare the model for
-high-performance inference on CPU hardware, which is the target environment for
-the Rust service. Quantization is the process of converting the model’s weights
-and/or activations from high-precision 32-bit floating-point numbers (FP32) to
-low-precision 8-bit integers (INT8). This conversion yields two major benefits:
-a significant reduction in model size (up to 4x) and a substantial increase in
-inference speed, as integer arithmetic is much faster on modern CPUs than
-floating-point arithmetic.[^33] Real-world benchmarks of static INT8
-quantisation further demonstrate the throughput gains available on commodity
-CPUs.[^34]
+The final optimization step is to quantize the ONNX model from FP32 to INT8, to
+achieve lower latency and smaller model size for CPU inference. We employ
+**post-training static quantization** using ONNX Runtime’s quantization tools,
+as decided in the
+ADR([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L66-L71))([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L156-L164)).
 
-#### Methodology: Static Quantization
+**Calibration Data:** Static quantization requires a small calibration dataset
+to compute activation scaling factors. During Stage 1 or earlier, we ensure
+such a dataset is available. Often, this is a few hundred representative
+examples from the training set. Our pipeline either expects this to be present
+in the artifact store (e.g., under `/datasets/processed/<name>/calibration/`),
+or if not, we can have a step that samples from training data to create it. In
+our design, we assume the calibration data has been prepared offline or in an
+earlier flow and uploaded.
 
-There are two primary methods of quantization: dynamic and static. Dynamic
-quantization converts weights offline but calculates the scaling factors for
-activations on-the-fly during inference. While simpler to implement, this
-on-the-fly calculation introduces a small performance overhead. Static
-quantization, by contrast, pre-calculates the scaling factors for activations
-using a calibration dataset. This eliminates the runtime overhead, resulting in
-the fastest possible inference speed on CPUs, making it the superior choice for
-latency-sensitive production services.[^33]
+**Quantization Process:** The `quantize_model` Prefect task (still on the CPU
+VM container) will:
 
-The choice of static quantization introduces a new dependency into the
-pipeline. This optimization stage now requires not only the FP32 ONNX model but
-also a small, representative “calibration dataset.” This dataset, typically
-consisting of 100-500 examples from the training set, must be created during
-the initial data processing stage and stored in the artifact repository (e.g.,
-at `/datasets/processed/{dataset_name}/calibration/`). This illustrates how a
-downstream performance requirement can impose new upstream data preparation
-tasks.
+- Load the FP32 ONNX model (or have the path to it).
 
-#### Implementation with ONNX Runtime
+- Use `onnxruntime.quantization.quantize_static()` function to quantize. We
+  supply:
 
-The quantization process will be implemented using the tools provided in the
-`onnxruntime` Python package.
+- The path to the FP32 model as input.
 
-1. **Calibration Data Reader:** A Python class will be created to serve as a
-   data reader. This class will iterate through the calibration dataset,
-   preprocess each example in the same way as during training, and yield the
-   inputs as a dictionary of NumPy arrays.
-2. **`quantize_static` Function:** The core of the process is the
-   `onnxruntime.quantization.quantize_static` function. It will be configured
-   with the following key arguments:
+- An output path for the INT8 model (e.g.,
+  `/tmp/model/onnx/int8/model_quantized.onnx`).
 
-- `model_input`: The path to the verified `fp32/model.onnx` file.
-- `model_output`: The destination path for the new quantized model,
-  `int8/model.onnx`.
-- `calibration_data_reader`: An instance of the data reader class created in
-  the previous step.
-- `quant_format`: This will be set to `QuantFormat.QDQ`. The QDQ
-  (Quantize/Dequantize) format is the modern standard, which inserts explicit
-  `QuantizeLinear` and `DequantizeLinear` nodes into the graph. This format is
-  more flexible and is the standard for models that have undergone
-  Quantization-Aware Training (QAT).[^35]
-- `activation_type` and `weight_type`: Both will be set to `QuantType.QInt8` to
-  perform symmetric 8-bit integer quantization, which provides a robust balance
-  of performance and accuracy on most CPU architectures.[^36]
+- A data reader that iterates over the calibration dataset and feeds inputs to
+  the model. We will implement this reader in Python: it will load each sample,
+  tokenize it, create the input tensors (input IDs, attention mask arrays) as
+  numpy arrays matching the model’s expected input format, and yield them.
 
-#### Final Verification and Artifact Publication
+- Quantization parameters: we choose **QuantFormat** = QDQ (Quantize/Dequantize
+  nodes), which is recommended for compatibility and performance;
+  **activation_type** = **weight_type** = `QuantType.QInt8` for symmetric 8-bit
+  quantization of both weights and activations. These settings align with best
+  practices for int8 quantization on CPUs (and match what our ADR suggested).
 
-The quantized INT8 model is a new representation and must undergo its own
-parity check. The same verification procedure from Section 3.2 is repeated,
-comparing the outputs of the INT8 ONNX model against the FP32 ONNX model. A
-slightly higher tolerance (`atol`) may be necessary to account for the
-precision loss inherent in quantization. Once this final check passes, the
-`model_quantized.onnx` file is uploaded to
-`/models/onnx/{experiment_id}/int8/`. This artifact, along with a metadata file
-containing its final accuracy metrics and the learned ordinal cutpoints, is now
-the official, versioned, and deployable output of the entire Python pipeline.
+- The quantization routine will run inference on the calibration data
+  internally to gather stats, then produce a quantized model.
 
-The following table summarizes the key configuration choices for the export and
-quantization stages, providing a clear and actionable guide.
+After this, we perform another **verification** similar to Stage 3.2: compare
+the outputs of the INT8 model to the FP32 ONNX model on a small test set. We
+expect slightly larger differences (so we might use a tolerance like `1e-2`),
+but the accuracy drop should be within acceptable limits (our target was ≤1%
+degradation([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L160-L167))).
+ If the INT8 model shows unacceptable deviation, the pipeline could decide to
+fail or warn. Assuming all is well, we proceed to save the quantized model.
 
-| Stage        | Tool/Function             | Parameter         | Recommended Value | Rationale                                                                                                                    |
-| ------------ | ------------------------- | ----------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Export       | `optimum-cli export onnx` | `opset_version`   | 17                | Balances modern features (e.g., LayerNorm 29) with broad compatibility in ONNX Runtime versions.[^30]                           |
-| Export       | `optimum-cli export onnx` | `optimize`        | O3                | Applies extensive graph fusions and GELU approximation for performance without requiring GPU-specific features.[^37]            |
-| Quantization | `quantize_static`         | `quant_format`    | `QuantFormat.QDQ` | Modern, flexible format that inserts Quantize/Dequantize nodes, compatible with QAT models and cross-framework conversion.[^35] |
-| Quantization | `quantize_static`         | `activation_type` | `QuantType.QInt8` | Symmetric quantization for activations.                                                                                      |
-| Quantization | `quantize_static`         | `weight_type`     | `QuantType.QInt8` | Symmetric quantization for weights, providing a good balance of performance and accuracy on CPU.[^36]                           |
+**Publishing the Quantized Model:** We upload `model_quantized.onnx` to the
+artifact store under `/models/onnx/<experiment_id>/int8/model_quantized.onnx`.
+We also collect all necessary pieces for deployment:
 
-## Section 4: Integration with the Rust ,,`ort`,, Inference Component
+- The tokenizer files (vocab, merges, tokenizer.json) – these might already be
+  stored separately (perhaps under base model data), but to be safe we copy
+  them to, say, `/models/onnx/<experiment_id>/tokenizer/` in the artifact store
+  so the Rust service can easily fetch the exact tokenizer used.
 
-The final phase of the end-to-end process is the consumption and execution of
-the optimized ONNX model within the target Rust application. This section
-provides a guide for the Rust development team, focusing on best practices for
-using the `ort` crate to build a high-performance, reliable inference service.
+- The `metadata.json` – we create this deployment metadata file containing:
 
-### 4.1 Preparing the ONNX Artifact for Deployment
+- Model identifier (experiment ID, version number).
 
-The output of the Python pipeline is a “deployment package” that contains more
-than just the model file. A robust deployment process relies on having all
-necessary components versioned and bundled together.
+- Base model name or version.
 
-#### The Deployment Package
+- Training details: number of epochs, date, any hyperparameters of note.
 
-For each successful pipeline run, the following artifacts will be versioned and
-stored together in the S3 artifact repository:
+- Cutpoint values learned (if our ordinal model’s cutpoints need to be known at
+  inference, we include them here).
 
-1. **The ONNX Model:** The `model_quantized.onnx` file from
-   `/models/onnx/{experiment_id}/int8/`. This is the core inference engine.
-2. **The Tokenizer Configuration:** The `tokenizer.json` and associated files
-   from the base model, necessary for correctly preprocessing input text in the
-   Rust application.
-3. **Model Metadata:** A `metadata.json` file containing critical information
-   for inference, including:
+- A mapping of class indices to labels (if applicable).
 
-- The final, learned values of the ordinal regression cutpoints
-  (`c_0, c_1,...`).
-- The mapping from class indices to human-readable labels.
-- The experiment ID and base model name for traceability.
-- Final evaluation metrics (e.g., accuracy, mean absolute error) from the
-  pipeline’s verification stages.
+- Evaluation metrics: if we evaluated on a test set or have validation metrics
+  (accuracy, MAE, correlation), include them.
 
-#### Distribution and Consumption
+- Checksums of the ONNX files (for integrity verification in production).
 
-The Rust application’s CI/CD pipeline will be responsible for fetching this
-complete deployment package from the artifact store. The application should be
-configured to load a specific version of the package, ensuring that deployments
-are deterministic and rollback-capable.
+- Possibly the commit hash of the training code or image version, for
+  traceability.
 
-### 4.2 Rust ,,`ort`,, Crate: A Guide to High-Performance Inference
+- A checksum manifest (if not included in metadata) listing the SHA-256 of
+  `model_quantized.onnx` (and maybe of the FP32 model for reference).
 
-The `ort` crate provides idiomatic and safe Rust bindings for the ONNX Runtime
-C API, enabling high-performance inference.[^38][^39] Proper configuration and
-usage are key to building a stable and efficient service.
+All these files are stored in the artifact repository as the **deployment
+package** for this model version.
 
-#### Project Setup and Dependency Management
+Finally, the Prefect flow signals Terraform to destroy the CPU VM as well,
+since all artifacts are now safely stored.
 
-The `ort` crate should be added as a dependency in the Rust project’s
-`Cargo.toml` file.[^40] A crucial configuration choice is how the application
-links to the underlying ONNX Runtime shared library.
+To summarize Stage 3, we have taken the fine-tuned model, converted it to ONNX
+(for portable, runtime-efficient format), verified its correctness, and applied
+quantization to meet performance targets (e.g., p95 latency ≤ 10ms on CPU as
+required([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L26-L34))([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L38-L46))).
+ The result is a production-ready model artifact set.
 
-The default behavior of the `ort` crate can lead to what is known as “shared
-library hell,” where the build process hardcodes a dependency on the
-`libonnxruntime.so` file being in a specific location. This is brittle and can
-easily break when moving from a build environment to a production container.
+## Section 4: Integration with LAG Complexity Infrastructure (Deployment Phase)
 
-The strongly recommended best practice is to enable the `load-dynamic` feature
-for the `ort` crate in `Cargo.toml`. This feature decouples the compiled Rust
-binary from the ONNX Runtime library. Instead of linking at compile time, the
-application loads the library dynamically at runtime from a path specified by
-the `ORT_DYLIB_PATH` environment variable.[^38] This approach shifts the
-responsibility of providing the dependency from the compiler to the deployment
-environment, which is a much more robust and flexible DevOps practice. It
-allows the same compiled binary to run in any environment, as long as the
-environment variable is set correctly.
+The last phase is how the outputs of this pipeline integrate into the existing
+LAG Complexity system – primarily the Rust inference component that will use
+the ONNX model. We describe how the deployment package is consumed and the
+interfaces ensuring a smooth deployment.
 
-#### Configuring the Deployment Environment
+### 4.1 Deployment Package and Configuration
 
-The Dockerfile for the Rust service must be configured to support this dynamic
-loading strategy. It should include the following steps:
+For each successful pipeline run, a **versioned deployment package** is
+produced and stored (as detailed above). Integration with LAG Complexity
+involves retrieving this package and configuring the Rust service to use it:
 
-1. **Download ONNX Runtime:** Download the appropriate pre-compiled,
-   CPU-optimized ONNX Runtime shared library (`libonnxruntime.so` for Linux)
-   for the target architecture.
-2. **Install Library:** Copy the shared library to a standard location within
-   the container, such as `/opt/onnxruntime/lib/`.
-3. **Set Environment Variable:** Use the `ENV` instruction in the Dockerfile to
-   set the required environment variable:
-   `ENV ORT_DYLIB_PATH=/opt/onnxruntime/lib/libonnxruntime.so`.
+- We follow a convention that each model has a **semantic version** or unique
+  ID. For example, depth classifier v1.0.0 might correspond to
+  `experiment_id = depth-ordinal-1.0.0`. This version can be encoded in the
+  artifact path or in the ONNX model’s
+  metadata([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L242-L249)).
+   The **Rust application** (or its config) will specify which version of the
+  model to use (likely the latest stable).
 
-#### Rust Inference Code Pattern
+- During deployment of the Rust service, a CI/CD step will fetch the needed
+  artifacts from S3. This can be automated: e.g., a build script uses AWS CLI
+  to download `model_quantized.onnx`, `tokenizer.json`, etc., from the known S3
+  path (the path can be constructed from the version, or a manifest file can
+  list the latest version).
 
-The following provides a conceptual pattern for implementing the inference
-logic in Rust.
+- All artifacts are placed in the container or file system where the Rust
+  service can access them. The pipeline ensures backward compatibility – the
+  ONNX model adheres to the interface expected by the Rust code (same
+  input/output tensor schema) and includes any metadata needed.
 
-1. **Initialization:**
+We also maintain **strict auditability** here: the Rust service is configured
+to verify the SHA-256 checksum of the ONNX model at startup against the
+checksum recorded by the
+pipeline([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L240-L247)).
+ Our pipeline provided that checksum (in the metadata). If they don't match,
+the service will refuse to load the model, preventing any tampering or mismatch
+between code and model. This was an explicit design in the ADR and we uphold it
+in our artifact generation.
 
-   - Initialize the `ort` environment. This is typically done once at
-     application
-     startup.
-   - Load the `model_quantized.onnx` file and the `metadata.json` file from
-     disk.
-   - Create an `ort::Session` from the loaded model file. This session object is
-     thread-safe and can be shared across multiple requests.
-   - Load the tokenizer from its configuration file using a Rust-based tokenizer
-     library like `tokenizers-rs`.
+### 4.2 Rust Inference Integration (Using the `ort` Crate)
 
-2. **Per-Request Inference:**
+The LAG Complexity Rust component uses the `ort` crate (ONNX Runtime for Rust)
+to load and run the model. Our pipeline’s output is tailored for easy use with
+`ort`:
 
-   - **Tokenization:** Preprocess the raw input text using the loaded tokenizer.
-     This will produce `input_ids` and an `attention_mask`.
-   - **Input Tensor Creation:** Convert the tokenized outputs into `ndarray`
-     tensors. The `ort` crate expects inputs to be in this format. The tensors
-     must have the correct shape (e.g., `[1, sequence_length]` for a single
-     input) and data type (typically `i64` for token IDs).
-   - **Execution:** Pass the input tensors to the `session.run()` method. This
-     executes the ONNX graph and returns the model’s outputs.
-   - **Output Parsing and Ordinal Logic:** The crucial final step is to
-     correctly
-     interpret the model’s output. The ONNX model, as designed in Section 2,
-     will output a single scalar tensor, f(X). This is not the final
-     prediction. The Rust code must now replicate the ordinal regression logic
-     from the Python trainer:
+- **ORT Dynamic Loading:** The Rust service, as per best practices, will use
+  `ORT_DYLIB_PATH` to dynamically load the ONNX Runtime library. We ensure the
+  deployed environment has ONNX Runtime 1.22 (matching our model’s opset 17)
+  installed, to guarantee
+  compatibility([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L170-L178)).
 
-3. Extract the scalar float value from the output tensor.
-4. Retrieve the learned cutpoint values (`c_0, c_1,...`) from the loaded
-   metadata.
-5. Apply the cumulative link (sigmoid) function to calculate the probability of
-   each ordinal class, exactly as specified in the formula in Section 2.2.
-6. The final predicted class is the one with the highest calculated
-   probability. The service can then return this class label or the full
-   probability distribution.
+- **Model Loading:** The Rust code will load `model_quantized.onnx` at startup
+  via `Session::new()` (or similar). Thanks to quantization, this model is
+  optimized for CPU and should meet latency requirements (we targeted <10ms per
+  query([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L28-L35))([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L158-L165))).
 
-This final step highlights a critical aspect of the end-to-end design: the
-custom logic introduced in the Python training phase must be perfectly mirrored
-in the Rust inference phase. The deployment package, containing both the model
-and its metadata (including the cutpoints), is what makes this possible,
-ensuring a consistent and correct implementation across the entire system.
+- **Tokenizer and Preprocessing:** The pipeline provided the exact tokenizer
+  files. The Rust service uses these (with a Rust tokenizer library or by
+  calling the same tokenization as in Python, possibly via `tokenizers` crate)
+  to preprocess incoming text into `input_ids` and `attention_mask` exactly as
+  expected by the model. The tokenizer config (vocab size, special tokens,
+  etc.) is exactly the same as used in training, ensuring no drift.
+
+- **Inference and Postprocessing:** When a query comes in:
+
+- Rust code tokenizes the text.
+
+- Feeds the token IDs and attention mask to the ONNX Runtime session,
+  performing inference.
+
+- The output is a scalar (the f(X) value). The Rust code then applies the
+  *ordinal logic* to this scalar to produce probabilities for each class and
+  the predicted class. For this, it uses the **cutpoint values** that were
+  saved in `metadata.json` by the pipeline. We ensure the metadata includes
+  these thresholds.
+
+- The Rust code computes, for example, `P(y > k)` for each cutpoint k via the
+  sigmoid function and derives class probabilities (mirroring the formula from
+  training). This mirrors exactly the Python’s logic (essentially Section 2.2’s
+  equations) to guarantee consistent interpretation.
+
+- The final classification result (e.g., a depth score or category) is then
+  used by the LAG system’s logic (like deciding whether to use the complex
+  reasoning path or not).
+
+- **Performance and Threading:** The `ort` session is created once and reused.
+  Because the model is quantized and small, the Rust service can handle a high
+  throughput of requests on commodity CPU. We also included in the pipeline’s
+  ADR that multiple threads or batch inference can be used; the model supports
+  dynamic batch and sequence lengths, so the Rust code could batch multiple
+  queries for efficiency if needed.
+
+By providing a well-documented deployment package and ensuring the Rust code
+has matching logic and config, integration is straightforward. The pipeline’s
+output is essentially plug-and-play with the Rust `ort` consumer.
 
 ## Conclusion
 
-The architecture detailed in this report provides a robust, scalable, and
-cost-effective blueprint for a complete model fine-tuning and deployment
-pipeline. By integrating strategic infrastructure choices with tailored
-software implementation, the design addresses the full lifecycle of a machine
-learning model, from initial training to high-performance production inference.
+This comprehensive design achieves an **automated, reproducible, and resilient
+model training pipeline** tailored for the LAG Complexity project’s needs. By
+leveraging **self-hosted Prefect orchestration**, we orchestrate complex
+workflows entirely under our control, removing external dependencies while
+gaining fine control over execution and failure recovery. The use of
+**Terraform-managed ephemeral instances** allows us to optimize hardware usage
+and costs, scaling resources up or down for each stage and utilizing spot
+instances with confidence thanks to robust checkpointing. All stages of the ML
+lifecycle – data ingestion, training, evaluation, conversion, and deployment
+prep – are covered, with modular tasks that can be maintained or improved
+independently.
 
-The key recommendations and architectural pillars are as follows:
+Key highlights of this design include:
 
-1. **Embrace Cost-Driven Architecture:** The pipeline’s design is fundamentally
-   shaped by the economic imperative to minimize compute costs. The mandated
-   use of interruptible AWS Spot Instances, which can reduce training expenses
-   by up to 90%, directly necessitates the core architectural requirement of
-   fault tolerance. This is achieved through frequent, automated checkpointing
-   to a centralized object store and a training script designed for seamless
-   resumption.
-2. **Adopt a Modular, Containerized Workflow:** Structuring the pipeline as a
-   series of distinct, containerized stages ensures reproducibility, simplifies
-   debugging, and prepares the system for integration with sophisticated MLOps
-   orchestration platforms. This modularity, combined with a centralized
-   artifact store in cloud object storage, creates a clean, auditable, and
-   maintainable workflow.
-3. **Implement Custom Logic for Specialized Tasks:** The design demonstrates
-   how to move beyond generic solutions to address the specific problem of
-   ordinal regression. By subclassing the Hugging Face `Trainer` and
-   implementing a custom loss function, the model is correctly trained to
-   understand the ordered nature of the target labels. This tailored approach
-   is critical for achieving high performance on non-standard machine learning
-   tasks.
-4. **Prioritize Production Performance with Optimization:** The pipeline’s
-   ultimate goal is a deployable artifact optimized for a CPU-bound Rust
-   environment. The prescribed use of the Hugging Face `optimum` library for
-   ONNX export, followed by mandatory numerical parity verification and static
-   INT8 quantization, ensures the final model is not only correct but also
-   maximally performant.
-5. **Ensure Seamless Integration with the Downstream Application:** The design
-   bridges the gap between the Python training world and the Rust production
-   environment. By recommending best practices for the `ort` crate, such as the
-   `load-dynamic` feature for dependency management, and by explicitly
-   packaging the model with its necessary metadata (including tokenizer files
-   and learned ordinal cutpoints), the design guarantees that the Rust service
-   has everything it needs to perform inference correctly and efficiently.
+- **Fault-Tolerant, Cost-Efficient Training:** The pipeline embraces the use of
+  interruptible spot instances to save costs (up to 90% savings) and
+  counterbalances their unreliability with frequent automated checkpointing and
+  seamless resumption. This design turns infrastructure cost considerations
+  into first-class design parameters, achieving economical training without
+  sacrificing progress or model quality.
 
-By following this blueprint, an organization can build a sophisticated MLOps
-system that is not only technically sound but also strategically aligned with
-the operational realities of production deployment, balancing cutting-edge
-modeling techniques with the pragmatic requirements of cost, reliability, and
-performance.
+- **Prefect-Orchestrated Modularity:** By structuring the pipeline as a series
+  of containerized stages (DAG of tasks) and using Prefect flows, we obtain a
+  clear **separation of concerns** and ease of monitoring. Each stage (data
+  prep, train, export, etc.) can be retried or modified in isolation.
+  Automation covers the entire path from raw data to deployable model, ensuring
+  that no manual steps can introduce variability or error. The Prefect UI and
+  logs provide transparency into each run for engineers, and failures trigger
+  well-defined recovery logic rather than ad-hoc handling.
 
-## Works cited
+- **Reproducibility & Auditability:** Every run is deterministic given the same
+  inputs, and every output artifact is versioned and checksummed. From
+  container images that freeze the software stack to configuration files that
+  capture all parameters, we can recreate any model build. Additionally, the
+  pipeline records metadata (like model metrics, version, cutpoints, etc.) that
+  not only aids deployment but also enables auditing model improvements over
+  time. This addresses compliance and traceability requirements in production
+  ML workflows.
 
-[^1]: g4dn.xlarge Pricing and Specs: AWS EC2, accessed on October 9, 2025,
-   [https://costcalc.cloudoptimo.com/aws-pricing-calculator/ec2/g4dn.xlarge](https://costcalc.cloudoptimo.com/aws-pricing-calculator/ec2/g4dn.xlarge)
-[^2]: g4dn.xlarge specs and pricing | AWS | CloudPrice, accessed on October 9,
-   2025,
-   [https://cloudprice.net/aws/ec2/instances/g4dn.xlarge](https://cloudprice.net/aws/ec2/instances/g4dn.xlarge)
-[^3]: g6.xlarge pricing and specs - Vantage Instances, accessed on October 9,
-   2025,
-   [https://instances.vantage.sh/aws/ec2/g6.xlarge](https://instances.vantage.sh/aws/ec2/g6.xlarge)
-[^4]: g6.xlarge Instance Specs And Pricing - CloudZero Advisor, accessed on
-   October 9, 2025,
-   [https://advisor.cloudzero.com/aws/ec2/g6.xlarge](https://advisor.cloudzero.com/aws/ec2/g6.xlarge)
-[^5]: p4d.24xlarge specs and pricing | AWS | CloudPrice, accessed on October 9,
-   2025,
-   [https://cloudprice.net/aws/ec2/instances/p4d.24xlarge](https://cloudprice.net/aws/ec2/instances/p4d.24xlarge)
-[^6]: Amazon EC2 Instance Type p4d.24xlarge, accessed on October 9, 2025,
-   [https://aws-pricing.com/p4d.24xlarge.html](https://aws-pricing.com/p4d.24xlarge.html)
-[^7]: GPU Droplets Pricing | DigitalOcean, accessed on October 9, 2025,
-   [https://www.digitalocean.com/pricing/gpu-droplets](https://www.digitalocean.com/pricing/gpu-droplets)
-[^8]: Scaleway | Review, Pricing & Alternatives - GetDeploying, accessed on
-   October 9, 2025,
-   [https://getdeploying.com/scaleway](https://getdeploying.com/scaleway)
-[^9]: Ubicloud Compute, accessed on October 9, 2025,
-   [https://www.ubicloud.com/use-cases/ubicloud-compute](https://www.ubicloud.com/use-cases/ubicloud-compute)
-[^10]: Scaleway vs AWS, accessed on October 9, 2025,
-    [https://www.scaleway.com/en/scaleway-vs-aws/](https://www.scaleway.com/en/scaleway-vs-aws/)
-[^11]: Amazon EC2 Spot Instances Pricing - AWS, accessed on October 9, 2025,
-    [https://aws.amazon.com/ec2/spot/pricing/](https://aws.amazon.com/ec2/spot/pricing/)
-[^12]: Amazon EC2 Pricing - AWS, accessed on October 9, 2025,
-    [https://aws.amazon.com/ec2/pricing/](https://aws.amazon.com/ec2/pricing/)
-[^13]: AWS GPU Instance Pricing | P5, G6, G5 Spot Price Comparison, accessed on
-    October 9, 2025,
-    [https://compute.doit.com/gpu](https://compute.doit.com/gpu)
-[^14]: EC2 On-Demand Instance Pricing - AWS, accessed on October 9, 2025,
-    [https://aws.amazon.com/ec2/pricing/on-demand/](https://aws.amazon.com/ec2/pricing/on-demand/)
-[^15]: t4g.large Pricing and Specs: AWS EC2, accessed on October 9, 2025,
-    [https://costcalc.cloudoptimo.com/aws-pricing-calculator/ec2/t4g.large](https://costcalc.cloudoptimo.com/aws-pricing-calculator/ec2/t4g.large)
-[^16]: Droplet Pricing | DigitalOcean, accessed on October 9, 2025,
-    [https://www.digitalocean.com/pricing/droplets](https://www.digitalocean.com/pricing/droplets)
-[^17]: Quickstart - Hugging Face, accessed on October 9, 2025,
-    [https://huggingface.co/docs/transformers/quicktour](https://huggingface.co/docs/transformers/quicktour)
-[^18]: How to Perform Ordinal Regression / Classification in PyTorch | Towards
-    Data Science, accessed on October 9, 2025,
-    [https://towardsdatascience.com/how-to-perform-ordinal-regression-classification-in-pytorch-361a2a095a99/](https://towardsdatascience.com/how-to-perform-ordinal-regression-classification-in-pytorch-361a2a095a99/)
-[^19]: Regression with Text Input Using BERT and Transformers | by La Javaness R&D
-    \| Medium, accessed on October 9, 2025,
-    [https://lajavaness.medium.com/regression-with-text-input-using-bert-and-transformers-71c155034b13](https://lajavaness.medium.com/regression-with-text-input-using-bert-and-transformers-71c155034b13)
-     \|
-[^20]: EthanRosenthal/spacecutter: Ordinal regression models in PyTorch - GitHub,
-    accessed on October 9, 2025,
-    [https://github.com/EthanRosenthal/spacecutter](https://github.com/EthanRosenthal/spacecutter)
-[^21]: How can modify ViT Pytorch transformer model for regression task - Stack
-    Overflow, accessed on October 9, 2025,
-    [https://stackoverflow.com/questions/75642865/how-can-modify-vit-pytorch-transformer-model-for-regression-task](https://stackoverflow.com/questions/75642865/how-can-modify-vit-pytorch-transformer-model-for-regression-task)
-[^22]: Trainer - Hugging Face, accessed on October 9, 2025,
-    [https://huggingface.co/docs/transformers/main/trainer](https://huggingface.co/docs/transformers/main/trainer)
-[^23]: How to Use the Trainer API in Hugging Face for Custom Training Loops -
-    KDnuggets, accessed on October 9, 2025,
-    [https://www.kdnuggets.com/how-to-trainer-api-hugging-face-custom-training-loops](https://www.kdnuggets.com/how-to-trainer-api-hugging-face-custom-training-loops)
-[^24]: spacecutter: Ordinal Regression Models in PyTorch | Ethan Rosenthal,
-    accessed on October 9, 2025,
-    [https://www.ethanrosenthal.com/2018/12/06/spacecutter-ordinal-regression/](https://www.ethanrosenthal.com/2018/12/06/spacecutter-ordinal-regression/)
-[^25]: ONNX - Hugging Face, accessed on October 9, 2025,
-    [https://huggingface.co/docs/transformers/serialization](https://huggingface.co/docs/transformers/serialization)
-[^26]: From PyTorch to ONNX: How Performance and Accuracy Compare | by Claudia
-    Yao, accessed on October 9, 2025,
-    [https://medium.com/@claudia.yao2012/from-pytorch-to-onnx-how-performance-and-accuracy-compare-a6f4747c1171](https://medium.com/@claudia.yao2012/from-pytorch-to-onnx-how-performance-and-accuracy-compare-a6f4747c1171)
-[^27]: Export to ONNX - Hugging Face, accessed on October 9, 2025,
-    [https://huggingface.co/docs/transformers/v4.38.0/serialization](https://huggingface.co/docs/transformers/v4.38.0/serialization)
-[^28]: Export to ONNX - Hugging Face, accessed on October 9, 2025,
-    [https://huggingface.co/docs/transformers/v4.49.0/serialization](https://huggingface.co/docs/transformers/v4.49.0/serialization)
-[^29]: [docs] [onnx] Update the max admissible `opset_version` in the docs of
-    `torch.onnx.export` and maybe update the default `opset_version` to 17 in
-    release 2.1? · Issue #107446 · pytorch/pytorch - GitHub, accessed on
-    October 9, 2025,
-    [https://github.com/pytorch/pytorch/issues/107446](https://github.com/pytorch/pytorch/issues/107446)
-[^30]: ONNX Runtime compatibility, accessed on October 9, 2025,
-    [https://onnxruntime.ai/docs/reference/compatibility.html](https://onnxruntime.ai/docs/reference/compatibility.html)
-[^31]: Configuration classes for ONNX exports - Hugging Face, accessed on October
-    9, 2025,
-    [https://huggingface.co/docs/optimum-onnx/onnx/package_reference/configuration](https://huggingface.co/docs/optimum-onnx/onnx/package_reference/configuration)
-[^32]: torch.onnx.verification — PyTorch 2.8 documentation, accessed on October 9,
-    2025,
-    [https://docs.pytorch.org/docs/stable/onnx_verification.html](https://docs.pytorch.org/docs/stable/onnx_verification.html)
-[^33]: Onnx Model Quantization | by Nashrakhan | Medium, accessed on October 9,
-    2025,
-    [https://medium.com/@nashrakhan1008/model-quantization-8f10c537e0eb](https://medium.com/@nashrakhan1008/model-quantization-8f10c537e0eb)
-[^34]: Boost Your AI Models with INT8 Quantization ONNX Static vs Dynamic + Python
-    & C++ Speed Test - YouTube, accessed on October 9, 2025,
-    [https://www.youtube.com/watch?v=l9gyN1J5CCM](https://www.youtube.com/watch?v=l9gyN1J5CCM)
-[^35]: Quantize ONNX Models - ONNXRuntime - GitHub Pages, accessed on October 9,
-    2025,
-    [https://iot-robotics.github.io/ONNXRuntime/docs/performance/quantization.html](https://iot-robotics.github.io/ONNXRuntime/docs/performance/quantization.html)
-[^36]: Quantize ONNX models | onnxruntime, accessed on October 9, 2025,
-    [https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html)
-[^37]: Optimization - Hugging Face, accessed on October 9, 2025,
-    [https://huggingface.co/docs/optimum-onnx/onnxruntime/usage_guides/optimization](https://huggingface.co/docs/optimum-onnx/onnxruntime/usage_guides/optimization)
-[^38]: Crate ort - Rust bindings for ONNX Runtime - [Docs.rs](http://Docs.rs),
-    accessed on October 9, 2025, [https://docs.rs/ort](https://docs.rs/ort)
-[^39]: pykeio/ort: Fast ML inference & training for ONNX models in Rust - GitHub,
-    accessed on October 9, 2025,
-    [https://github.com/pykeio/ort](https://github.com/pykeio/ort)
-[^40]: The Manifest Format - The Cargo Book - Rust Documentation, accessed on
-    October 9, 2025,
-    [https://doc.rust-lang.org/cargo/reference/manifest.html](https://doc.rust-lang.org/cargo/reference/manifest.html)
+- **Seamless Deployment Integration:** The final ONNX model and accompanying
+  artifacts are packaged in alignment with the LAG Complexity inference
+  infrastructure. The Rust service can readily load the model and knows how to
+  trust its integrity and interpret its outputs, because the pipeline ensured
+  consistency in tokenization and ordinal logic between training and inference.
+  This minimizes the friction when promoting a new model to production – it is
+  a drop-in replacement for the previous version, with only a version number
+  change in config.
+
+Implementing this design will equip the engineering team with a robust MLOps
+pipeline that can be run on-demand or on schedule to refresh the LAG Complexity
+models (e.g., retraining the depth or ambiguity classifiers when new data is
+available or improvements are made). The use of open-source orchestration and
+infrastructure-as-code fits our organizational preference for transparency and
+control. By following the guidelines and architecture outlined in this
+document, the team can confidently build and deploy the next generation of LAG
+Complexity models with **full end-to-end automation, minimal cost, and maximum
+reliability**.
+
+**Sources:**
+
+- LAG Complexity Roadmap and ADRs – detailing model export, quantization, and
+  verification
+  requirements([2](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/roadmap.md#L51-L58))([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L238-L246)).
+
+- Prior Design Proposal – provided the initial pipeline structure, emphasizing
+  modularity, checkpointing, and integration with Rust.
+
+- Prefect & Terraform Documentation – informing the use of Prefect Orion for
+  local orchestration and Terraform (OpenTofu) for cloud-agnostic provisioning
+  (no direct excerpt, applied as per design).
