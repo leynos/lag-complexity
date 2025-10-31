@@ -12,10 +12,36 @@ progress tracking.
 
 - [ ] Stand up a Prefect Orion server with Postgres backing, TLS termination,
       and daily backup restore drills completing inside 30 minutes.
+  - [ ] Document Orion control plane topology, including Postgres sizing,
+        networking, and certificate authority integration.
+  - [ ] Automate provisioning for Postgres, object storage, and Orion services
+        via infrastructure-as-code checked into version control.
+  - [ ] Configure TLS termination with managed certificate renewal and run
+        acceptance tests confirming HTTPS enforcement.
+  - [ ] Schedule daily logical backups and store encrypted snapshots with
+        retention meeting recovery point objectives.
+  - [ ] Rehearse restore drills into a staging environment, recording elapsed
+        time and remediation notes when runs exceed 30 minutes.
 - [ ] Register dedicated Prefect agents for control and compute queues, proven
       by smoke flows covering provisioning, training, and teardown paths.
+  - [ ] Define queue taxonomy (control versus compute) with resource limits,
+        labels, and expected concurrency documented for operators.
+  - [ ] Deploy long-lived Prefect agent processes (e.g., systemd units or K8s
+        workloads) bound to their target queues with observability hooks.
+  - [ ] Implement smoke flows that exercise provisioning, training, and
+        teardown steps using representative infrastructure modules.
+  - [ ] Run smoke flows on a schedule and capture artefacts that prove agents
+        drain work without orphaned runs or leaked machines.
 - [ ] Model secrets, artefact buckets, and Terraform variables with Prefect
       blocks, including automated rotation tests and alerting on failures.
+  - [ ] Inventory required secrets, bucket endpoints, and Terraform variables,
+        mapping ownership and renewal cadences for each item.
+  - [ ] Define Prefect block schemas per environment and populate them from
+        the approved secret management sources.
+  - [ ] Implement automated rotation or refresh flows that validate block
+        values and roll back when verification fails.
+  - [ ] Wire alerting (Slack, PagerDuty, email) to Prefect block failures and
+        add runbook links for operator response.
 
 ### Step: Standardise compute procurement and cost controls
 
