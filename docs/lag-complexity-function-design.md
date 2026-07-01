@@ -1338,7 +1338,8 @@ of the `lag_complexity` crate will be divided into five distinct phases. Each
 phase has a clear set of deliverables and acceptance criteria, allowing for
 iterative progress and early validation of the core components.
 
-### Phase 0 — scaffolding & core API (duration: 1 week)
+
+### Phase 1 — scaffolding & core API (duration: 1 week)
 
 This foundational phase focuses on establishing the crate's architecture and
 defining the primary public interfaces.
@@ -1367,7 +1368,8 @@ defining the primary public interfaces.
   - The `lagc` CLI application can be built and executed, though it will have no
     functional commands yet.
 
-### Phase 1 — heuristic baseline (duration: 1-2 weeks)
+
+### Phase 2 — heuristic baseline (duration: 1-2 weeks)
 
 This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
@@ -1387,7 +1389,8 @@ relying on fast, lightweight heuristics.
   - The golden-file integration tests pass, establishing a baseline for
     regression testing.
 
-### Phase 2 — model-backed providers & performance (duration: 2 weeks)
+
+### Phase 3 — model-backed providers & performance (duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
 optimizing for performance.
@@ -1412,7 +1415,8 @@ optimizing for performance.
   - Initial performance metrics (latency, throughput) are recorded in
     `BENCHMARKS.md`.
 
-### Phase 3 — evaluation & calibration (duration: 1 week)
+
+### Phase 4 — evaluation & calibration (duration: 1 week)
 
 This phase is dedicated to empirically validating the scorer's effectiveness
 and tuning its parameters.
@@ -1434,7 +1438,8 @@ and tuning its parameters.
   - The calibrated parameters are finalized and committed as the default
     configuration.
 
-### Phase 4 — bindings & demos (duration: 2 weeks)
+
+### Phase 5 — bindings & demos (duration: 2 weeks)
 
 This phase focuses on making the crate accessible from other ecosystems and
 creating compelling demonstrations.
@@ -1455,7 +1460,148 @@ creating compelling demonstrations.
   - The demonstration notebooks are complete and successfully showcase the
     crate's value.
 
-### Phase 5 — production hardening (duration: 1 week)
+
+### Phase 6 — production hardening (duration: 1 week)
+
+The final phase adds the remaining features required for robust, secure, and
+observable production deployment.
+
+- **Tasks:**
+
+  - Instrument the entire crate with `tracing` spans and `metrics` calls.
+  - Implement the `moka`-based `CachingEmbeddingProvider`.
+  - Implement the `with_redaction_hook` method for PII scrubbing.
+  - Write comprehensive `rustdoc` documentation for all public APIs, including
+    detailed usage examples.
+  - Finalize the `README.md` to include installation instructions, usage
+    examples, and links to benchmarks and evaluation reports.
+
+- **Acceptance Criteria:**
+
+  - The crate is fully documented, with `cargo doc --open` producing a complete
+    and navigable API reference.
+  - All production features (observability, caching, security hooks) are
+    implemented and tested.
+  - The final project is ready for its first official release.
+
+### Phase 1 — scaffolding & core API (duration: 1 week)
+
+This foundational phase focuses on establishing the crate's architecture and
+defining the primary public interfaces.
+
+- **Tasks:**
+
+  - Initialize the Rust project using `cargo new`.
+  - Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
+    `DepthEstimator`, `AmbiguityEstimator`).
+  - Define all public data structures (`Complexity`, `Trace`, `ScoringConfig`
+    and its sub-types) and derive `serde` traits for configuration types.
+  - Implement the mathematical logic for variance calculation and all `Sigma`
+    normalization strategies.
+  - Create the stub for the `lagc` command-line interface binary using the
+    `ortho_config` crate (published as `ortho-config` on crates.io and imported
+    as `ortho_config`), which layers command-line arguments, environment
+    variables (prefixed with `LAGC_`), and configuration files without extra
+    boilerplate. Precedence is: command-line arguments > environment variables
+    > configuration files.
+
+- **Acceptance Criteria:**
+
+  - The crate and all its core types compile successfully.
+  - A comprehensive suite of unit tests for the mathematical and normalization
+    logic passes.
+  - The `lagc` CLI application can be built and executed, though it will have no
+    functional commands yet.
+
+### Phase 2 — heuristic baseline (duration: 1-2 weeks)
+
+This phase delivers the first end-to-end, functional version of the scorer,
+relying on fast, lightweight heuristics.
+
+- **Tasks:**
+
+  - Implement the `DepthHeuristic` and `AmbiguityHeuristic` providers.
+  - Implement the `ApiEmbedding` provider (behind the `provider-api` feature
+    flag) to enable initial testing with high-quality embeddings.
+  - Create the golden-file integration test suite with an initial set of ~50
+    curated queries and their expected trace outputs.
+
+- **Acceptance Criteria:**
+
+  - The `score()` and `trace()` methods are fully functional using the heuristic
+    providers.
+  - The golden-file integration tests pass, establishing a baseline for
+    regression testing.
+
+### Phase 3 — model-backed providers & performance (duration: 2 weeks)
+
+This phase focuses on enhancing accuracy with model-based providers and
+optimizing for performance.
+
+- **Tasks:**
+
+  - Train (or adapt existing) and export the initial ONNX models for depth and
+    ambiguity classification.
+  - Implement the `DepthClassifierOnnx` and `AmbiguityClassifierOnnx` providers,
+    gated by the `onnx` feature flag.
+  - Implement the `score_batch` method and integrate `rayon` for parallel
+    execution.
+  - Set up the `criterion` benchmarking suite and implement the initial set of
+    micro and macro benchmarks.
+
+- **Acceptance Criteria:**
+
+  - The ONNX-based providers can be successfully composed into a
+    `DefaultComplexity` engine and produce valid scores.
+  - The `score_batch` method demonstrates a significant performance speedup when
+    the `rayon` feature is enabled.
+  - Initial performance metrics (latency, throughput) are recorded in
+    `BENCHMARKS.md`.
+
+### Phase 4 — evaluation & calibration (duration: 1 week)
+
+This phase is dedicated to empirically validating the scorer's effectiveness
+and tuning its parameters.
+
+- **Tasks:**
+
+  - Build the dataset evaluation harness binary.
+  - Integrate loaders for the target datasets (`HotpotQA`, `AmbigQA`, etc.).
+  - Implement the calculation of correlation (`Kendall-τ`, `Spearman-ρ`) and
+    calibration (`ECE`) metrics.
+  - Run the evaluation harness and analyse the results to fine-tune the `Sigma`
+    normalization parameters and the weights within the heuristic models.
+
+- **Acceptance Criteria:**
+
+  - The evaluation harness successfully generates a report (`EVALUATION.md`).
+  - The report demonstrates a statistically significant positive correlation
+    between the crate's component scores and the corresponding dataset labels.
+  - The calibrated parameters are finalized and committed as the default
+    configuration.
+
+### Phase 5 — bindings & demos (duration: 2 weeks)
+
+This phase focuses on making the crate accessible from other ecosystems and
+creating compelling demonstrations.
+
+- **Tasks:**
+
+  - Implement the Python bindings using `pyo3`.[^21]
+  - Implement the WebAssembly bindings using `wasm-bindgen`.[^20]
+  - Develop the interactive "Complexity Meter" web page using the WASM module.
+  - Create the Jupyter notebooks for the "Smart Assistant" and "Ambiguity
+    Resolver" stakeholder demonstrations.
+
+- **Acceptance Criteria:**
+
+  - The Python package can be built, installed via `pip`, and used to score
+    queries.
+  - The WASM demo is fully functional, interactive, and hosted on a static page.
+  - The demonstration notebooks are complete and successfully showcase the
+    crate's value.
+
+### Phase 6 — production hardening (duration: 1 week)
 
 The final phase adds the remaining features required for robust, secure, and
 observable production deployment.
