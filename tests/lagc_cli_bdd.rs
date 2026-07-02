@@ -21,11 +21,10 @@ fn cli_context() -> CliContext {
 }
 
 #[given("the lagc binary")]
-#[expect(
-    unused_variables,
-    reason = "rstest-bdd requires the fixture parameter name"
-)]
-fn given_binary(#[from(cli_context)] cli_context: &CliContext) {}
+fn given_binary(#[from(cli_context)] cli_context: &CliContext) {
+    assert!(cli_context.env.get().is_none());
+    assert!(cli_context.output.get().is_none());
+}
 
 #[given("env \"{pairs}\"")]
 #[expect(
