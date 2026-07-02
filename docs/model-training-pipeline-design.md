@@ -367,9 +367,11 @@ code on the remote VM:
 - **Container Startup via User Data:** The VM’s user-data script (or Terraform
   remote-exec provisioner) automatically pulls the appropriate Docker image and
   launches the training script inside the container. For example, on AWS we
-  attach a user-data that does
+  attach user data similar to this:
+
   <!-- markdownlint-disable-next-line MD013 -->
   `docker run -e PREFECT_RUN_ID=... -v /tmp/outputs:/outputs myregistry/lag-trainer:latest python train.py --experiment <ID> ...`.
+
   The Prefect flow will wait until the training container signals completion
   (this could be done by the training script calling back to Prefect or simply
   by monitoring cloud instance status/logs).

@@ -19,18 +19,11 @@ permissions: {}
 jobs:
   automerge:
     permissions:
-      # Required to approve and enable auto-merge for eligible Dependabot PRs.
-      contents: write
-      # Required to update the Dependabot PR review and merge state.
-      pull-requests: write
-      checks: read
-      statuses: read
-      # Needed for reusable workflow introspection via GitHub OIDC:
-      # the called workflow uses an OIDC token to read `job_workflow_ref`/`job_workflow_sha`,
-      # so it can checkout the *reusable workflow repo* (leynos/shared-actions) at the exact
-      # pinned commit, rather than accidentally resolving to the caller repo via `github.workflow_*`.
-      # The token is not used for any external cloud auth.
-      id-token: write
+      contents: write # Approves and enables auto-merge for eligible Dependabot PRs.
+      pull-requests: write # Updates the Dependabot PR review and merge state.
+      checks: read # Inspects required check conclusions before enabling auto-merge.
+      statuses: read # Inspects legacy required status contexts before auto-merge.
+      id-token: write # Reads reusable workflow OIDC metadata; no external cloud auth.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login == 'dependabot[bot]' }}
     uses: leynos/shared-actions/.github/workflows/dependabot-automerge.yml@1990e9a6aaa73f0929e04dbc7da12326005606bf
     with:
