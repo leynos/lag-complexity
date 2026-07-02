@@ -5,8 +5,23 @@ use std::{error::Error, fs};
 use serde::Deserialize;
 use serde_yaml::Value;
 
-const CI_WORKFLOW: &str = ".github/workflows/ci.yml";
-const DEPENDABOT_AUTOMERGE_WORKFLOW: &str = ".github/workflows/dependabot-automerge.yml";
+#[derive(Clone, Copy)]
+enum WorkflowFile {
+    Ci,
+    DependabotAutomerge,
+}
+
+impl WorkflowFile {
+    const fn path(self) -> &'static str {
+        match self {
+            Self::Ci => ".github/workflows/ci.yml",
+            Self::DependabotAutomerge => ".github/workflows/dependabot-automerge.yml",
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct StepName<'a>(&'a str);
 
 #[derive(Debug, Deserialize)]
 struct Workflow {
@@ -19,10 +34,12 @@ struct Workflow {
 
 #[test]
 fn ci_codescene_upload_gates_on_env_secret() -> Result<(), Box<dyn Error>> {
-    let workflow = read_workflow(CI_WORKFLOW)?;
-    let build_test = mapping_value(&workflow.jobs, "build-test")?;
-    let steps = sequence_value(mapping_value(build_test, "steps")?)?;
-    let upload_step = named_step(steps, "Upload coverage data to CodeScene")?;
+    let workflow = read_workflow(WorkflowFile::Ci)?;
+    let steps = sequence_value(mapping_value_path(
+        &workflow.jobs,
+        &["build-test", "steps"],
+    )?)?;
+    let upload_step = named_step(steps, StepName("Upload coverage data to CodeScene"))?;
 
     let env = mapping_value(upload_step, "env")?;
     assert_scalar_eq(
@@ -39,7 +56,7 @@ fn ci_codescene_upload_gates_on_env_secret() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn dependabot_automerge_uses_deny_all_default_permissions() -> Result<(), Box<dyn Error>> {
-    let workflow = read_workflow(DEPENDABOT_AUTOMERGE_WORKFLOW)?;
+    let workflow = read_workflow(WorkflowFile::DependabotAutomerge)?;
 
     assert!(mapping(&workflow.permissions)?.is_empty());
 
@@ -48,8 +65,8 @@ fn dependabot_automerge_uses_deny_all_default_permissions() -> Result<(), Box<dy
 
 #[test]
 fn dependabot_automerge_gates_pull_request_target_by_author() -> Result<(), Box<dyn Error>> {
-    let workflow = read_workflow(DEPENDABOT_AUTOMERGE_WORKFLOW)?;
-    let automerge = mapping_value(&workflow.jobs, "automerge")?;
+    let workflow = read_workflow(WorkflowFile::DependabotAutomerge)?;
+    let automerge = mapping_value_path(&workflow.jobs, &["automerge"])?;
 
     assert_scalar_eq(
         mapping_value(automerge, "if")?,
@@ -64,9 +81,8 @@ fn dependabot_automerge_gates_pull_request_target_by_author() -> Result<(), Box<
 
 #[test]
 fn dependabot_automerge_grants_only_required_job_permissions() -> Result<(), Box<dyn Error>> {
-    let workflow = read_workflow(DEPENDABOT_AUTOMERGE_WORKFLOW)?;
-    let automerge = mapping_value(&workflow.jobs, "automerge")?;
-    let permissions = mapping_value(automerge, "permissions")?;
+    let workflow = read_workflow(WorkflowFile::DependabotAutomerge)?;
+    let permissions = mapping_value_path(&workflow.jobs, &["automerge", "permissions"])?;
 
     assert_scalar_eq(mapping_value(permissions, "contents")?, "write");
     assert_scalar_eq(mapping_value(permissions, "pull-requests")?, "write");
@@ -79,10 +95,10 @@ fn dependabot_automerge_grants_only_required_job_permissions() -> Result<(), Box
 
 #[test]
 fn dependabot_automerge_keeps_expected_triggers() -> Result<(), Box<dyn Error>> {
-    let workflow = read_workflow(DEPENDABOT_AUTOMERGE_WORKFLOW)?;
+    let workflow = read_workflow(WorkflowFile::DependabotAutomerge)?;
     let triggers = mapping(&workflow.triggers)?;
-    let pull_request_target = mapping_value(&workflow.triggers, "pull_request_target")?;
-    let workflow_dispatch = mapping_value(&workflow.triggers, "workflow_dispatch")?;
+    let pull_request_target = mapping_value_path(&workflow.triggers, &["pull_request_target"])?;
+    let workflow_dispatch = mapping_value_path(&workflow.triggers, &["workflow_dispatch"])?;
 
     assert!(triggers.contains_key(Value::String("pull_request_target".to_owned())));
     assert!(triggers.contains_key(Value::String("workflow_dispatch".to_owned())));
@@ -102,18 +118,18 @@ fn dependabot_automerge_keeps_expected_triggers() -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-fn read_workflow(path: &str) -> Result<Workflow, Box<dyn Error>> {
-    let contents = fs::read_to_string(path)?;
+fn read_workflow(file: WorkflowFile) -> Result<Workflow, Box<dyn Error>> {
+    let contents = fs::read_to_string(file.path())?;
     let workflow = serde_yaml::from_str(&contents)?;
 
     Ok(workflow)
 }
 
-fn named_step<'a>(steps: &'a [Value], name: &str) -> Result<&'a Value, Box<dyn Error>> {
+fn named_step<'a>(steps: &'a [Value], name: StepName<'_>) -> Result<&'a Value, Box<dyn Error>> {
     steps
         .iter()
-        .find(|step| scalar_value(mapping_value(step, "name").ok()) == Some(name))
-        .ok_or_else(|| format!("missing workflow step named {name:?}").into())
+        .find(|step| scalar_value(mapping_value(step, "name").ok()) == Some(name.0))
+        .ok_or_else(|| format!("missing workflow step named {:?}", name.0).into())
 }
 
 fn mapping(value: &Value) -> Result<&serde_yaml::Mapping, Box<dyn Error>> {
@@ -126,6 +142,11 @@ fn mapping_value<'a>(value: &'a Value, key: &str) -> Result<&'a Value, Box<dyn E
     mapping(value)?
         .get(Value::String(key.to_owned()))
         .ok_or_else(|| format!("missing mapping key {key:?}").into())
+}
+
+fn mapping_value_path<'a>(value: &'a Value, path: &[&str]) -> Result<&'a Value, Box<dyn Error>> {
+    path.iter()
+        .try_fold(value, |acc, key| mapping_value(acc, key))
 }
 
 fn sequence_value(value: &Value) -> Result<&[Value], Box<dyn Error>> {
