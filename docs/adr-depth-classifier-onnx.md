@@ -3,9 +3,9 @@
 **Status:** Accepted (Revised) \
 **Date:** 24 September 2025 \
 **Owner:** LAG Complexity / Cognitive Clutch \
-**Related:**&nbsp;[LAG Complexity design
-document](lag-complexity-function-design.md). Focuses on the Complexity
-function and Cognitive Clutch.
+**Related:**&nbsp;
+[LAG Complexity design document](lag-complexity-function-design.md). Focuses on
+the Complexity function and Cognitive Clutch.
 
 ______________________________________________________________________
 
@@ -163,8 +163,8 @@ MLP** as a supported fallback under a feature flag.
 
 ## 12. Integration details
 
-- **Provider type:** `DepthClassifierOnnx { session, input_names, output_names
-  }`.
+- **Provider type:**
+  `DepthClassifierOnnx { session, input_names, output_names }`.
 - **Trait:** implements `TextProcessor<Output = f32>`; returns scalar raw depth
   (expected steps or mapped mid-bin).
 - **Tokenization:** handled in Rust with a pinned vocabulary, keeping the
@@ -262,8 +262,8 @@ ______________________________________________________________________
   optional `Mul`/`Add` calibration, small `Reduce`/`Add` to compute expectation.
 - Inputs: `input_ids: int64[batch, max_seq_len]`,
   `attention_mask: int64[batch, max_seq_len]`.
-- Outputs: `logits_ord: float32[batch, K]` and/or `depth_scalar: float32[batch,
-  1]` if expectation is embedded.
+- Outputs: `logits_ord: float32[batch, K]` and/or
+  `depth_scalar: float32[batch, 1]` if expectation is embedded.
 
 ### Appendix B — Acceptance criteria
 

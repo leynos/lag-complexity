@@ -1,10 +1,10 @@
-.PHONY: help all clean test build release lint fmt check-fmt markdownlint nixie bless
+.PHONY: help all clean test build release lint typecheck fmt check-fmt markdownlint nixie bless
 
 APP ?= lag-complexity
 CARGO ?= cargo
 BUILD_JOBS ?=
 CLIPPY_FLAGS ?= --all-targets --all-features -- -D warnings
-MDLINT ?= markdownlint
+MDLINT ?= markdownlint-cli2
 NIXIE ?= nixie
 
 build: target/debug/$(APP) ## Build debug binary
@@ -23,6 +23,9 @@ target/%/$(APP): ## Build binary in debug or release mode
 
 lint: ## Run Clippy with warnings denied
 	$(CARGO) clippy $(CLIPPY_FLAGS)
+
+typecheck: ## Check all targets and features with warnings denied
+	RUSTFLAGS="-D warnings" $(CARGO) check --all-targets --all-features $(BUILD_JOBS)
 
 fmt: ## Format Rust and Markdown sources
 	$(CARGO) fmt --all

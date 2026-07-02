@@ -139,10 +139,10 @@ the body of `test_add_to_basket`.
 The `#[scenario]` macro is the entry point that ties a Rust test function to a
 scenario defined in a `.feature` file. It accepts two arguments:
 
-| Argument       | Purpose                                                                                                      | Status                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `path: &str`   | Relative path to the feature file from the crate root. This is mandatory.                                    | **Implemented**: the macro resolves the path at compile time and parses the feature using the `gherkin` crate. |
-| `index: usize` | Optional zero‑based index selecting a scenario when the file contains multiple scenarios. Defaults to `0`.   | **Implemented**: the macro uses the index to pick the scenario.                                                |
+| Argument       | Purpose                                                                                                    | Status                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `path: &str`   | Relative path to the feature file from the crate root. This is mandatory.                                  | **Implemented**: the macro resolves the path at compile time and parses the feature using the `gherkin` crate. |
+| `index: usize` | Optional zero‑based index selecting a scenario when the file contains multiple scenarios. Defaults to `0`. | **Implemented**: the macro uses the index to pick the scenario.                                                |
 
 If the feature file cannot be found or contains invalid Gherkin, the macro
 emits a compile-time error with the offending path.
@@ -214,12 +214,12 @@ Steps may supply structured or free-form data via a trailing argument. A data
 table is received by including an argument named `datatable` of type
 `Vec<Vec<String>>`. A Gherkin Doc String is made available through an argument
 named `docstring` of type `String`. Both arguments must use these exact names
-and types to be detected by the procedural macros. When both are declared,
-place `datatable` before `docstring` at the end of the parameter list. At
-runtime, the generated wrapper converts the table cells or copies the block
-text and passes them to the step function, panicking if the feature omits the
-expected content. Doc Strings may be delimited by triple double-quotes or
-triple backticks.
+and types to be detected by the procedural macros. When both are declared, place
+`datatable` before `docstring` at the end of the parameter list. At runtime,
+the generated wrapper converts the table cells or copies the block text and
+passes them to the step function, panicking if the feature omits the expected
+content. Doc Strings may be delimited by triple double-quotes or triple
+backticks.
 
 ## Limitations and roadmap
 
