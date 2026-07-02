@@ -21,8 +21,9 @@ fn cli_context() -> CliContext {
 }
 
 #[given("the lagc binary")]
-fn given_binary(#[from(cli_context)] ctx: &CliContext) {
-    let _ = ctx;
+fn given_binary(#[from(cli_context)] cli_context: &CliContext) {
+    assert!(cli_context.env.get().is_none());
+    assert!(cli_context.output.get().is_none());
 }
 
 #[given("env \"{pairs}\"")]
@@ -143,21 +144,13 @@ fn then_stdout_contains(text: String, #[from(cli_context)] ctx: &CliContext) {
 }
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 0)]
-fn dry_run(cli_context: CliContext) {
-    let _ = cli_context;
-}
+fn dry_run(cli_context: CliContext) {}
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 1)]
-fn dry_run_disabled(cli_context: CliContext) {
-    let _ = cli_context;
-}
+fn dry_run_disabled(cli_context: CliContext) {}
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 2)]
-fn env_dry_run(cli_context: CliContext) {
-    let _ = cli_context;
-}
+fn env_dry_run(cli_context: CliContext) {}
 
 #[scenario(path = "tests/features/lagc_cli.feature", index = 3)]
-fn invalid_flag(cli_context: CliContext) {
-    let _ = cli_context;
-}
+fn invalid_flag(cli_context: CliContext) {}

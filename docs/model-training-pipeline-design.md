@@ -54,14 +54,14 @@ Key improvements in this design include:
   **unique version identifiers** (such as an experiment ID or semantic version)
   and accompanied by
   checksums([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L238-L246))
-   and metadata. This guarantees that any model artifact can be traced back to
+  and metadata. This guarantees that any model artifact can be traced back to
   the exact code, data, and environment that produced it, ensuring strict
   reproducibility. The ONNX model files include a version tag in their metadata
   and are stored alongside their tokenizer and a `metadata.json` manifest
   containing training details and metrics. The Rust inference code verifies the
   artifact integrity via checksum before
   use([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L240-L247)),
-   closing the loop on end-to-end reliability.
+  closing the loop on end-to-end reliability.
 
 Overall, this revised design maintains the original pipeline’s modularity,
 performance focus, and production readiness, while embedding a **flexible,
@@ -247,7 +247,7 @@ automate their lifecycle:
   permissions). Prefect tasks use a Terraform CLI command (e.g.,
   `terraform apply` with appropriate variables) to provision
   resources([2](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/roadmap.md#L51-L58))([2](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/roadmap.md#L59-L67)).
-   Once the task finishes, another Terraform call (`terraform destroy`) is used
+  Once the task finishes, another Terraform call (`terraform destroy`) is used
   to tear down the resources, ensuring no idle costs. Terraform state is stored
   in a remote backend (or locally on the Prefect server) for consistency – this
   could be an S3 bucket or local file, as appropriate, given our
@@ -315,7 +315,7 @@ data and model artifacts, reinforcing reproducibility:
   each run’s outputs. We also maintain a **checksum manifest** for each model
   (recording SHA-256 of the ONNX files and
   tokenizer)([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L238-L246)),
-   stored alongside the model, to be used by the Rust service for verification
+  stored alongside the model, to be used by the Rust service for verification
   at load time.
 
 - **Configuration and Code Versioning:** The exact configuration of each run
@@ -360,17 +360,19 @@ training stage, it executes the following steps:
 
 **Provisioning and Bootstrapping**: The **`provision_training_vm`** task in the
 Prefect flow applies our Terraform template for a GPU instance (as decided in
-Section 1.2). Once the instance is up, the flow proceeds to an
-**`execute_training`** task. We have two main strategies for running the
-training code on the remote VM:
+Section 1.2). Once the instance is up, the flow proceeds to an **
+`execute_training`** task. We have two main strategies for running the training
+code on the remote VM:
 
 - **Container Startup via User Data:** The VM’s user-data script (or Terraform
   remote-exec provisioner) automatically pulls the appropriate Docker image and
   launches the training script inside the container. For example, on AWS we
-  attach a user-data that does
+  attach user data similar to this:
+
   <!-- markdownlint-disable-next-line MD013 -->
   `docker run -e PREFECT_RUN_ID=... -v /tmp/outputs:/outputs myregistry/lag-trainer:latest python train.py --experiment <ID> ...`.
-   The Prefect flow will wait until the training container signals completion
+
+  The Prefect flow will wait until the training container signals completion
   (this could be done by the training script calling back to Prefect or simply
   by monitoring cloud instance status/logs).
 
@@ -597,7 +599,7 @@ points:
 - We choose `opset_version=17` for ONNX, which is aligned with our inference
   environment (ONNX Runtime 1.22 as per the
   ADR([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L170-L178))).
-   Opset 17 includes support for all needed ops (like LayerNormalization) and
+  Opset 17 includes support for all needed ops (like LayerNormalization) and
   ensures portability across platforms.
 
 - Optimum can also apply graph optimizations. We may use an `--optimize O3`
@@ -714,7 +716,7 @@ the outputs of the INT8 model to the FP32 ONNX model on a small test set. We
 expect slightly larger differences (so we might use a tolerance like `1e-2`),
 but the accuracy drop should be within acceptable limits (our target was ≤1%
 degradation([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L160-L167))).
- If the INT8 model shows unacceptable deviation, the pipeline could decide to
+If the INT8 model shows unacceptable deviation, the pipeline could decide to
 fail or warn. Assuming all is well, we proceed to save the quantized model.
 
 **Publishing the Quantized Model:** We upload `model_quantized.onnx` to the
@@ -760,7 +762,7 @@ To summarize Stage 3, we have taken the fine-tuned model, converted it to ONNX
 (for portable, runtime-efficient format), verified its correctness, and applied
 quantization to meet performance targets (e.g., p95 latency ≤ 10ms on CPU as
 required([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L26-L34))([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L38-L46))).
- The result is a production-ready model artifact set.
+The result is a production-ready model artifact set.
 
 ## Section 4: Integration with LAG Complexity Infrastructure (Deployment Phase)
 
@@ -780,7 +782,7 @@ involves retrieving this package and configuring the Rust service to use it:
   `experiment_id = depth-ordinal-1.0.0`. This version can be encoded in the
   artifact path or in the ONNX model’s
   metadata([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L242-L249)).
-   The **Rust application** (or its config) will specify which version of the
+  The **Rust application** (or its config) will specify which version of the
   model to use (likely the latest stable).
 
 - During deployment of the Rust service, a CI/CD step will fetch the needed
@@ -798,7 +800,7 @@ We also maintain **strict auditability** here: the Rust service is configured
 to verify the SHA-256 checksum of the ONNX model at startup against the
 checksum recorded by the
 pipeline([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L240-L247)).
- Our pipeline provided that checksum (in the metadata). If they don't match,
+Our pipeline provided that checksum (in the metadata). If they don't match,
 the service will refuse to load the model, preventing any tampering or mismatch
 between code and model. This was an explicit design in the ADR and we uphold it
 in our artifact generation.

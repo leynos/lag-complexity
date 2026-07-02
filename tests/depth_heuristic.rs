@@ -1,3 +1,5 @@
+//! Behaviour tests for the depth heuristic provider.
+
 use lag_complexity::TextProcessor;
 use lag_complexity::heuristics::{DepthHeuristic, DepthHeuristicError};
 use rstest::rstest;

@@ -13,7 +13,7 @@ primary public interfaces.
 - [x] Implement the mathematical logic for variance calculation and all `Sigma`
   normalization strategies.
 - [x] Create the stub for the `lagc` CLI binary using `ortho_config`
-  (published as `ortho-config` on crates.io) [^hyphen-underscore].
+  (published as `ortho-config` on crates.io)[^hyphen-underscore].
 - [ ] **Acceptance Criteria**: The crate and all its core types compile
   successfully.
 - [x] **Acceptance Criteria**: A comprehensive suite of unit tests for the
