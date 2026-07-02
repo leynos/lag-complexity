@@ -25,7 +25,9 @@ jobs:
       - name: Test
         run: make test
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin
       - name: Run coverage
         run: cargo tarpaulin --out lcov
       - name: Upload coverage data to CodeScene
