@@ -1,3 +1,5 @@
+//! Golden trace regression tests for the heuristic complexity engine.
+
 use lag_complexity::{Complexity, ComplexityFn, HeuristicComplexity, Trace};
 use serde::Deserialize;
 use serde_json::from_str;

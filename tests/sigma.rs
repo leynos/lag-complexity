@@ -1,3 +1,5 @@
+//! Behaviour tests for Sigma normalization strategies.
+
 use lag_complexity::Sigma;
 mod support;
 use rstest::rstest;

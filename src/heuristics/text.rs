@@ -105,10 +105,7 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
 ///
 /// assert_eq!(substring_count("more than less", "more"), 1);
 /// ```
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "deprecated wrapper retained for migration")
-)]
+#[cfg(test)]
 #[expect(
     clippy::expect_used,
     reason = "regex::escape makes the pattern infallible; a failure would indicate OOM"

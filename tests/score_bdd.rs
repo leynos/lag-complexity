@@ -166,14 +166,10 @@ fn then_depth_error_trace(#[from(test_context)] context: &TestContext) {
 }
 
 #[scenario(path = "tests/features/heuristic_scoring/multi_clause.feature")]
-fn score_multi_clause(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_multi_clause(test_context: TestContext) {}
 
 #[scenario(path = "tests/features/heuristic_scoring/ambiguous.feature")]
-fn score_ambiguous_question(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_ambiguous_question(test_context: TestContext) {}
 
 #[scenario(path = "tests/features/heuristic_scoring/ambiguous.feature", index = 1)]
 fn score_ambiguous_lexicon_variants(test_context: TestContext) {
@@ -185,77 +181,55 @@ fn score_ambiguous_lexicon_variants(test_context: TestContext) {
 }
 
 #[scenario(path = "tests/features/heuristic_scoring/empty_query.feature")]
-fn score_empty_query(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_empty_query(test_context: TestContext) {}
 
 #[scenario(path = "tests/features/heuristic_scoring/pronoun_context.feature")]
-fn score_pronoun_with_context(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_pronoun_with_context(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 1
 )]
-fn score_pronoun_without_antecedent(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_pronoun_without_antecedent(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 2
 )]
-fn score_multiple_pronouns(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_multiple_pronouns(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 3
 )]
-fn score_multiple_antecedents(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_multiple_antecedents(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 4
 )]
-fn score_adverb_prefixed_pronoun(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_adverb_prefixed_pronoun(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 5
 )]
-fn score_idiomatic_pronoun_usage(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_idiomatic_pronoun_usage(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 6
 )]
-fn score_curly_apostrophe_pronoun_usage(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_curly_apostrophe_pronoun_usage(test_context: TestContext) {}
 
 #[scenario(
     path = "tests/features/heuristic_scoring/pronoun_context.feature",
     index = 7
 )]
-fn score_cross_sentence_antecedent(test_context: TestContext) {
-    let _ = test_context;
-}
+fn score_cross_sentence_antecedent(test_context: TestContext) {}
 
 #[scenario(path = "tests/features/heuristic_scoring/trace_simple.feature")]
-fn trace_simple_question(test_context: TestContext) {
-    let _ = test_context;
-}
+fn trace_simple_question(test_context: TestContext) {}
 
 #[scenario(path = "tests/features/heuristic_scoring/trace_empty.feature")]
-fn trace_empty_query(test_context: TestContext) {
-    let _ = test_context;
-}
+fn trace_empty_query(test_context: TestContext) {}

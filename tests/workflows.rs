@@ -83,7 +83,9 @@ fn dependabot_automerge_gates_pull_request_target_by_author() -> Result<(), Box<
 fn dependabot_automerge_grants_only_required_job_permissions() -> Result<(), Box<dyn Error>> {
     let workflow = read_workflow(WorkflowFile::DependabotAutomerge)?;
     let permissions = mapping_value_path(&workflow.jobs, &["automerge", "permissions"])?;
+    let permissions_map = mapping(permissions)?;
 
+    assert_eq!(permissions_map.len(), 5);
     assert_scalar_eq(mapping_value(permissions, "contents")?, "write");
     assert_scalar_eq(mapping_value(permissions, "pull-requests")?, "write");
     assert_scalar_eq(mapping_value(permissions, "checks")?, "read");
@@ -96,12 +98,9 @@ fn dependabot_automerge_grants_only_required_job_permissions() -> Result<(), Box
 #[test]
 fn dependabot_automerge_keeps_expected_triggers() -> Result<(), Box<dyn Error>> {
     let workflow = read_workflow(WorkflowFile::DependabotAutomerge)?;
-    let triggers = mapping(&workflow.triggers)?;
     let pull_request_target = mapping_value_path(&workflow.triggers, &["pull_request_target"])?;
     let workflow_dispatch = mapping_value_path(&workflow.triggers, &["workflow_dispatch"])?;
 
-    assert!(triggers.contains_key(Value::String("pull_request_target".to_owned())));
-    assert!(triggers.contains_key(Value::String("workflow_dispatch".to_owned())));
     assert_sequence_eq(mapping_value(pull_request_target, "branches")?, &["main"])?;
     assert_sequence_eq(
         mapping_value(pull_request_target, "types")?,
