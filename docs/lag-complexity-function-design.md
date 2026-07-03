@@ -1338,7 +1338,7 @@ of the `lag_complexity` crate will be divided into five distinct phases. Each
 phase has a clear set of deliverables and acceptance criteria, allowing for
 iterative progress and early validation of the core components.
 
-### Phase 0 — scaffolding & core API (duration: 1 week)
+### Phase 1 — scaffolding & core API (duration: 1 week)
 
 This foundational phase focuses on establishing the crate's architecture and
 defining the primary public interfaces.
@@ -1367,7 +1367,7 @@ defining the primary public interfaces.
   - The `lagc` CLI application can be built and executed, though it will have no
     functional commands yet.
 
-### Phase 1 — heuristic baseline (duration: 1-2 weeks)
+### Phase 2 — heuristic baseline (duration: 1-2 weeks)
 
 This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
@@ -1387,7 +1387,7 @@ relying on fast, lightweight heuristics.
   - The golden-file integration tests pass, establishing a baseline for
     regression testing.
 
-### Phase 2 — model-backed providers & performance (duration: 2 weeks)
+### Phase 3 — model-backed providers & performance (duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
 optimizing for performance.
@@ -1412,7 +1412,7 @@ optimizing for performance.
   - Initial performance metrics (latency, throughput) are recorded in
     `BENCHMARKS.md`.
 
-### Phase 3 — evaluation & calibration (duration: 1 week)
+### Phase 4 — evaluation & calibration (duration: 1 week)
 
 This phase is dedicated to empirically validating the scorer's effectiveness
 and tuning its parameters.
@@ -1434,7 +1434,7 @@ and tuning its parameters.
   - The calibrated parameters are finalized and committed as the default
     configuration.
 
-### Phase 4 — bindings & demos (duration: 2 weeks)
+### Phase 5 — bindings & demos (duration: 2 weeks)
 
 This phase focuses on making the crate accessible from other ecosystems and
 creating compelling demonstrations.
@@ -1455,7 +1455,7 @@ creating compelling demonstrations.
   - The demonstration notebooks are complete and successfully showcase the
     crate's value.
 
-### Phase 5 — production hardening (duration: 1 week)
+### Phase 6 — production hardening (duration: 1 week)
 
 The final phase adds the remaining features required for robust, secure, and
 observable production deployment.

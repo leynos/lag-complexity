@@ -6,44 +6,48 @@ design; within each phase, steps outline coherent workstreams, and tasks define
 measurable deliverables. Actionable tasks are prefixed with checkboxes for easy
 progress tracking.
 
-## Phase 1: Establish self-hosted orchestration baselines
+## 1. Establish self-hosted orchestration baselines
 
-### Step: Deploy Prefect Orion control plane
+### 1.1. Deploy Prefect Orion control plane
 
-- [ ] Stand up a Prefect Orion server with Postgres backing, TLS termination,
-      and daily backup restore drills completing inside 30 minutes.
-  - [ ] Document Orion control plane topology, including Postgres sizing,
-        networking, and certificate authority integration.
-  - [ ] Automate provisioning for Postgres, object storage, and Orion services
-        via infrastructure-as-code checked into version control.
-  - [ ] Configure TLS termination with managed certificate renewal and run
-        acceptance tests confirming HTTPS enforcement.
-  - [ ] Schedule daily logical backups and store encrypted snapshots with
-        retention meeting recovery point objectives.
-  - [ ] Rehearse restore drills into a staging environment, recording elapsed
-        time and remediation notes when runs exceed 30 minutes.
-- [ ] Register dedicated Prefect agents for control and compute queues, proven
-      by smoke flows covering provisioning, training, and teardown paths.
-  - [ ] Define queue taxonomy (control versus compute) with resource limits,
-        labels, and expected concurrency documented for operators.
-  - [ ] Deploy long-lived Prefect agent processes (e.g., systemd units or K8s
-        workloads) bound to their target queues with observability hooks.
-  - [ ] Implement smoke flows that exercise provisioning, training, and
-        teardown steps using representative infrastructure modules.
-  - [ ] Run smoke flows on a schedule and capture artefacts that prove agents
-        drain work without orphaned runs or leaked machines.
-- [ ] Model secrets, artefact buckets, and Terraform variables with Prefect
-      blocks, including automated rotation tests and alerting on failures.
-  - [ ] Inventory required secrets, bucket endpoints, and Terraform variables,
-        mapping ownership and renewal cadences for each item.
-  - [ ] Define Prefect block schemas per environment and populate them from
-        the approved secret management sources.
-  - [ ] Implement automated rotation or refresh flows that validate block
-        values and roll back when verification fails.
-  - [ ] Wire alerting (Slack, PagerDuty, email) to Prefect block failures and
-        add runbook links for operator response.
+- [ ] 1.1.1. Stand up a Prefect Orion server with Postgres backing, TLS
+      termination, and daily backup restore drills completing inside
+      30 minutes.
+  - [ ] 1.1.1.1. Document Orion control plane topology, including Postgres
+        sizing, networking, and certificate authority integration.
+  - [ ] 1.1.1.2. Automate provisioning for Postgres, object storage, and Orion
+        services via infrastructure-as-code checked into version control.
+  - [ ] 1.1.1.3. Configure TLS termination with managed certificate renewal
+        and run acceptance tests confirming HTTPS enforcement.
+  - [ ] 1.1.1.4. Schedule daily logical backups and store encrypted snapshots
+        with retention meeting recovery point objectives.
+  - [ ] 1.1.1.5. Rehearse restore drills into a staging environment, recording
+        elapsed time and remediation notes when runs exceed 30 minutes.
+- [ ] 1.1.2. Register dedicated Prefect agents for control and compute queues,
+      proven by smoke flows covering provisioning, training, and teardown
+      paths.
+  - [ ] 1.1.2.1. Define queue taxonomy (control versus compute) with resource
+        limits, labels, and expected concurrency documented for operators.
+  - [ ] 1.1.2.2. Deploy long-lived Prefect agent processes (e.g., systemd
+        units or K8s workloads) bound to their target queues with
+        observability hooks.
+  - [ ] 1.1.2.3. Implement smoke flows that exercise provisioning, training,
+        and teardown steps using representative infrastructure modules.
+  - [ ] 1.1.2.4. Run smoke flows on a schedule and capture artefacts that
+        prove agents drain work without orphaned runs or leaked machines.
+- [ ] 1.1.3. Model secrets, artefact buckets, and Terraform variables with
+      Prefect blocks, including automated rotation tests and alerting on
+      failures.
+  - [ ] 1.1.3.1. Inventory required secrets, bucket endpoints, and Terraform
+        variables, mapping ownership and renewal cadences for each item.
+  - [ ] 1.1.3.2. Define Prefect block schemas per environment and populate
+        them from the approved secret management sources.
+  - [ ] 1.1.3.3. Implement automated rotation or refresh flows that validate
+        block values and roll back when verification fails.
+  - [ ] 1.1.3.4. Wire alerting (Slack, PagerDuty, email) to Prefect block
+        failures and add runbook links for operator response.
 
-### Step: Standardise compute procurement and cost controls
+### 1.2. Standardise compute procurement and cost controls
 
 - [ ] Automate OpenTofu modules for g4dn.xlarge, g6.xlarge, and c6i.xlarge
       instances with provider parameterisation and teardown under 10 minutes.
@@ -54,7 +58,7 @@ progress tracking.
 - [ ] Implement spot interruption handling tests that confirm checkpoint resume
       succeeds after simulated two-minute warnings.
 
-### Step: Harden storage and artefact governance
+### 1.3. Harden storage and artefact governance
 
 - [ ] Roll out S3-compatible bucket layout matching the design’s directory
       schema with lifecycle rules for hot, warm, and archived tiers.
@@ -65,9 +69,9 @@ progress tracking.
 - [ ] Generate metadata manifest templates (experiment ID, git SHA, checksums)
       and enforce schema validation before artefacts transition phases.
 
-## Phase 2: Deliver the Python fine-tuning pipeline
+## 2. Deliver the Python fine-tuning pipeline
 
-### Step: Implement deterministic data ingestion and preparation
+### 2.1. Implement deterministic data ingestion and preparation
 
 - [ ] Build ingestion scripts that hydrate `/datasets/raw/` from approved
       sources and emit checksums recorded in metadata manifests.
@@ -76,7 +80,7 @@ progress tracking.
 - [ ] Introduce calibration dataset generation producing 100–500 curated
       samples stored under `/datasets/processed/{dataset}/calibration/`.
 
-### Step: Ship ordinal-aware training components
+### 2.2. Ship ordinal-aware training components
 
 - [ ] Develop the `OrdinalRegressionTrainer` with cutpoint ordering guarantees
       and unit tests covering boundary cases (monotonicity, identical labels).
@@ -85,7 +89,7 @@ progress tracking.
 - [ ] Achieve ≥90% statement coverage on the training module using `pytest`
       plus fixtures from `rstest`.
 
-### Step: Orchestrate resilient training execution
+### 2.3. Orchestrate resilient training execution
 
 - [ ] Compose a Prefect flow wiring data ingestion, provisioning, training, and
       teardown tasks with typed parameters and run documentation.
@@ -96,9 +100,9 @@ progress tracking.
 - [ ] Capture structured metrics (loss, cutpoints, throughput) and emit them to
       Prefect Orion and the observability stack with comparison dashboards.
 
-## Phase 3: Operationalise export and optimisation
+## 3. Operationalise export and optimisation
 
-### Step: Build ONNX export automation
+### 3.1. Build ONNX export automation
 
 - [ ] Script `optimum-cli export onnx` runs with reproducible configuration
       files checked into version control alongside commit hashes.
@@ -109,7 +113,7 @@ progress tracking.
 - [ ] Store FP32 exports under `/models/onnx/{experiment}/fp32/` with metadata
       capturing opset, optimiser flags, and git references.
 
-### Step: Enforce parity verification gates
+### 3.2. Enforce parity verification gates
 
 - [ ] Implement parity comparison jobs using `onnxruntime` that evaluate ≥500
       representative samples with `atol=1e-5` and matching `rtol` thresholds.
@@ -118,7 +122,7 @@ progress tracking.
 - [ ] Schedule nightly parity spot-checks on retained models to detect drift in
       dependencies (CUDA, ONNX Runtime) before release branches freeze.
 
-### Step: Deliver quantisation and benchmarking workflow
+### 3.3. Deliver quantisation and benchmarking workflow
 
 - [ ] Codify static INT8 quantisation scripts with calibration dataset reuse
       and artefact write-back to `/models/onnx/{experiment}/int8/`.
@@ -127,9 +131,9 @@ progress tracking.
 - [ ] Integrate quantised-model verification into CI with `atol=1e-2`
       tolerances, including latency smoke tests under realistic batch sizes.
 
-## Phase 4: Integrate with the Rust inference surface
+## 4. Integrate with the Rust inference surface
 
-### Step: Package deployment artefacts
+### 4.1. Package deployment artefacts
 
 - [ ] Assemble deployment bundles comprising ONNX models, tokenizer assets, and
       metadata JSON with schema validation during publish.
@@ -138,7 +142,7 @@ progress tracking.
 - [ ] Implement retention policies ensuring at least three previous artefact
       versions remain retrievable for rollback drills.
 
-### Step: Embed ONNX Runtime usage in Rust services
+### 4.2. Embed ONNX Runtime usage in Rust services
 
 - [ ] Add `ort` crate integration with the `load-dynamic` feature, including
       integration tests that exercise the dynamic loader across Linux targets.
@@ -147,7 +151,7 @@ progress tracking.
 - [ ] Benchmark end-to-end inference latencies (p50, p95) under representative
       traffic, ensuring INT8 pipelines meet sub-50 ms targets on t4g.large.
 
-### Step: Operationalise release governance
+### 4.3. Operationalise release governance
 
 - [ ] Define promotion criteria linking training experiment success, parity
       checks, and Rust e2e tests before artefacts become GA releases.
