@@ -1,11 +1,9 @@
 # Roadmap
 
-
 ## 1. Scaffolding & Core API (Duration: 1 week)
 
 This foundational phase establishes the crate's architecture and defines the
 primary public interfaces.
-
 
 ### 1.1. Scaffolding & Core API
 
@@ -27,12 +25,10 @@ primary public interfaces.
   (verify with: `cargo run --bin lagc -- --help`), though it will have no
   functional commands yet.
 
-
 ## 2. Heuristic Baseline (Duration: 1–2 weeks)
 
 This phase delivers the first end-to-end, functional version of the scorer,
 relying on fast, lightweight heuristics.
-
 
 ### 2.1. Heuristic Baseline
 
@@ -50,12 +46,10 @@ relying on fast, lightweight heuristics.
 - [x] **Acceptance Criteria**: The golden-file integration tests pass,
   establishing a baseline for regression testing.
 
-
 ## 3. Model-Backed Providers & Performance (Duration: 2 weeks)
 
 This phase focuses on enhancing accuracy with model-based providers and
 optimizing for performance.
-
 
 ### 3.1. Model-Backed Providers & Performance
 
@@ -113,12 +107,10 @@ optimizing for performance.
 - [ ] 3.1.9. **Acceptance Criteria**: Initial performance metrics (latency,
   throughput) are recorded in `BENCHMARKS.md`.
 
-
 ## 4. Evaluation & Calibration (Duration: 1 week)
 
 This phase is dedicated to empirically validating the scorer's effectiveness
 and tuning its parameters.
-
 
 ### 4.1. Evaluation & Calibration
 
@@ -136,12 +128,10 @@ and tuning its parameters.
 - [ ] **Acceptance Criteria**: The calibrated parameters are finalized and
   committed as the default configuration.
 
-
 ## 5. Bindings & Demos (Duration: 2 weeks)
 
 This phase focuses on making the crate accessible from other ecosystems and
 creating compelling demonstrations.
-
 
 ### 5.1. Bindings & Demos
 
@@ -157,12 +147,10 @@ creating compelling demonstrations.
 - [ ] **Acceptance Criteria**: The demonstration notebooks are complete and
   successfully showcase the crate's value.
 
-
 ## 6. Production Hardening (Duration: 1 week)
 
 The final phase adds the remaining features required for robust, secure, and
 observable production deployment.
-
 
 ### 6.1. Production Hardening
 
