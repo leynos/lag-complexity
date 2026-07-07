@@ -383,6 +383,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1352,6 +1361,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "newt-hype"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c8b7b69b0eafaa88ec8dc9fe7c3860af0a147517e5207cfbd0ecd21cd7cde18"
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1937,7 +1952,7 @@ dependencies = [
  "inventory",
  "log",
  "regex",
- "rstest-bdd-patterns",
+ "rstest-bdd-patterns 0.1.0-alpha4",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -1945,21 +1960,25 @@ dependencies = [
 
 [[package]]
 name = "rstest-bdd-macros"
-version = "0.1.0-alpha4"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a55203268dc22a1120a17e6c3abd746876da92bd00a2cd2db4e0125d5e32a293"
+checksum = "fe104196f61dc8911a8da1b10005e9401e7c2e14ad9302e2de6688311c0beec7"
 dependencies = [
  "camino",
  "cap-std",
  "cfg-if",
+ "convert_case",
  "gherkin",
+ "newt-hype",
  "proc-macro-crate",
  "proc-macro-error",
  "proc-macro2",
  "quote",
  "regex",
- "rstest-bdd-patterns",
+ "rstest-bdd-patterns 0.5.0",
+ "rstest-bdd-policy",
  "syn 2.0.118",
+ "thiserror 1.0.69",
  "walkdir",
 ]
 
@@ -1972,6 +1991,23 @@ dependencies = [
  "regex",
  "thiserror 1.0.69",
 ]
+
+[[package]]
+name = "rstest-bdd-patterns"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39abaa69316cdbbad0512dc0f37b704b09e4cdb5018d80f197cbdb77a2269d06"
+dependencies = [
+ "gherkin",
+ "regex",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "rstest-bdd-policy"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88f2ca584f7d9d359a09f616900be015302c959d58c2c2da6c075573352dfa0d"
 
 [[package]]
 name = "rstest_macros"
@@ -2600,7 +2636,7 @@ checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.106",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2676,6 +2712,12 @@ name = "unicode-linebreak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b09c83c3c29d37506a3e260c08c03743a6bb66a9cd432c6934ab501a190571f"
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "unicode-width"
