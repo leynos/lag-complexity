@@ -93,37 +93,23 @@ pub fn substring_count_regex(haystack: &str, pattern: &Regex) -> u32 {
     u32::try_from(matches).unwrap_or(u32::MAX)
 }
 
-/// Count substring matches using a pattern with word boundaries.
-///
-/// Deprecated: precompile the pattern and use [`substring_count_regex`] to
-/// avoid recompiling on each call.
-///
-/// # Examples
-///
-/// ```rust
-/// use lag_complexity::heuristics::text::substring_count;
-///
-/// assert_eq!(substring_count("more than less", "more"), 1);
-/// ```
-#[cfg(test)]
-#[expect(
-    clippy::expect_used,
-    reason = "regex::escape makes the pattern infallible; a failure would indicate OOM"
-)]
-#[must_use]
-#[deprecated(note = "precompile the pattern and use substring_count_regex to avoid recompiling")]
-pub(crate) fn substring_count(haystack: &str, needle: &str) -> u32 {
-    if needle.is_empty() {
-        return 0;
-    }
-    let re = Regex::new(&format!(r"\b{}\b", regex::escape(needle))).expect("valid regex");
-    substring_count_regex(haystack, &re)
-}
-
 #[cfg(test)]
 mod tests {
+    //! Unit tests for token normalization and substring counting helpers.
     use super::*;
     use regex::Regex;
+
+    /// Count substring matches using a pattern with word boundaries.
+    ///
+    /// Test-only convenience over [`substring_count_regex`]; production code
+    /// precompiles patterns instead.
+    fn substring_count(haystack: &str, needle: &str) -> Result<u32, regex::Error> {
+        if needle.is_empty() {
+            return Ok(0);
+        }
+        let re = Regex::new(&format!(r"\b{}\b", regex::escape(needle)))?;
+        Ok(substring_count_regex(haystack, &re))
+    }
 
     #[test]
     fn normalises_tokens() {
@@ -160,15 +146,14 @@ mod tests {
     }
 
     #[test]
-    #[expect(deprecated, reason = "exercise deprecated wrapper")]
-    fn substring_count_deprecated_cases() {
-        assert_eq!(substring_count("more than less", "more"), 1);
-        assert_eq!(substring_count("more or more", "more"), 2);
-        assert_eq!(substring_count("more-more", "more"), 2);
-        assert_eq!(substring_count("more.", "more"), 1);
-        assert_eq!(substring_count("smores", "more"), 0);
-        assert_eq!(substring_count("aaaa", "aa"), 0);
-        assert_eq!(substring_count("hay", ""), 0);
+    fn substring_count_cases() {
+        assert_eq!(substring_count("more than less", "more"), Ok(1));
+        assert_eq!(substring_count("more or more", "more"), Ok(2));
+        assert_eq!(substring_count("more-more", "more"), Ok(2));
+        assert_eq!(substring_count("more.", "more"), Ok(1));
+        assert_eq!(substring_count("smores", "more"), Ok(0));
+        assert_eq!(substring_count("aaaa", "aa"), Ok(0));
+        assert_eq!(substring_count("hay", ""), Ok(0));
     }
 
     #[test]

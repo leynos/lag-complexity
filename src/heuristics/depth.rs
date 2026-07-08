@@ -14,6 +14,9 @@ pub enum DepthHeuristicError {
     /// Input was empty or whitespace only.
     #[error("input cannot be empty")]
     Empty,
+    /// A built-in pattern failed to compile.
+    #[error("built-in pattern failed to compile: {0}")]
+    Pattern(String),
 }
 
 /// Fast, lightweight estimator for reasoning depth.
@@ -58,7 +61,7 @@ impl TextProcessor for DepthHeuristic {
                 .map(|(pat, w)| lower.matches(pat).count() as u32 * w)
                 .sum::<u32>();
         }
-        score += boundary_score(&lower);
+        score += boundary_score(&lower)?;
         #[expect(clippy::cast_precision_loss, reason = "score within f32 range")]
         Ok(score as f32)
     }
@@ -77,31 +80,27 @@ const PHRASE_WEIGHTS_BOUNDARY: &[(&str, u32)] = &[
     ("less than", 2),
 ];
 
-static BOUNDARY_PATTERNS: LazyLock<Vec<(Regex, u32)>> = LazyLock::new(|| {
+static BOUNDARY_PATTERNS: LazyLock<Result<Vec<(Regex, u32)>, regex::Error>> = LazyLock::new(|| {
     PHRASE_WEIGHTS_BOUNDARY
         .iter()
-        .map(|(p, w)| {
-            #[expect(clippy::expect_used, reason = "escaped pattern cannot fail")]
-            (
-                Regex::new(&format!(r"\b{}\b", regex::escape(p))).expect("valid regex"),
-                *w,
-            )
-        })
+        .map(|(p, w)| Regex::new(&format!(r"\b{}\b", regex::escape(p))).map(|re| (re, *w)))
         .collect()
 });
 
-fn boundary_score(lower: &str) -> u32 {
+fn boundary_score(lower: &str) -> Result<u32, DepthHeuristicError> {
+    let patterns = BOUNDARY_PATTERNS
+        .as_ref()
+        .map_err(|error| DepthHeuristicError::Pattern(error.to_string()))?;
     #[expect(clippy::cast_possible_truncation, reason = "match count fits in u32")]
-    {
-        BOUNDARY_PATTERNS
-            .iter()
-            .map(|(re, w)| re.find_iter(lower).count() as u32 * *w)
-            .sum()
-    }
+    Ok(patterns
+        .iter()
+        .map(|(re, w)| re.find_iter(lower).count() as u32 * *w)
+        .sum())
 }
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for the depth heuristic scoring and input validation.
     use super::*;
     use rstest::rstest;
 

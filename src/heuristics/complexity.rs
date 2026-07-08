@@ -151,6 +151,7 @@ impl ComplexityFn for HeuristicComplexity {
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for the composite complexity scorer.
     use super::*;
     use rstest::rstest;
 

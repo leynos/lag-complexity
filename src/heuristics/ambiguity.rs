@@ -21,6 +21,9 @@ pub enum AmbiguityHeuristicError {
     /// Input was empty or whitespace only.
     #[error("input cannot be empty")]
     Empty,
+    /// A built-in pattern failed to compile.
+    #[error("built-in pattern failed to compile: {0}")]
+    Pattern(String),
 }
 
 /// Fast estimator for semantic ambiguity.
@@ -45,11 +48,13 @@ impl AmbiguityHeuristic {
             return Err(AmbiguityHeuristicError::Empty);
         }
 
+        let ambiguous_entity_re = compiled(&AMBIGUOUS_ENTITY_RE)?;
+        let a_few_re = compiled(&A_FEW_RE)?;
         let pronouns = score_pronouns(trimmed);
         let tokens = normalize_tokens(trimmed);
-        let ambiguous = ambiguous_entity_score(trimmed);
+        let ambiguous = ambiguous_entity_score(trimmed, ambiguous_entity_re);
         let vague = weighted_count(tokens.iter().map(String::as_str), VAGUE_WORDS, 1);
-        let extras = substring_count_regex(trimmed, &A_FEW_RE);
+        let extras = substring_count_regex(trimmed, a_few_re);
         let total = pronouns
             .saturating_add(ambiguous)
             .saturating_add(vague)
@@ -71,8 +76,18 @@ impl TextProcessor for AmbiguityHeuristic {
 
 /// Scores ambiguous entity matches using a precompiled regex, multiplying the
 /// count by [`AMBIGUOUS_ENTITY_WEIGHT`].
-fn ambiguous_entity_score(text: &str) -> u32 {
-    substring_count_regex(text, &AMBIGUOUS_ENTITY_RE).saturating_mul(AMBIGUOUS_ENTITY_WEIGHT)
+fn ambiguous_entity_score(text: &str, ambiguous_entity_re: &Regex) -> u32 {
+    substring_count_regex(text, ambiguous_entity_re).saturating_mul(AMBIGUOUS_ENTITY_WEIGHT)
+}
+
+/// Borrows a lazily compiled built-in pattern, surfacing compilation failure
+/// as an [`AmbiguityHeuristicError::Pattern`] instead of panicking.
+fn compiled(
+    pattern: &'static LazyLock<Result<Regex, regex::Error>>,
+) -> Result<&'static Regex, AmbiguityHeuristicError> {
+    pattern
+        .as_ref()
+        .map_err(|error| AmbiguityHeuristicError::Pattern(error.to_string()))
 }
 
 const AMBIGUOUS_ENTITY_WEIGHT: u32 = 2;
@@ -95,21 +110,13 @@ const AMBIGUOUS_ENTITY_PATTERN: &str = concat!(
     r")\b",
 );
 
-#[expect(
-    clippy::expect_used,
-    reason = "regex literal should never fail to compile"
-)]
-static AMBIGUOUS_ENTITY_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(AMBIGUOUS_ENTITY_PATTERN).expect("invalid ambiguous entity regex"));
+static AMBIGUOUS_ENTITY_RE: LazyLock<Result<Regex, regex::Error>> =
+    LazyLock::new(|| Regex::new(AMBIGUOUS_ENTITY_PATTERN));
 
 const VAGUE_WORDS: &[&str] = &["some", "several", "here", "there", "then"];
 
-#[expect(
-    clippy::expect_used,
-    reason = "regex literal should never fail to compile"
-)]
-static A_FEW_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)\ba few\b").expect("invalid regex for 'a few'"));
+static A_FEW_RE: LazyLock<Result<Regex, regex::Error>> =
+    LazyLock::new(|| Regex::new(r"(?i)\ba few\b"));
 
 pub(super) fn is_sentence_boundary(token: &str) -> bool {
     for c in token.chars().rev() {
@@ -124,6 +131,8 @@ pub(super) fn is_sentence_boundary(token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for the ambiguity heuristic scoring and sentence-boundary
+    //! detection.
     use super::*;
     use rstest::rstest;
 

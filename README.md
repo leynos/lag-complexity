@@ -71,7 +71,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Here we use the fast heuristic providers for depth and ambiguity.
     // The embedding provider would typically be configured to point to an API
     // or a local model.
-    let embedding_provider = ApiEmbedding::new("YOUR_API_KEY", "https://api.openai.com/v1/embeddings");
+    let embedding_provider = ApiEmbedding::new(
+        "https://api.openai.com/v1/embeddings",
+        Some("YOUR_API_KEY".into()),
+    )?;
     let depth_provider = DepthHeuristic::default();
     let ambiguity_provider = AmbiguityHeuristic::default();
 

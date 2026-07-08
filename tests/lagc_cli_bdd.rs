@@ -34,9 +34,9 @@ fn given_binary(#[from(cli_context)] cli_context: &CliContext) {
 fn given_env(pairs: String, #[from(cli_context)] ctx: &CliContext) {
     let mut map = HashMap::new();
     for (i, raw) in pairs.split(',').enumerate() {
-        let (k, v) = raw.split_once('=').unwrap_or_else(|| {
+        let Some((k, v)) = raw.split_once('=') else {
             panic!("invalid env pair at index {i}: '{raw}' (expected key=value)")
-        });
+        };
         let k = k.trim();
         let v = v.trim();
         assert!(!k.is_empty(), "empty env key at index {i}");
@@ -44,9 +44,7 @@ fn given_env(pairs: String, #[from(cli_context)] ctx: &CliContext) {
             panic!("duplicate env key '{k}' at index {i} (previous value: '{prev}')");
         }
     }
-    ctx.env
-        .set(map)
-        .unwrap_or_else(|_| panic!("env already set"));
+    assert!(ctx.env.set(map).is_ok(), "env already set");
 }
 
 #[when("running with \"{args}\"")]

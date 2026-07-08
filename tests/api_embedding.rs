@@ -11,15 +11,17 @@ fn mock_server() -> MockServer {
 }
 
 #[fixture]
-fn api_provider(mock_server: MockServer) -> (ApiEmbedding, MockServer) {
+fn api_provider(mock_server: MockServer) -> Result<(ApiEmbedding, MockServer), ApiEmbeddingError> {
     let url = format!("{}/embed", mock_server.base_url());
-    (ApiEmbedding::new(url, None), mock_server)
+    Ok((ApiEmbedding::new(url, None)?, mock_server))
 }
 
 #[fixture]
-fn api_provider_with_auth(mock_server: MockServer) -> (ApiEmbedding, MockServer) {
+fn api_provider_with_auth(
+    mock_server: MockServer,
+) -> Result<(ApiEmbedding, MockServer), ApiEmbeddingError> {
     let url = format!("{}/embed", mock_server.base_url());
-    (ApiEmbedding::new(url, Some("secret".into())), mock_server)
+    Ok((ApiEmbedding::new(url, Some("secret".into()))?, mock_server))
 }
 
 #[rstest]
@@ -28,9 +30,10 @@ fn test_success_cases(
     #[case] input: &str,
     #[case] expected_embedding: Vec<f32>,
     #[case] mock_json: serde_json::Value,
-    api_provider: (ApiEmbedding, MockServer),
+    api_provider: Result<(ApiEmbedding, MockServer), ApiEmbeddingError>,
 ) {
-    let (provider, server) = api_provider;
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let (provider, server) = api_provider.expect("provider construction should succeed");
     server.mock(|when, then| {
         when.method(POST)
             .path("/embed")
@@ -51,9 +54,10 @@ fn test_bearer_auth_success(
     #[case] input: &str,
     #[case] expected_embedding: Vec<f32>,
     #[case] mock_json: serde_json::Value,
-    api_provider_with_auth: (ApiEmbedding, MockServer),
+    api_provider_with_auth: Result<(ApiEmbedding, MockServer), ApiEmbeddingError>,
 ) {
-    let (provider, server) = api_provider_with_auth;
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let (provider, server) = api_provider_with_auth.expect("provider construction should succeed");
     server.mock(|when, then| {
         when.method(POST)
             .path("/embed")
@@ -105,9 +109,10 @@ fn test_error_cases(
     #[case] response_json: Option<serde_json::Value>,
     #[case] response_body: Option<&str>,
     #[case] expected_error: ExpectedError,
-    api_provider: (ApiEmbedding, MockServer),
+    api_provider: Result<(ApiEmbedding, MockServer), ApiEmbeddingError>,
 ) {
-    let (provider, server) = api_provider;
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let (provider, server) = api_provider.expect("provider construction should succeed");
     server.mock(|when, then| {
         when.method(POST).path("/embed");
         match (response_json, response_body) {
@@ -140,6 +145,7 @@ fn test_error_cases(
 fn rejects_empty_input() {
     let server = MockServer::start();
     let url = format!("{}/embed", server.base_url());
-    let provider = ApiEmbedding::new(url, None);
+    #[expect(clippy::expect_used, reason = "test should fail loudly")]
+    let provider = ApiEmbedding::new(url, None).expect("provider construction should succeed");
     assert_eq!(provider.process(""), Err(ApiEmbeddingError::Empty));
 }
