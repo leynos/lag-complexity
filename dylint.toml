@@ -1,0 +1,19 @@
+# Whitaker lint configuration.
+#
+# Crates excluded from the no_std_fs_operations lint because they legitimately
+# require ambient std::fs access:
+# - bless_traces: the developer tool that regenerates golden trace snapshots
+#   in place; it operates on repository paths supplied on the command line and
+#   syncs the containing directory, matching the "test support utilities"
+#   exclusion in the Whitaker user's guide.
+# - golden_traces: the integration test crate that replays the checked-in
+#   golden snapshot (tests/golden/traces.jsonl) via ambient reads.
+# - workflows: the integration test crate that validates the checked-in
+#   GitHub workflow files via ambient reads.
+# Add new test crates here deliberately when they need ambient fixture I/O.
+[no_std_fs_operations]
+excluded_crates = [
+    "bless_traces",
+    "golden_traces",
+    "workflows",
+]
