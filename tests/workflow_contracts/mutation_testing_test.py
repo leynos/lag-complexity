@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOW_PATH = (
@@ -39,8 +40,9 @@ EXPECTED_WITH = {
 }
 
 
-def _load() -> dict[str, object]:
-    """Parse the workflow file."""
+@pytest.fixture(scope="module")
+def workflow() -> dict[str, object]:
+    """Parse the workflow file once per module."""
     return yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
@@ -62,9 +64,9 @@ def _mutation_job(workflow: dict[str, object]) -> dict[str, object]:
     return jobs["mutation"]
 
 
-def test_uses_reference_is_pinned_to_the_documented_sha() -> None:
+def test_uses_reference_is_pinned_to_the_documented_sha(workflow: dict[str, object]) -> None:
     """The job must call the shared workflow at the exact documented SHA."""
-    uses = _mutation_job(_load()).get("uses")
+    uses = _mutation_job(workflow).get("uses")
     assert uses is not None, "jobs.mutation.uses is missing"
     path, _, ref = uses.partition("@")
     assert path == "leynos/shared-actions/.github/workflows/mutation-cargo.yml", (
@@ -84,27 +86,26 @@ def test_uses_reference_is_pinned_to_the_documented_sha() -> None:
     )
 
 
-def test_job_permissions_are_exactly_least_privilege() -> None:
+def test_job_permissions_are_exactly_least_privilege(workflow: dict[str, object]) -> None:
     """The job grants contents: read and id-token: write, nothing broader."""
-    permissions = _mutation_job(_load()).get("permissions")
+    permissions = _mutation_job(workflow).get("permissions")
     assert permissions == {"contents": "read", "id-token": "write"}, (
         "jobs.mutation.permissions must be exactly "
         f"{{'contents': 'read', 'id-token': 'write'}}, got {permissions!r}"
     )
 
 
-def test_workflow_default_permissions_are_empty() -> None:
+def test_workflow_default_permissions_are_empty(workflow: dict[str, object]) -> None:
     """The workflow-level default token scope is empty."""
-    workflow = _load()
     assert workflow.get("permissions") == {}, (
         f"top-level permissions must be an empty mapping, got "
         f"{workflow.get('permissions')!r}"
     )
 
 
-def test_concurrency_serializes_per_ref_without_cancelling() -> None:
+def test_concurrency_serializes_per_ref_without_cancelling(workflow: dict[str, object]) -> None:
     """Runs queue per ref instead of cancelling one another."""
-    concurrency = _load().get("concurrency")
+    concurrency = workflow.get("concurrency")
     assert isinstance(concurrency, dict), "the workflow must declare concurrency"
     assert concurrency.get("group") == "mutation-testing-${{ github.ref }}", (
         f"concurrency.group must key on the triggering ref, got "
@@ -116,9 +117,9 @@ def test_concurrency_serializes_per_ref_without_cancelling() -> None:
     )
 
 
-def test_triggers_keep_schedule_and_plain_dispatch() -> None:
+def test_triggers_keep_schedule_and_plain_dispatch(workflow: dict[str, object]) -> None:
     """The daily schedule stays; dispatch has no legacy branch input."""
-    triggers = _triggers(_load())
+    triggers = _triggers(workflow)
     schedule = triggers.get("schedule")
     assert schedule == [{"cron": "20 9 * * *"}], (
         f"on.schedule must be the daily 09:20 UTC cron, got {schedule!r}"
@@ -132,9 +133,9 @@ def test_triggers_keep_schedule_and_plain_dispatch() -> None:
     )
 
 
-def test_with_block_carries_the_caller_configuration() -> None:
+def test_with_block_carries_the_caller_configuration(workflow: dict[str, object]) -> None:
     """The caller passes exactly the feature args and scaffolding excludes."""
-    with_block = _mutation_job(_load()).get("with")
+    with_block = _mutation_job(workflow).get("with")
     assert isinstance(with_block, dict), "jobs.mutation.with is missing"
     assert with_block == EXPECTED_WITH, (
         f"jobs.mutation.with must be exactly {EXPECTED_WITH!r} (mirror the CI "
