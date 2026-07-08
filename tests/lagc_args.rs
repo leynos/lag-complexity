@@ -97,54 +97,56 @@ fn env_var_parsing_invalid_bool() {
     assert!(result.is_err());
 }
 
-#[rstest]
-fn config_file_parsing_sets_dry_run(temp_toml_file: std::io::Result<NamedTempFile>) {
-    let file = written_config(temp_toml_file, "dry_run = true")
-        .unwrap_or_else(|e| panic!("prepare config: {e}"));
-    let Some(path) = get_config_path(&file) else {
-        panic!("config path is not valid UTF-8")
-    };
-    let cfg = LagcArgs::load_from_config(path)
-        .unwrap_or_else(|e| panic!("unexpected config parse error: {e}"));
-    assert!(cfg.dry_run);
+/// Which loading entry point a configuration-file case exercises.
+#[derive(Clone, Copy)]
+enum LoadMode {
+    /// Load the configuration file alone.
+    ConfigFile,
+    /// Load with a CLI override on top of the environment and file.
+    CliOverride,
+    /// Load from the environment merged with the file.
+    EnvAndConfig,
 }
 
 #[rstest]
-fn config_file_parsing_invalid_bool(temp_toml_file: std::io::Result<NamedTempFile>) {
-    let file = written_config(temp_toml_file, "dry_run = notabool")
-        .unwrap_or_else(|e| panic!("prepare config: {e}"));
-    let Some(path) = get_config_path(&file) else {
-        panic!("config path is not valid UTF-8")
-    };
-    let result = LagcArgs::load_from_config(path);
-    assert!(result.is_err());
-}
-
-#[rstest]
+#[case::config_sets_dry_run("dry_run = true", None, LoadMode::ConfigFile, Some(true))]
+#[case::config_invalid_bool("dry_run = notabool", None, LoadMode::ConfigFile, None)]
+#[case::cli_overrides_env_and_config(
+    "dry_run = false",
+    Some("false"),
+    LoadMode::CliOverride,
+    Some(true)
+)]
+#[case::env_overrides_config("dry_run = false", Some("true"), LoadMode::EnvAndConfig, Some(true))]
 #[serial]
-fn precedence_cli_over_env_and_config(temp_toml_file: std::io::Result<NamedTempFile>) {
-    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "false");
-    let file = written_config(temp_toml_file, "dry_run = false")
-        .unwrap_or_else(|e| panic!("prepare config: {e}"));
+fn config_file_loading(
+    temp_toml_file: std::io::Result<NamedTempFile>,
+    #[case] content: &str,
+    #[case] env_value: Option<&str>,
+    #[case] mode: LoadMode,
+    #[case] expected_dry_run: Option<bool>,
+) {
+    let _guard = env_value.map(|value| EnvVarGuard::new("LAGC_DRY_RUN", value));
+    let file =
+        written_config(temp_toml_file, content).unwrap_or_else(|e| panic!("prepare config: {e}"));
     let Some(path) = get_config_path(&file) else {
         panic!("config path is not valid UTF-8")
     };
-    let argv = vec!["lagc", "--dry-run=true", "--config-path", path];
-    let cfg = <LagcArgs as ortho_config::OrthoConfig>::load_from_iter(argv)
-        .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
-    assert!(cfg.dry_run);
-}
-
-#[rstest]
-#[serial]
-fn precedence_env_over_config(temp_toml_file: std::io::Result<NamedTempFile>) {
-    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "true");
-    let file = written_config(temp_toml_file, "dry_run = false")
-        .unwrap_or_else(|e| panic!("prepare config: {e}"));
-    let Some(path) = get_config_path(&file) else {
-        panic!("config path is not valid UTF-8")
+    let result = match mode {
+        LoadMode::ConfigFile => LagcArgs::load_from_config(path),
+        LoadMode::CliOverride => <LagcArgs as ortho_config::OrthoConfig>::load_from_iter(vec![
+            "lagc",
+            "--dry-run=true",
+            "--config-path",
+            path,
+        ]),
+        LoadMode::EnvAndConfig => LagcArgs::load_from_env_and_config(path),
     };
-    let cfg = LagcArgs::load_from_env_and_config(path)
-        .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
-    assert!(cfg.dry_run);
+    match expected_dry_run {
+        Some(expected) => {
+            let cfg = result.unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
+            assert_eq!(cfg.dry_run, expected);
+        }
+        None => assert!(result.is_err()),
+    }
 }
