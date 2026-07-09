@@ -9,16 +9,23 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 use tempfile::NamedTempFile;
 
 #[fixture]
-fn temp_toml_file() -> NamedTempFile {
-    NamedTempFile::new().unwrap_or_else(|e| panic!("create temp file: {e}"))
+fn temp_toml_file() -> std::io::Result<NamedTempFile> {
+    NamedTempFile::new()
 }
 
-fn write_toml_content(file: &mut NamedTempFile, content: &str) {
-    writeln!(file, "{content}").unwrap_or_else(|e| panic!("write config: {e}"));
+/// Writes the given TOML content into the supplied temporary file, returning
+/// the file for subsequent path lookups.
+fn written_config(
+    temp_toml_file: std::io::Result<NamedTempFile>,
+    content: &str,
+) -> std::io::Result<NamedTempFile> {
+    let mut file = temp_toml_file?;
+    writeln!(file, "{content}")?;
+    Ok(file)
 }
 
-fn get_config_path(file: &NamedTempFile) -> &str {
-    file.path().to_str().unwrap_or_else(|| panic!("path str"))
+fn get_config_path(file: &NamedTempFile) -> Option<&str> {
+    file.path().to_str()
 }
 
 static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
@@ -30,9 +37,11 @@ struct EnvVarGuard {
 
 impl EnvVarGuard {
     fn new(key: &str, val: &str) -> Self {
+        // Recover from poisoning: the guarded state is (), so a panic in a
+        // previous holder cannot leave it inconsistent.
         let lock = ENV_LOCK
             .lock()
-            .unwrap_or_else(|e| panic!("env lock poisoned: {e}"));
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Safety: process-wide env mutation is synchronised by ENV_LOCK.
         unsafe { env::set_var(key, val) };
         Self {
@@ -88,42 +97,56 @@ fn env_var_parsing_invalid_bool() {
     assert!(result.is_err());
 }
 
-#[rstest]
-fn config_file_parsing_sets_dry_run(mut temp_toml_file: NamedTempFile) {
-    write_toml_content(&mut temp_toml_file, "dry_run = true");
-    let path = get_config_path(&temp_toml_file);
-    let cfg = LagcArgs::load_from_config(path)
-        .unwrap_or_else(|e| panic!("unexpected config parse error: {e}"));
-    assert!(cfg.dry_run);
+/// Which loading entry point a configuration-file case exercises.
+#[derive(Clone, Copy)]
+enum LoadMode {
+    /// Load the configuration file alone.
+    ConfigFile,
+    /// Load with a CLI override on top of the environment and file.
+    CliOverride,
+    /// Load from the environment merged with the file.
+    EnvAndConfig,
 }
 
 #[rstest]
-fn config_file_parsing_invalid_bool(mut temp_toml_file: NamedTempFile) {
-    write_toml_content(&mut temp_toml_file, "dry_run = notabool");
-    let path = get_config_path(&temp_toml_file);
-    let result = LagcArgs::load_from_config(path);
-    assert!(result.is_err());
-}
-
-#[rstest]
+#[case::config_sets_dry_run("dry_run = true", None, LoadMode::ConfigFile, Some(true))]
+#[case::config_invalid_bool("dry_run = notabool", None, LoadMode::ConfigFile, None)]
+#[case::cli_overrides_env_and_config(
+    "dry_run = false",
+    Some("false"),
+    LoadMode::CliOverride,
+    Some(true)
+)]
+#[case::env_overrides_config("dry_run = false", Some("true"), LoadMode::EnvAndConfig, Some(true))]
 #[serial]
-fn precedence_cli_over_env_and_config(mut temp_toml_file: NamedTempFile) {
-    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "false");
-    write_toml_content(&mut temp_toml_file, "dry_run = false");
-    let path = get_config_path(&temp_toml_file);
-    let argv = vec!["lagc", "--dry-run=true", "--config-path", path];
-    let cfg = <LagcArgs as ortho_config::OrthoConfig>::load_from_iter(argv)
-        .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
-    assert!(cfg.dry_run);
-}
-
-#[rstest]
-#[serial]
-fn precedence_env_over_config(mut temp_toml_file: NamedTempFile) {
-    let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "true");
-    write_toml_content(&mut temp_toml_file, "dry_run = false");
-    let path = get_config_path(&temp_toml_file);
-    let cfg = LagcArgs::load_from_env_and_config(path)
-        .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
-    assert!(cfg.dry_run);
+fn config_file_loading(
+    temp_toml_file: std::io::Result<NamedTempFile>,
+    #[case] content: &str,
+    #[case] env_value: Option<&str>,
+    #[case] mode: LoadMode,
+    #[case] expected_dry_run: Option<bool>,
+) {
+    let _guard = env_value.map(|value| EnvVarGuard::new("LAGC_DRY_RUN", value));
+    let file =
+        written_config(temp_toml_file, content).unwrap_or_else(|e| panic!("prepare config: {e}"));
+    let Some(path) = get_config_path(&file) else {
+        panic!("config path is not valid UTF-8")
+    };
+    let result = match mode {
+        LoadMode::ConfigFile => LagcArgs::load_from_config(path),
+        LoadMode::CliOverride => <LagcArgs as ortho_config::OrthoConfig>::load_from_iter(vec![
+            "lagc",
+            "--dry-run=true",
+            "--config-path",
+            path,
+        ]),
+        LoadMode::EnvAndConfig => LagcArgs::load_from_env_and_config(path),
+    };
+    match expected_dry_run {
+        Some(expected) => {
+            let cfg = result.unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
+            assert_eq!(cfg.dry_run, expected);
+        }
+        None => assert!(result.is_err()),
+    }
 }

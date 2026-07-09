@@ -64,6 +64,7 @@ pub fn variance(values: &[f32]) -> Result<f32, VarianceError> {
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for variance computation.
     use super::*;
     use crate::tests::support::approx_eq;
     use rstest::rstest;

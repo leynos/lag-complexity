@@ -53,6 +53,7 @@ impl<'de> serde::Deserialize<'de> for VarianceScopingConfig {
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for scoring configuration validation.
     use super::*;
     use rstest::rstest;
 

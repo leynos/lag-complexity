@@ -132,6 +132,7 @@ pub trait ComplexityFn {
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for the complexity API types and trait plumbing.
     use super::*;
     use rstest::rstest;
 
