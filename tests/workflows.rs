@@ -7,14 +7,14 @@ use serde_yaml::Value;
 
 #[derive(Clone, Copy)]
 enum WorkflowFile {
-    Ci,
+    CoverageMain,
     DependabotAutomerge,
 }
 
 impl WorkflowFile {
     const fn path(self) -> &'static str {
         match self {
-            Self::Ci => ".github/workflows/ci.yml",
+            Self::CoverageMain => ".github/workflows/coverage-main.yml",
             Self::DependabotAutomerge => ".github/workflows/dependabot-automerge.yml",
         }
     }
@@ -33,23 +33,24 @@ struct Workflow {
 }
 
 #[test]
-fn ci_codescene_upload_gates_on_env_secret() -> Result<(), Box<dyn Error>> {
-    let workflow = read_workflow(WorkflowFile::Ci)?;
-    let steps = sequence_value(mapping_value_path(
-        &workflow.jobs,
-        &["build-test", "steps"],
-    )?)?;
-    let upload_step = named_step(steps, StepName("Upload coverage data to CodeScene"))?;
+fn coverage_main_upload_gates_on_env_secret() -> Result<(), Box<dyn Error>> {
+    // The CodeScene upload lives in coverage-main.yml (push to main), not
+    // the pull-request CI job: `cs-coverage upload` is accepted only for
+    // analysed branches. The job-level env supplies the token (empty when
+    // the secret is unset — e.g. forks), and the step guards on it so a
+    // token-less run skips the upload rather than failing.
+    let workflow = read_workflow(WorkflowFile::CoverageMain)?;
+    let job = mapping_value_path(&workflow.jobs, &["coverage-upload"])?;
 
-    let env = mapping_value(upload_step, "env")?;
+    let env = mapping_value(job, "env")?;
     assert_scalar_eq(
         mapping_value(env, "CS_ACCESS_TOKEN")?,
-        "${{ secrets.CS_ACCESS_TOKEN }}",
+        "${{ secrets.CS_ACCESS_TOKEN || '' }}",
     );
-    assert_scalar_eq(
-        mapping_value(upload_step, "if")?,
-        "${{ env.CS_ACCESS_TOKEN }}",
-    );
+
+    let steps = sequence_value(mapping_value(job, "steps")?)?;
+    let upload_step = named_step(steps, StepName("Upload coverage data to CodeScene"))?;
+    assert_scalar_eq(mapping_value(upload_step, "if")?, "env.CS_ACCESS_TOKEN");
 
     Ok(())
 }
