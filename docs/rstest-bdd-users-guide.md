@@ -75,7 +75,7 @@ annotated with one of the attribute macros `#[given]`, `#[when]` or `#[then]`.
 The annotation takes a single string literal that must match the text of the
 corresponding step in the feature file. Placeholders in the form `{name}` or
 `{name:Type}` are supported. The framework extracts matching substrings and
-converts them using `FromStr`; type hints constrain the match using specialised
+converts them using `FromStr`; type hints constrain the match using specialized
 regular expressions.
 
 The procedural macro implementation expands the annotated function into two

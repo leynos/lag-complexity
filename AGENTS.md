@@ -28,7 +28,7 @@
   examples demonstrating the usage and outcome of the function. Test
   documentation should omit examples where the example serves only to reiterate
   the test logic.
-- **Keep file size managable.** No single code file may be longer than 400
+- **Keep file size manageable.** No single code file may be longer than 400
   lines. Long switch statements or dispatch tables should be broken up by
   feature and constituents colocated with targets. Large blocks of test data
   should be moved to external data files.
@@ -59,7 +59,7 @@
   - Where a bug is being fixed, a unittest has been provided demonstrating the
     behaviour being corrected both to validate the fix and to guard against
     regression.
-  - Passes all relevant unit and behavioral tests according to the guidelines
+  - Passes all relevant unit and behavioural tests according to the guidelines
     above. (Use `make test` to verify).
   - Passes lint checks. (Use `make lint` to verify).
   - Adheres to formatting standards tested using a formatting validator. (Use
@@ -106,7 +106,7 @@
 - **Separate Atomic Refactors:** If refactoring is deemed necessary:
   - Perform the refactoring as a **separate, atomic commit** *after* the
     functional change commit.
-  - Ensure the refactoring adheres to the testing guidelines (behavioral tests
+  - Ensure the refactoring adheres to the testing guidelines (behavioural tests
     pass before and after, unit tests added for new units).
   - Ensure the refactoring commit itself passes all quality gates.
 
@@ -173,7 +173,7 @@ project:
 - Lint rule suppressions must be tightly scoped and include a clear reason.
 - Prefer `expect` over `allow`.
 - Use `rstest` fixtures for shared setup.
-- Replace duplicated tests with `#[rstest(...)]` parameterised cases.
+- Replace duplicated tests with `#[rstest(...)]` parameterized cases.
 - Prefer `mockall` for mocks/stubs.
 - Prefer `.expect()` over `.unwrap()`.
 - Use `concat!()` to combine long string literals rather than escaping newlines
@@ -199,7 +199,7 @@ project:
   `into_inner()` and `to_path_buf()`; avoid attempting
   `impl From<Wrapper> for PathBuf` because of the orphan rule. Prefer explicit
   tuple structs whenever bespoke validation or tailored trait surfaces are
-  required, customising `Deref`, `AsRef`, and `TryFrom` per type. Use
+  required, customizing `Deref`, `AsRef`, and `TryFrom` per type. Use
   `the-newtype` when defining traits and needing blanket implementations that
   apply across wrappers satisfying `Newtype + AsRef/AsMut<Inner>`, or when
   establishing a coherent internal convention that keeps trait forwarding
@@ -212,7 +212,7 @@ project:
 - Write unit and behavioural tests for new functionality. Run both before and
   after making any change.
 - Use `rstest` fixtures for shared setup.
-- Replace duplicated tests with `#[rstest(...)]` parameterised cases.
+- Replace duplicated tests with `#[rstest(...)]` parameterized cases.
 - Prefer `mockall` for mocks/stubs.
 - Mock non-deterministic dependencies (e.g., environment variables and the
   system clock) using dependency injection with the `mockable` crate (traits
