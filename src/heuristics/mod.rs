@@ -3,7 +3,7 @@
 pub mod ambiguity;
 pub mod complexity;
 pub mod depth;
-pub(crate) mod text;
+pub mod text;
 
 pub use ambiguity::{AmbiguityHeuristic, AmbiguityHeuristicError};
 pub use complexity::{HeuristicComplexity, HeuristicComplexityError};

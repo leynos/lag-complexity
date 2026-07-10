@@ -40,6 +40,7 @@ pub fn normalize_tokens(input: &str) -> Vec<String> {
 /// let count = weighted_count(tokens.iter().map(String::as_str), &["and"], 2);
 /// assert_eq!(count, 2);
 /// ```
+#[must_use]
 pub fn weighted_count<T: AsRef<str>>(
     tokens: impl Iterator<Item = T>,
     patterns: &[&str],

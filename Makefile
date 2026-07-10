@@ -18,6 +18,9 @@ clean: ## Remove build artifacts
 
 test: ## Run tests with warnings treated as errors
 	RUSTFLAGS="-D warnings" $(CARGO) test --all-targets --all-features $(BUILD_JOBS)
+	# --all-targets skips doctests, so run them explicitly to keep CI
+	# aligned with the plain `cargo test` used by cargo-mutants.
+	RUSTFLAGS="-D warnings" $(CARGO) test --doc --all-features $(BUILD_JOBS)
 
 test-workflow-contracts: ## Validate the mutation-testing caller contract
 	uv run --with 'pytest>=8' --with 'pyyaml>=6' pytest tests/workflow_contracts -q
