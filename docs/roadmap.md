@@ -7,7 +7,7 @@ primary public interfaces.
 
 ### 1.1. Scaffolding & Core API
 
-- [ ] Initialise the Rust project via `cargo new`.
+- [ ] Initialize the Rust project via `cargo new`.
 - [x] Define all public data structures (`Complexity`, `Trace`, `ScopingConfig`
     and its subtypes) and derive `serde` traits for configuration types.
 - [x] Define all public traits (`ComplexityFn`, `EmbeddingProvider`,
@@ -58,7 +58,7 @@ optimizing for performance.
   - [ ] 3.1.1.1. Fine-tune the DistilBERT ordinal model on ordered depth bins,
     confirm the expected-value projection matches the Sigma calibration
     interface, and export the opset 17 graph with pinned tokenizer assets.
-  - [ ] 3.1.1.2. Apply post-training static INT8 quantisation, benchmark CPU
+  - [ ] 3.1.1.2. Apply post-training static INT8 quantization, benchmark CPU
     latency to p95 ≤ 10 ms, and record calibration coefficients for the
     provider configuration.
   - [ ] 3.1.1.3. Publish the model package with checksum manifest, versioned
@@ -71,7 +71,7 @@ optimizing for performance.
   - [ ] 3.1.2.2. Fine-tune the lightweight transformer, export the ONNX graph
     with the categorical-to-numeric mapping required by Sigma, and pin the
     tokenizer vocabulary.
-  - [ ] 3.1.2.3. Quantise and benchmark the graph to meet latency and
+  - [ ] 3.1.2.3. Quantize and benchmark the graph to meet latency and
     footprint targets, then publish artefacts and checksum metadata alongside
     calibration notes.
 - [ ] 3.1.3. Implement the `DepthClassifierOnnx` provider behind the `onnx`
@@ -80,7 +80,7 @@ optimizing for performance.
     validation, and wire the expected-value scalar projection into
     `TextProcessor<Output = f32>` per the ADR.
   - [ ] 3.1.3.2. Integrate tracing, metrics, and configuration plumbing (model
-    paths, quantisation variant selection, calibration coefficients)
+    paths, quantization variant selection, calibration coefficients)
     consistent with the Complexity pipeline.
   - [ ] 3.1.3.3. Extend golden traces and unit tests to cover inference happy
     paths, error mapping, and deterministic outputs across feature

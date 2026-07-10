@@ -30,7 +30,7 @@ Key improvements in this design include:
   (training, evaluation, etc.) is executed on dedicated ephemeral cloud
   instances. Prefect tasks use Terraform (OpenTofu distribution) to provision
   the required **spot or on-demand VM instances** (with GPU for training, CPU
-  for export/evaluation) and tear them down afterward. This ensures
+  for export/evaluation) and tear them down afterwards. This ensures
   **cloud-agnostic deployment** – by swapping Terraform modules, the pipeline
   can target AWS, GCP, or other providers uniformly. It also maximizes cost
   efficiency by using spot instances and releasing resources immediately when
@@ -102,7 +102,7 @@ adhere to several core principles in designing the workflow:
   versioned. We use **containerization** (Docker images) and
   infrastructure-as-code to ensure that a given pipeline run can be exactly
   replicated in the future. This is critical for auditing and for guaranteeing
-  consistent model behavior between training and production. The pipeline will
+  consistent model behaviour between training and production. The pipeline will
   incorporate configuration files (or Prefect configuration blocks) for all
   adjustable parameters (dataset version, model architecture, learning rates,
   instance types, etc.), which are stored in version control. By fixing these
@@ -220,7 +220,7 @@ automate their lifecycle:
   2.3). The Terraform provisioning task can request a spot VM (e.g., AWS EC2
   Spot or GCP Preemptible VM) for training; if the request is not fulfilled or
   the instance is reclaimed mid-training, the Prefect flow will handle
-  launching a replacement and resuming training. The **cost modeling** takes
+  launching a replacement and resuming training. The **cost modelling** takes
   into account the expected interruptions and restart overhead, ensuring that
   even with occasional restarts, using spot instances yields net savings. For
   cases where spot is not available or for final runs, the pipeline can easily

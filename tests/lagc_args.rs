@@ -61,10 +61,13 @@ impl Drop for EnvVarGuard {
 #[rstest]
 #[case(vec!["lagc"], false)]
 #[case(vec!["lagc", "--dry-run=true"], true)]
-fn load_parses_dry_run(#[case] argv: Vec<&str>, #[case] expected: bool) {
-    let cfg = <LagcArgs as ortho_config::OrthoConfig>::load_from_iter(argv)
-        .unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
+fn load_parses_dry_run(
+    #[case] argv: Vec<&str>,
+    #[case] expected: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = <LagcArgs as ortho_config::OrthoConfig>::load_from_iter(argv)?;
     assert_eq!(cfg.dry_run, expected);
+    Ok(())
 }
 
 #[rstest]
@@ -82,11 +85,11 @@ fn load_rejects_invalid_bool(#[case] value: &str) {
 
 #[rstest]
 #[serial]
-fn env_var_parsing_sets_dry_run() {
+fn env_var_parsing_sets_dry_run() -> Result<(), Box<dyn std::error::Error>> {
     let _guard = EnvVarGuard::new("LAGC_DRY_RUN", "true");
-    let cfg =
-        LagcArgs::load_from_env().unwrap_or_else(|e| panic!("unexpected env parse error: {e}"));
+    let cfg = LagcArgs::load_from_env()?;
     assert!(cfg.dry_run);
+    Ok(())
 }
 
 #[rstest]
@@ -125,10 +128,9 @@ fn config_file_loading(
     #[case] env_value: Option<&str>,
     #[case] mode: LoadMode,
     #[case] expected_dry_run: Option<bool>,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     let _guard = env_value.map(|value| EnvVarGuard::new("LAGC_DRY_RUN", value));
-    let file =
-        written_config(temp_toml_file, content).unwrap_or_else(|e| panic!("prepare config: {e}"));
+    let file = written_config(temp_toml_file, content)?;
     let Some(path) = get_config_path(&file) else {
         panic!("config path is not valid UTF-8")
     };
@@ -144,9 +146,10 @@ fn config_file_loading(
     };
     match expected_dry_run {
         Some(expected) => {
-            let cfg = result.unwrap_or_else(|e| panic!("unexpected parse error: {e}"));
+            let cfg = result?;
             assert_eq!(cfg.dry_run, expected);
         }
         None => assert!(result.is_err()),
     }
+    Ok(())
 }

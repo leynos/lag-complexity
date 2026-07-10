@@ -381,7 +381,7 @@ require a wider retrieval strategy.
   and results in a dedicated `VarianceError::Empty`. This guards against silent
   NaNs and ensures caller intent is explicit.
 - **Non-finite Inputs:** `NaN` or infinite values yield `NaN`. Callers should
-  sanitise embeddings if such values are not expected.
+  sanitize embeddings if such values are not expected.
 
 #### Embedding providers
 
