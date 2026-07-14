@@ -6,7 +6,7 @@ This document describes a revised architectural design for the model training
 pipeline, focusing on **local/self-hosted orchestration with Prefect** and
 **cloud-agnostic ephemeral compute**. The end-to-end system automates
 everything from data ingestion and model fine-tuning to ONNX export,
-quantization, and deployment artifact assembly. We replace any dependency on
+quantization, and deployment artefact assembly. We replace any dependency on
 managed cloud workflow services with a **self-hosted Prefect Orion** engine,
 which coordinates **Prefect flows and tasks** running on local infrastructure.
 Model training and evaluation are executed on interruptible **spot instances**
@@ -50,16 +50,16 @@ Key improvements in this design include:
   sources, model hyperparameters, instance types, etc.) is stored in code or
   config files under version control. Prefect flows record run metadata (e.g.
   flow run IDs, timestamps, parameters) in the Orion database, providing a
-  detailed audit trail for each model build. All artifacts are persisted with
+  detailed audit trail for each model build. All artefacts are persisted with
   **unique version identifiers** (such as an experiment ID or semantic version)
   and accompanied by
   checksums([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L238-L246))
-  and metadata. This guarantees that any model artifact can be traced back to
+  and metadata. This guarantees that any model artefact can be traced back to
   the exact code, data, and environment that produced it, ensuring strict
   reproducibility. The ONNX model files include a version tag in their metadata
   and are stored alongside their tokenizer and a `metadata.json` manifest
   containing training details and metrics. The Rust inference code verifies the
-  artifact integrity via checksum before
+  artefact integrity via checksum before
   use([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L240-L247)),
   closing the loop on end-to-end reliability.
 
@@ -78,7 +78,7 @@ infrastructure components that underpin the pipeline, ensuring it meets the
 needs of **fault tolerance**, **cost efficiency**, and **ease of integration**
 with LAG Complexity systems. Key decisions include the choice of **Prefect for
 orchestration** and **Terraform-managed compute** resources, as well as
-containerization and artifact storage strategies. These infrastructure choices
+containerization and artefact storage strategies. These infrastructure choices
 directly influence how we implement reproducibility, configuration, and
 fault-handling in the pipeline.
 
@@ -92,7 +92,7 @@ adhere to several core principles in designing the workflow:
   of distinct stages: **Data Ingestion**, **Model Training**, **ONNX Export**,
   **Verification**, **Quantization**, and **Deployment Packaging**. Each stage
   is a self-contained unit with clearly defined inputs and outputs,
-  communicated via a centralized artifact store. This modular design allows
+  communicated via a centralized artefact store. This modular design allows
   individual stages to be re-run or modified independently without affecting
   the entire pipeline, simplifies debugging, and lets different team members
   work in parallel on separate parts of the workflow.
@@ -111,7 +111,7 @@ adhere to several core principles in designing the workflow:
 
 - **Automation:** The entire pipeline – from the initial trigger (which could
   be a code release, new dataset availability, or a manual kickoff) to the
-  final publishing of model artifacts – is executed **without manual
+  final publishing of model artefacts – is executed **without manual
   intervention**. Prefect flows handle task scheduling, retries, and
   notifications. This automation not only reduces human error but also enables
   rapid iteration and consistent deployments. For example, an engineer can
@@ -259,9 +259,9 @@ automate their lifecycle:
   logged for inspection).
 
 - **Network and Storage Configuration:** Each ephemeral VM is configured to
-  access the central artifact store (e.g., S3 or an on-prem MinIO bucket) where
-  data and model artifacts reside. Terraform attaches appropriate IAM roles or
-  credentials so that the VM can read/write to the artifact store securely. No
+  access the central artefact store (e.g., S3 or an on-prem MinIO bucket) where
+  data and model artefacts reside. Terraform attaches appropriate IAM roles or
+  credentials so that the VM can read/write to the artefact store securely. No
   other long-lived infrastructure (like a permanent Kubernetes cluster or
   workflow engine) is required – the Prefect orchestrator and short-lived VMs
   are the only compute resources used. This minimalist approach reduces
@@ -283,19 +283,19 @@ illustrates the architecture:
 self-hosted Orion server coordinates tasks: provisioning cloud VMs via
 Terraform, running containerized training on a GPU spot instance (with periodic
 checkpoints saved to S3), exporting and quantizing the model on a separate CPU
-instance, then assembling the final artifacts in the artifact store. Each
+instance, then assembling the final artefacts in the artefact store. Each
 stage’s resources are torn down after use. This design balances cost (using
 spot instances and appropriate hardware per task) with reliability (via
 checkpointing and automated retries).)*
 
-### 1.3 Artifact Storage and Configuration Management
+### 1.3 Artefact Storage and Configuration Management
 
-All intermediate and final artifacts are stored in a **central artifact
+All intermediate and final artefacts are stored in a **central artefact
 repository**, for example an S3 bucket (`lag-complexity-artifacts`) accessible
 to all pipeline components. This storage acts as the single source of truth for
-data and model artifacts, reinforcing reproducibility:
+data and model artefacts, reinforcing reproducibility:
 
-- **Data Artifacts:** Raw datasets, processed datasets, and calibration subsets
+- **Data Artefacts:** Raw datasets, processed datasets, and calibration subsets
   are stored under versioned paths (e.g., `/datasets/raw/<name>/` and
   `/datasets/processed/<name>/v1/`). The pipeline’s data ingestion stage will
   retrieve data from these paths, ensuring that training is based on a fixed
@@ -304,7 +304,7 @@ data and model artifacts, reinforcing reproducibility:
   it. Alternatively, Prefect can also orchestrate data processing as a
   preliminary flow/task if needed.
 
-- **Model Artifacts and Checkpoints:** During training, checkpoints and final
+- **Model Artefacts and Checkpoints:** During training, checkpoints and final
   model weights are saved to S3 (see Section 2.3 for structure). After
   training, we have a fine-tuned PyTorch model saved under, e.g.,
   `/models/fine-tuned/<experiment_id>/final/`. The export stage will read from
@@ -325,9 +325,9 @@ data and model artifacts, reinforcing reproducibility:
   package (see Section 4.1) will contain fields for experiment ID, base model
   used, and possibly references to the code version or config used. This ties
   back into auditability – one can always reconstruct the training context from
-  the artifacts alone.
+  the artefacts alone.
 
-- **Secure Access:** Access to the artifact store is controlled via credentials
+- **Secure Access:** Access to the artefact store is controlled via credentials
   that the Prefect tasks and VMs have. The Prefect agent (running the
   orchestration) might use an AWS IAM role or keys (if on AWS) to manage S3.
   The ephemeral instances receive limited-permission credentials (by Terraform
@@ -339,7 +339,7 @@ data and model artifacts, reinforcing reproducibility:
 With the foundational architecture set, we now turn to the detailed
 implementation of each pipeline stage, explaining how the Prefect-orchestrated
 tasks perform data ingestion, training with checkpointing, model export, and
-artifact packaging.
+artefact packaging.
 
 ## Section 2: The Fine-Tuning Pipeline Implementation (Training Phase)
 
@@ -393,14 +393,14 @@ environment initialization and data ingestion:
   the model checkpoint to start from (if any), dataset name, and
   hyperparameters.
 
-- It establishes a secure connection to the artifact store (e.g., using AWS SDK
+- It establishes a secure connection to the artefact store (e.g., using AWS SDK
   with credentials available on the VM).
 
-- **Data Download:** The script downloads the required data artifacts from the
+- **Data Download:** The script downloads the required data artefacts from the
   centralized store. This includes the processed training dataset and
   validation dataset (e.g., under `/datasets/processed/<dataset_name>/vX/`) and
   possibly a pre-trained base model checkpoint if we start from a published
-  base model. By pulling from versioned artifact storage, we ensure the job
+  base model. By pulling from versioned artefact storage, we ensure the job
   isn’t using any stale or local data – it’s using exactly the data that’s been
   prepared and approved for this training run. This makes the run deterministic
   and reproducible. The downloaded data is stored locally on the VM (inside the
@@ -472,7 +472,7 @@ as described in the project’s design:
   sent to the Prefect Orion server as a heartbeat). This visibility allows the
   team to monitor training progress in the Prefect UI live. Moreover, after
   training, these metrics (especially on a validation set) can be saved as part
-  of the `metadata.json` for the model artifact, giving a summary of model
+  of the `metadata.json` for the model artefact, giving a summary of model
   performance for later review.
 
 The Prefect flow doesn’t interfere during the training epoch loop – it simply
@@ -491,7 +491,7 @@ progress. Here’s how it works:
 `Trainer` to save checkpoints every few hundred steps. Each checkpoint is a
 folder containing the model’s weights, optimizer state, scheduler state, etc.
 We implement a custom `TrainerCallback` (integrated in the training script) to
-**sync checkpoints to S3** (artifact store) whenever one is saved. For example,
+**sync checkpoints to S3** (artefact store) whenever one is saved. For example,
 after each `save_steps` interval, the callback triggers and uses `boto3` (or
 the cloud SDK) to upload the checkpoint directory to a path like
 `s3://lag-complexity-artifacts/models/checkpoints/<experiment_id>/step-XXXX/`.
@@ -508,7 +508,7 @@ flow’s logic kicks in:
 
 - The **`execute_training`** task is set to retry (with a limit, e.g., 3
   retries). Before retrying, we run a recovery sub-routine: the Prefect flow
-  queries the artifact store to find the latest checkpoint for this experiment
+  queries the artefact store to find the latest checkpoint for this experiment
   (by listing `.../checkpoints/<experiment_id>/` and finding the highest step
   or latest timestamp).
 
@@ -539,8 +539,8 @@ on-demand instance.
 after resumes), the script performs a final save of the model using
 `trainer.save_model()`. This produces the complete fine-tuned model files
 (PyTorch `pytorch_model.bin` or similar, config.json, etc.) in the container.
-We upload this final model artifact to a designated S3 path: e.g.,
-`s3://.../models/fine-tuned/<experiment_id>/final/`. This final artifact is
+We upload this final model artefact to a designated S3 path: e.g.,
+`s3://.../models/fine-tuned/<experiment_id>/final/`. This final artefact is
 what the next stages (export & quantization) will consume. We also tag this
 with a version number or commit hash if needed, and ensure the **checkpoint
 callback** has flushed any last checkpoint (though final model is usually more
@@ -548,7 +548,7 @@ important than intermediate checkpoints now).
 
 At this point, the training VM’s job is done. The Prefect flow will signal
 Terraform to destroy the GPU VM to save cost. We have a fine-tuned model in the
-artifact store and are ready to transition to the model optimization phase.
+artefact store and are ready to transition to the model optimization phase.
 
 ## Section 3: Model Export, Verification, and Optimization for Inference
 
@@ -612,7 +612,7 @@ points:
   how the export was done for reproducibility).
 
 Once the export command runs, we have an ONNX model (floating-point precision)
-stored locally. We upload this to the artifact store:
+stored locally. We upload this to the artefact store:
 `s3://.../models/onnx/<experiment_id>/fp32/model.onnx`. Alongside, we save the
 Optimum export config if available. This completes the conversion, but **we do
 not yet tear down the CPU VM**, because we will continue to use it for
@@ -679,7 +679,7 @@ ADR([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23
 to compute activation scaling factors. During Stage 1 or earlier, we ensure
 such a dataset is available. Often, this is a few hundred representative
 examples from the training set. Our pipeline either expects this to be present
-in the artifact store (e.g., under `/datasets/processed/<name>/calibration/`),
+in the artefact store (e.g., under `/datasets/processed/<name>/calibration/`),
 or if not, we can have a step that samples from training data to create it. In
 our design, we assume the calibration data has been prepared offline or in an
 earlier flow and uploaded.
@@ -720,12 +720,12 @@ If the INT8 model shows unacceptable deviation, the pipeline could decide to
 fail or warn. Assuming all is well, we proceed to save the quantized model.
 
 **Publishing the Quantized Model:** We upload `model_quantized.onnx` to the
-artifact store under `/models/onnx/<experiment_id>/int8/model_quantized.onnx`.
+artefact store under `/models/onnx/<experiment_id>/int8/model_quantized.onnx`.
 We also collect all necessary pieces for deployment:
 
 - The tokenizer files (vocab, merges, tokenizer.json) – these might already be
   stored separately (perhaps under base model data), but to be safe we copy
-  them to, say, `/models/onnx/<experiment_id>/tokenizer/` in the artifact store
+  them to, say, `/models/onnx/<experiment_id>/tokenizer/` in the artefact store
   so the Rust service can easily fetch the exact tokenizer used.
 
 - The `metadata.json` – we create this deployment metadata file containing:
@@ -752,17 +752,17 @@ We also collect all necessary pieces for deployment:
 - A checksum manifest (if not included in metadata) listing the SHA-256 of
   `model_quantized.onnx` (and maybe of the FP32 model for reference).
 
-All these files are stored in the artifact repository as the **deployment
+All these files are stored in the artefact repository as the **deployment
 package** for this model version.
 
 Finally, the Prefect flow signals Terraform to destroy the CPU VM as well,
-since all artifacts are now safely stored.
+since all artefacts are now safely stored.
 
 To summarize Stage 3, we have taken the fine-tuned model, converted it to ONNX
 (for portable, runtime-efficient format), verified its correctness, and applied
 quantization to meet performance targets (e.g., p95 latency ≤ 10ms on CPU as
 required([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L26-L34))([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L38-L46))).
-The result is a production-ready model artifact set.
+The result is a production-ready model artefact set.
 
 ## Section 4: Integration with LAG Complexity Infrastructure (Deployment Phase)
 
@@ -780,18 +780,18 @@ involves retrieving this package and configuring the Rust service to use it:
 - We follow a convention that each model has a **semantic version** or unique
   ID. For example, depth classifier v1.0.0 might correspond to
   `experiment_id = depth-ordinal-1.0.0`. This version can be encoded in the
-  artifact path or in the ONNX model’s
+  artefact path or in the ONNX model’s
   metadata([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa31591063f23b8298151917a52/docs/adr-depth-classifier-onnx.md#L242-L249)).
   The **Rust application** (or its config) will specify which version of the
   model to use (likely the latest stable).
 
 - During deployment of the Rust service, a CI/CD step will fetch the needed
-  artifacts from S3. This can be automated: e.g., a build script uses AWS CLI
+  artefacts from S3. This can be automated: e.g., a build script uses AWS CLI
   to download `model_quantized.onnx`, `tokenizer.json`, etc., from the known S3
   path (the path can be constructed from the version, or a manifest file can
   list the latest version).
 
-- All artifacts are placed in the container or file system where the Rust
+- All artefacts are placed in the container or file system where the Rust
   service can access them. The pipeline ensures backward compatibility – the
   ONNX model adheres to the interface expected by the Rust code (same
   input/output tensor schema) and includes any metadata needed.
@@ -803,7 +803,7 @@ pipeline([1](https://github.com/leynos/lag-complexity/blob/56bc0cd28b3f7fa315910
 Our pipeline provided that checksum (in the metadata). If they don't match,
 the service will refuse to load the model, preventing any tampering or mismatch
 between code and model. This was an explicit design in the ADR and we uphold it
-in our artifact generation.
+in our artefact generation.
 
 ### 4.2 Rust Inference Integration (Using the `ort` Crate)
 
@@ -895,7 +895,7 @@ Key highlights of this design include:
   well-defined recovery logic rather than ad-hoc handling.
 
 - **Reproducibility & Auditability:** Every run is deterministic given the same
-  inputs, and every output artifact is versioned and checksummed. From
+  inputs, and every output artefact is versioned and checksummed. From
   container images that freeze the software stack to configuration files that
   capture all parameters, we can recreate any model build. Additionally, the
   pipeline records metadata (like model metrics, version, cutpoints, etc.) that
@@ -904,7 +904,7 @@ Key highlights of this design include:
   ML workflows.
 
 - **Seamless Deployment Integration:** The final ONNX model and accompanying
-  artifacts are packaged in alignment with the LAG Complexity inference
+  artefacts are packaged in alignment with the LAG Complexity inference
   infrastructure. The Rust service can readily load the model and knows how to
   trust its integrity and interpret its outputs, because the pipeline ensured
   consistency in tokenization and ordinal logic between training and inference.
