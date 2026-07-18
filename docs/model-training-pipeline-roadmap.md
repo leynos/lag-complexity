@@ -47,10 +47,10 @@ progress tracking.
   - [ ] 1.1.3.4. Wire alerting (Slack, PagerDuty, email) to Prefect block
         failures and add runbook links for operator response.
 
-### 1.2. Standardise compute procurement and cost controls
+### 1.2. Standardize compute procurement and cost controls
 
 - [ ] Automate OpenTofu modules for g4dn.xlarge, g6.xlarge, and c6i.xlarge
-      instances with provider parameterisation and teardown under 10 minutes.
+      instances with provider parameterization and teardown under 10 minutes.
 - [ ] Validate spot-to-on-demand fallbacks by injecting capacity failures and
       confirming retries succeed within three orchestration attempts.
 - [ ] Publish hourly cost benchmarks for each instance class with variance
@@ -75,7 +75,7 @@ progress tracking.
 
 - [ ] Build ingestion scripts that hydrate `/datasets/raw/` from approved
       sources and emit checksums recorded in metadata manifests.
-- [ ] Create preprocessing jobs that materialise `/datasets/processed/`
+- [ ] Create preprocessing jobs that materialize `/datasets/processed/`
       artefacts with schema validation and rejection workflows for anomalies.
 - [ ] Introduce calibration dataset generation producing 100–500 curated
       samples stored under `/datasets/processed/{dataset}/calibration/`.
@@ -84,7 +84,7 @@ progress tracking.
 
 - [ ] Develop the `OrdinalRegressionTrainer` with cutpoint ordering guarantees
       and unit tests covering boundary cases (monotonicity, identical labels).
-- [ ] Parameterise model head replacement logic to support both BERT-like and
+- [ ] Parameterize model head replacement logic to support both BERT-like and
       ViT architectures, validated on representative text and image datasets.
 - [ ] Achieve ≥90% statement coverage on the training module using `pytest`
       plus fixtures from `rstest`.
@@ -100,7 +100,7 @@ progress tracking.
 - [ ] Capture structured metrics (loss, cutpoints, throughput) and emit them to
       Prefect Orion and the observability stack with comparison dashboards.
 
-## 3. Operationalise export and optimisation
+## 3. Operationalize export and optimization
 
 ### 3.1. Build ONNX export automation
 
@@ -111,7 +111,7 @@ progress tracking.
 - [ ] Execute export and verification Prefect tasks on CPU OpenTofu modules,
       proving GPU instances are torn down before CPU provisioning.
 - [ ] Store FP32 exports under `/models/onnx/{experiment}/fp32/` with metadata
-      capturing opset, optimiser flags, and git references.
+      capturing opset, optimizer flags, and git references.
 
 ### 3.2. Enforce parity verification gates
 
@@ -122,13 +122,13 @@ progress tracking.
 - [ ] Schedule nightly parity spot-checks on retained models to detect drift in
       dependencies (CUDA, ONNX Runtime) before release branches freeze.
 
-### 3.3. Deliver quantisation and benchmarking workflow
+### 3.3. Deliver quantization and benchmarking workflow
 
-- [ ] Codify static INT8 quantisation scripts with calibration dataset reuse
+- [ ] Codify static INT8 quantization scripts with calibration dataset reuse
       and artefact write-back to `/models/onnx/{experiment}/int8/`.
 - [ ] Measure INT8 throughput versus FP32 on target CPU instances, documenting
       improvements and acceptable accuracy deltas (<1% MAE loss).
-- [ ] Integrate quantised-model verification into CI with `atol=1e-2`
+- [ ] Integrate quantized-model verification into CI with `atol=1e-2`
       tolerances, including latency smoke tests under realistic batch sizes.
 
 ## 4. Integrate with the Rust inference surface
@@ -151,7 +151,7 @@ progress tracking.
 - [ ] Benchmark end-to-end inference latencies (p50, p95) under representative
       traffic, ensuring INT8 pipelines meet sub-50 ms targets on t4g.large.
 
-### 4.3. Operationalise release governance
+### 4.3. Operationalize release governance
 
 - [ ] Define promotion criteria linking training experiment success, parity
       checks, and Rust e2e tests before artefacts become GA releases.

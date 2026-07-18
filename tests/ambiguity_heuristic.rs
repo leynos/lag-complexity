@@ -6,6 +6,7 @@
 use lag_complexity::TextProcessor;
 use lag_complexity::heuristics::{AmbiguityHeuristic, AmbiguityHeuristicError};
 use proptest::prelude::*;
+use proptest::test_runner::TestCaseError;
 use rstest::rstest;
 
 mod support;
@@ -156,14 +157,22 @@ macro_rules! assert_non_decreasing {
             "{} base sentence should score but returned {base_result:?}",
             context
         );
-        let base_score = base_result.unwrap();
+        let base_score = base_result.map_err(|err| {
+            TestCaseError::fail(format!(
+                "{context} base sentence should score but returned {err:?}"
+            ))
+        })?;
         let augmented_result = $heuristic.process($augmented);
         prop_assert!(
             augmented_result.is_ok(),
             "{} augmented text should score but returned {augmented_result:?}",
             context
         );
-        let augmented_score = augmented_result.unwrap();
+        let augmented_score = augmented_result.map_err(|err| {
+            TestCaseError::fail(format!(
+                "{context} augmented text should score but returned {err:?}"
+            ))
+        })?;
         prop_assert!(
             augmented_score >= base_score,
             "{} lowered score: base={base_score}, augmented={augmented_score}",
@@ -219,9 +228,11 @@ proptest! {
     ) {
         let sentence = format!("{adverb} {pronoun}.");
         let h = AmbiguityHeuristic;
-        let score = h
-            .process(&sentence)
-            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        let score = h.process(&sentence).map_err(|err| {
+            TestCaseError::fail(format!(
+                "capitalized function-word sentence should score: {err:?}"
+            ))
+        })?;
         prop_assert!(
             score >= 3.0,
             "expected unresolved pronoun score >= 3.0, got {score}"
@@ -234,9 +245,11 @@ proptest! {
     ) {
         let sentence = format!("{pronoun} failed.");
         let h = AmbiguityHeuristic;
-        let score = h
-            .process(&sentence)
-            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        let score = h.process(&sentence).map_err(|err| {
+            TestCaseError::fail(format!(
+                "demonstrative-pronoun sentence should score: {err:?}"
+            ))
+        })?;
         prop_assert!(
             approx_eq(score, 2.0, EPSILON),
             "expected demonstrative pronoun to be anchored by the verb, got {score}"
@@ -251,9 +264,11 @@ proptest! {
     ) {
         let sentence = format!("{name}'s device failed. {pronoun} {verb}.");
         let h = AmbiguityHeuristic;
-        let score = h
-            .process(&sentence)
-            .unwrap_or_else(|err| panic!("expected scoring to succeed: {err:?}"));
+        let score = h.process(&sentence).map_err(|err| {
+            TestCaseError::fail(format!(
+                "possessive proper-noun sentence should score: {err:?}"
+            ))
+        })?;
         prop_assert!(
             approx_eq(score, 2.0, EPSILON),
             "expected possessive proper noun to anchor the pronoun, got {score}"
