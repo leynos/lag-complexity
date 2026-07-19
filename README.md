@@ -1,5 +1,8 @@
 # LAG Complexity: The Cognitive Clutch for Advanced AI Agents
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](
+https://deepwiki.com/leynos/lag-complexity)
+
 `lag-complexity` is a high-performance, modular, and production-grade Rust
 implementation of the Cognitive Load metric, CL(q), as defined in the
 Logic-Augmented Generation (LAG) research paper.
