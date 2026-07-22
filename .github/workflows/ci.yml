@@ -44,14 +44,6 @@ jobs:
               cargo install --locked whitaker-installer --version "${WHITAKER_INSTALLER_VERSION}"
             fi
           fi
-          # whitaker-installer 0.2.6 probes binstall with the same broken
-          # `--version` flag, so its dylint-link fallback compiles from
-          # crates.io and needs rustc >= 1.91 — newer than this repository's
-          # pinned nightly. Preinstall the prebuilt dylint-link that the
-          # installer expects so it detects the tool and skips that path.
-          if cargo binstall -V >/dev/null 2>&1; then
-            cargo binstall --no-confirm dylint-link@6.0.1
-          fi
           whitaker-installer
       - name: Lint
         run: make lint
