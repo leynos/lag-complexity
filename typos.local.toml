@@ -12,7 +12,20 @@ accepted = ["Hashi"]
 [words.corrections]
 
 [patterns]
-ignore = ["mis-predictions"]
+# mis-predictions: hyphenated form used deliberately in the design notes.
+# `color`: the documentation style guide's own example of a US spelling kept
+# inside an API name.
+# package_artifacts / lag-complexity-artifacts: a Prefect task name and an S3
+# bucket name quoted from the training pipeline design; identifiers, not prose.
+# iamge_id: a deliberate typo in the OpenTofu guide's worked example of a
+# misspelt variable reference.
+ignore = [
+    "mis-predictions",
+    "`color`",
+    "package_artifacts",
+    "lag-complexity-artifacts",
+    "iamge_id",
+]
 
 [files]
 exclude = []
