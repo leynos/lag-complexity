@@ -382,3 +382,60 @@ def test_remote_freshness_uses_dates_and_falls_back_on_invalid_values(
         {"last_modified": "invalid"}, {"Last-Modified": "invalid"}
     )
     assert not rollout._remote_is_not_newer({}, {"Last-Modified": "invalid"})
+
+
+def _typos_binary_available() -> bool:
+    """Whether ``uv`` can run the pinned typos release in this environment."""
+    import shutil
+
+    return shutil.which("uv") is not None
+
+
+@pytest.mark.skipif(not _typos_binary_available(), reason="uv is not on PATH")
+def test_generated_config_accepts_the_recorded_terms_and_rejects_a_typo(
+    tmp_path: Path,
+) -> None:
+    """The rendered ``typos.toml`` behaves at the typos boundary as recorded.
+
+    The four repository terms recorded in ``typos.local.toml`` (a US spelling
+    quoted as the style guide's own example, a Prefect task name, an S3 bucket
+    name and a deliberate misspelling in a worked example) pass through the
+    pinned ``typos`` unflagged, while an ordinary misspelling on the same page
+    is still rejected. This drives the real binary against the real rendered
+    configuration rather than asserting on the file's text.
+    """
+    import subprocess
+
+    generate = importlib.import_module("generate_typos_config")
+    config = tmp_path / "typos.toml"
+    config.write_text(generate.render_config(), encoding="utf-8")
+    version = os.environ.get("TYPOS_VERSION", "1.48.0")
+
+    def run(markdown: str) -> subprocess.CompletedProcess[str]:
+        page = tmp_path / "page.md"
+        page.write_text(markdown, encoding="utf-8")
+        return subprocess.run(  # noqa: S603 - pinned tool, fixed arguments
+            [
+                "uv",
+                "tool",
+                "run",
+                f"typos@{version}",
+                "--config",
+                str(config),
+                str(page),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    accepted = run(
+        "Keep US spelling in an API, for example `color`.\n"
+        "The `package_artifacts()` task writes to `lag-complexity-artifacts`.\n"
+        "A typo such as `var.iamge_id` instead of `var.image_id` is caught.\n"
+    )
+    assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+
+    rejected = run("The colour of the artifacts is wrong.\n")
+    assert rejected.returncode != 0
+    assert "artifacts" in rejected.stdout + rejected.stderr
