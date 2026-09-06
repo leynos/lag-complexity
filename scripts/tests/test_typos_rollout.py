@@ -401,14 +401,16 @@ def test_generated_config_accepts_the_recorded_terms_and_rejects_a_typo(
     quoted as the style guide's own example, a Prefect task name, an S3 bucket
     name and a deliberate misspelling in a worked example) pass through the
     pinned ``typos`` unflagged, while an ordinary misspelling on the same page
-    is still rejected. This drives the real binary against the real rendered
+    is still rejected. This drives the real binary against the committed
     configuration rather than asserting on the file's text.
     """
     import subprocess
 
-    generate = importlib.import_module("generate_typos_config")
-    config = tmp_path / "typos.toml"
-    config.write_text(generate.render_config(), encoding="utf-8")
+    # The committed typos.toml, not a fresh render: the shared-base cache the
+    # renderer reads is refreshed by `make spelling` after these tests run,
+    # so it need not exist here, and the committed file is what the gate
+    # enforces once regeneration finds nothing to change.
+    config = Path(__file__).resolve().parents[2] / "typos.toml"
     version = os.environ.get("TYPOS_VERSION", "1.48.0")
 
     def run(markdown: str) -> subprocess.CompletedProcess[str]:
