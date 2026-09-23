@@ -33,24 +33,43 @@ struct Workflow {
 }
 
 #[test]
-fn coverage_main_upload_gates_on_env_secret() -> Result<(), Box<dyn Error>> {
-    // The CodeScene upload lives in coverage-main.yml (push to main), not
-    // the pull-request CI job: `cs-coverage upload` is accepted only for
-    // analysed branches. The job-level env supplies the token (empty when
-    // the secret is unset — e.g. forks), and the step guards on it so a
-    // token-less run skips the upload rather than failing.
+fn coverage_main_upload_gates_on_token_check() -> Result<(), Box<dyn Error>> {
+    // The CodeScene upload lives in coverage-main.yml, never in the
+    // pull-request CI job. GitHub Actions rejects the `secrets` context in
+    // `if:`, and the uploader is a composite action that would pass a step
+    // `env` to its nested steps, so no `env` binds the token: a check step
+    // evaluates the secret's presence before its shell runs, and the upload
+    // reads that output and receives the token only as `access-token`. A
+    // token-less run (a fork) skips the upload rather than failing it.
     let workflow = read_workflow(WorkflowFile::CoverageMain)?;
     let job = mapping_value_path(&workflow.jobs, &["coverage-upload"])?;
-
-    let env = mapping_value(job, "env")?;
-    assert_scalar_eq(
-        mapping_value(env, "CS_ACCESS_TOKEN")?,
-        "${{ secrets.CS_ACCESS_TOKEN || '' }}",
+    assert!(
+        mapping_value(job, "env")
+            .and_then(|env| mapping_value(env, "CS_ACCESS_TOKEN"))
+            .is_err(),
+        "the job env must not bind CS_ACCESS_TOKEN"
     );
 
     let steps = sequence_value(mapping_value(job, "steps")?)?;
+    let check_step = named_step(steps, StepName("Check for the CodeScene token"))?;
+    assert_scalar_eq(mapping_value(check_step, "id")?, "codescene-token");
+    assert_scalar_eq(
+        mapping_value(check_step, "run")?,
+        "echo \"available=${{ secrets.CS_ACCESS_TOKEN != '' }}\" >> \"$GITHUB_OUTPUT\"",
+    );
+
     let upload_step = named_step(steps, StepName("Upload coverage data to CodeScene"))?;
-    assert_scalar_eq(mapping_value(upload_step, "if")?, "env.CS_ACCESS_TOKEN");
+    assert_scalar_eq(
+        mapping_value(upload_step, "if")?,
+        concat!(
+            "steps.codescene-token.outputs.available == 'true' && ",
+            "github.ref == 'refs/heads/main'"
+        ),
+    );
+    assert_scalar_eq(
+        mapping_value_path(upload_step, &["with", "access-token"])?,
+        "${{ secrets.CS_ACCESS_TOKEN }}",
+    );
 
     Ok(())
 }

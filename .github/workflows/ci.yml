@@ -15,12 +15,8 @@ jobs:
       CARGO_TERM_COLOR: always
       BUILD_PROFILE: debug
       WHITAKER_INSTALLER_VERSION: '0.2.7'
-      CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN || '' }}
-      CODESCENE_CLI_SHA256: ${{ vars.CODESCENE_CLI_SHA256 || '' }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - name: Setup Rust
         uses: leynos/shared-actions/.github/actions/setup-rust@82feb2b7aac45b7efff40c9c4bb632551b14521c
       - name: Install mdtablefix
@@ -75,19 +71,15 @@ jobs:
         run: make test-workflow-contracts
       - name: Test
         run: make test
+      # Pull requests only: main's push is measured by coverage-main.yml, the
+      # one workflow that writes the ratchet baseline. The lane publishes no
+      # artefact and never contacts CodeScene.
       - name: Generate coverage
+        if: github.event_name == 'pull_request'
         uses: leynos/shared-actions/.github/actions/generate-coverage@82feb2b7aac45b7efff40c9c4bb632551b14521c
         with:
           output-path: lcov.info
           format: lcov
           use-cargo-nextest: 'false'
           with-ratchet: 'true'
-      - name: Check coverage against CodeScene gates
-        if: env.CS_ACCESS_TOKEN != '' && github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@82feb2b7aac45b7efff40c9c4bb632551b14521c
-        with:
-          format: lcov
-          mode: check
-          project-url: https://api.codescene.io/v2/projects/70676
-          access-token: ${{ env.CS_ACCESS_TOKEN }}
-          installer-checksum: ${{ env.CODESCENE_CLI_SHA256 }}
+          publish-artefact: 'false'
