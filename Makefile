@@ -37,7 +37,7 @@ test: ## Run tests with warnings treated as errors
 	# aligned with the plain `cargo test` used by cargo-mutants.
 	RUSTFLAGS="-D warnings" $(CARGO) test --doc --all-features $(BUILD_JOBS)
 
-test-workflow-contracts: ## Validate the mutation-testing caller contract
+test-workflow-contracts: ## Validate the mutation-testing and CodeScene coverage workflow contracts
 	uv run --with 'pytest>=8' --with 'pyyaml>=6' pytest tests/workflow_contracts -q
 
 target/%/$(APP): ## Build binary in debug or release mode
