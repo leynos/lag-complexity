@@ -25,6 +25,6 @@ jobs:
       statuses: read # Inspects legacy required status contexts before auto-merge.
       id-token: write # Reads reusable workflow OIDC metadata; no external cloud auth.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login == 'dependabot[bot]' }}
-    uses: leynos/shared-actions/.github/workflows/dependabot-automerge.yml@759da19f0379b6d2d7ddef93b7ad4c3b98154e41
+    uses: leynos/shared-actions/.github/workflows/dependabot-automerge.yml@774cc5a01e457714aede66e14a97b3e257812fc2
     with:
       pull-request-number: ${{ inputs.pull-request-number || github.event.pull_request.number }}
