@@ -25,6 +25,8 @@ ignore = [
     "package_artifacts",
     "lag-complexity-artifacts",
     "iamge_id",
+    # The mold linker, named by the build standard section of the developers' guide.
+    "\\bmold\\b",
 ]
 
 [files]
