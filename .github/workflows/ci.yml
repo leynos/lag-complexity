@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Setup Rust
-        uses: leynos/shared-actions/.github/actions/setup-rust@8a83824b29dfe8f861714b544dc85fb925ed010c
+        uses: leynos/shared-actions/.github/actions/setup-rust@abf0dcf2686de1eaf79b6dc9a16662b631bed149
         with:
           install-mold: 'true'
       - name: Install mdtablefix
