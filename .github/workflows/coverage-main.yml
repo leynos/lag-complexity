@@ -63,6 +63,9 @@ jobs:
           output-path: lcov.info
           format: lcov
           use-cargo-nextest: 'false'
+          all-features: 'true'
+          all-targets: 'true'
+          doctests: 'true'
           with-ratchet: 'true'
       # No env binds the token. The uploader is a composite action: a token in
       # its step's env would reach its nested upload-artifact and cache steps

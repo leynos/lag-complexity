@@ -70,6 +70,7 @@ jobs:
       - name: Workflow contract tests
         run: make test-workflow-contracts
       - name: Test
+        if: github.event_name != 'pull_request'
         run: make test
       # Pull requests only: main's push is measured by coverage-main.yml, the
       # one workflow that writes the ratchet baseline. The lane publishes no
@@ -81,5 +82,8 @@ jobs:
           output-path: lcov.info
           format: lcov
           use-cargo-nextest: 'false'
+          all-features: 'true'
+          all-targets: 'true'
+          doctests: 'true'
           with-ratchet: 'true'
           publish-artefact: 'false'
