@@ -35,6 +35,8 @@ USES_RE = re.compile(
 #: src/tests module and tests/support helpers) plus the manually run
 #: golden-snapshot regenerator, none of which the test suite guards.
 EXPECTED_WITH = {
+    # .cargo/config.toml links with mold on Linux; the reusable workflow installs it.
+    "install-mold": "true",
     "extra-args": "--all-features",
     "exclude-globs": "src/tests/**,tests/support/**,src/bin/bless_traces.rs",
 }
