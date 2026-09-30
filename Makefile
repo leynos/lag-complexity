@@ -18,6 +18,15 @@ NIXIE ?= nixie
 WHITAKER ?= whitaker
 UV ?= uv
 UV_ENV = UV_CACHE_DIR=.uv-cache UV_TOOL_DIR=.uv-tools
+
+# The CV-005 CodeScene contracts live in shared-actions and run from a full
+# commit, so a fix is a pin bump. `.github/cv005.toml` holds this repository's
+# only parameters.
+CV005_CONTRACTS_REF ?= a38feb9be25755c30eca5bda96bd3786a5b89c6b
+CV005_CONTRACTS = $(UV_ENV) $(UV) tool run --python 3.13 \
+	--from 'git+https://github.com/leynos/shared-actions@$(CV005_CONTRACTS_REF)\#subdirectory=packages/cv005-contracts' \
+	cv005-contracts
+
 TYPOS_CONFIG_BUILDER_VERSION ?= v0.1.1
 TYPOS_CONFIG_BUILDER = $(UV_ENV) $(UV) tool run --python 3.14 --from \
 	"git+https://github.com/leynos/typos-config-builder.git@$(TYPOS_CONFIG_BUILDER_VERSION)" \
@@ -26,7 +35,7 @@ TYPOS_CONFIG_BUILDER = $(UV_ENV) $(UV) tool run --python 3.14 --from \
 build: target/debug/$(APP) ## Build debug binary
 release: target/release/$(APP) ## Build release binary
 
-all: release spelling ## Build the release binary and enforce spelling
+all: release spelling test-workflow-contracts ## Build the release binary and enforce spelling
 
 clean: ## Remove build artifacts
 	$(CARGO) clean
@@ -38,6 +47,7 @@ test: ## Run tests with warnings treated as errors
 	RUSTFLAGS="-D warnings" $(CARGO) test --doc --all-features $(BUILD_JOBS)
 
 test-workflow-contracts: ## Validate the mutation-testing and CodeScene coverage workflow contracts
+	$(CV005_CONTRACTS) check --repository .
 	uv run --with 'pytest>=8' --with 'pyyaml>=6' pytest tests/workflow_contracts -q
 
 target/%/$(APP): ## Build binary in debug or release mode
@@ -60,7 +70,7 @@ check-fmt: ## Verify formatting
 	$(MDTABLEFIX) --check $(MDTABLEFIX_SELECT) $(MDTABLEFIX_RULES)
 
 markdownlint: spelling ## Lint Markdown files and enforce spelling
-	find . -type f -name '*.md' -not -path './target/*' -print0 | xargs -0 $(MDLINT)
+	find . -type f -name '*.md' -not -path './target/*' -not -path './.uv-cache/*' -not -path './.uv-tools/*' -print0 | xargs -0 $(MDLINT)
 
 spelling: ## Enforce en-GB-oxendict spelling
 	$(TYPOS_CONFIG_BUILDER) gate --repository .
