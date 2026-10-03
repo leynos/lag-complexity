@@ -4,3 +4,4 @@
 #
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
+cc 0bdcaf62b0d925e4dea280ed5a90ca4526751ecf0d28d7ef8b1b14be346a7809 # shrinks to name = "Alice", pronoun = "It", verb = "her"
