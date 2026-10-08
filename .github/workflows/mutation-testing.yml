@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # OIDC workflow-source resolution
-    uses: leynos/shared-actions/.github/workflows/mutation-cargo.yml@7d751eded578e48dacf43ab173d5820e6437c474
+    uses: leynos/shared-actions/.github/workflows/mutation-cargo.yml@b9a3bff63b1e19b3a48d433668184e24e1abd3ba
     with:
       extra-args: "--all-features"
       exclude-globs: "src/tests/**,tests/support/**,src/bin/bless_traces.rs"
