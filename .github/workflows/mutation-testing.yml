@@ -20,5 +20,7 @@ jobs:
       id-token: write # OIDC workflow-source resolution
     uses: leynos/shared-actions/.github/workflows/mutation-cargo.yml@b9a3bff63b1e19b3a48d433668184e24e1abd3ba
     with:
+      # .cargo/config.toml links with mold on Linux; the reusable workflow installs it.
+      install-mold: 'true'
       extra-args: "--all-features"
       exclude-globs: "src/tests/**,tests/support/**,src/bin/bless_traces.rs"

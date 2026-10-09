@@ -18,6 +18,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Setup Rust
         uses: leynos/shared-actions/.github/actions/setup-rust@b9a3bff63b1e19b3a48d433668184e24e1abd3ba
+        with:
+          install-mold: 'true'
       - name: Install mdtablefix
         # `make check-fmt` runs `mdtablefix --check --git`; 0.6.0 is the
         # first release with `--check` and `--git`.
@@ -39,6 +41,10 @@ jobs:
           globs: '**/*.md'
       - name: Install the Whitaker Dylint suite
         uses: leynos/shared-actions/.github/actions/install-whitaker@b9a3bff63b1e19b3a48d433668184e24e1abd3ba
+        with:
+          # The dev profile builds with the Cranelift backend, so the lint suite's
+          # toolchain needs rustc-codegen-cranelift too.
+          cranelift: 'true'
       - name: Lint
         run: make lint
       - name: Setup uv
@@ -57,6 +63,11 @@ jobs:
       # artefact and never contacts CodeScene.
       - name: Generate coverage
         if: github.event_name == 'pull_request'
+        env:
+          # One of the two exclusions from the build standard: a coverage build is a
+          # measurement, so it takes neither the parallel frontend nor the mold linker.
+          # Assigning RUSTFLAGS displaces every `rustflags` table in .cargo/config.toml.
+          RUSTFLAGS: -D warnings
         uses: leynos/shared-actions/.github/actions/generate-coverage@b9a3bff63b1e19b3a48d433668184e24e1abd3ba
         with:
           output-path: lcov.info
