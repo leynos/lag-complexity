@@ -200,7 +200,12 @@ own `RUSTFLAGS`) and for the release target (the coverage exclusion is checked
 in the workflow steps) on a Linux host, and the `setup-rust` steps of the CI
 workflows (each must pass `install-mold`), so a flag lost through a recipe or
 workflow edit fails there. The decision is recorded in
-[ADR 001](adr-001-rust-build-standard.md).
+[ADR 001](adr-001-rust-build-standard.md). The contract runs `make -n`, so a
+direct `cargo test` and `make test` both need GNU make on the `PATH`. It fails
+when `make` is missing instead of skipping, so a missing tool cannot read as a
+pass. On macOS the system `make` is GNU make and suffices. A newer GNU make
+from Homebrew installs as `gmake`; put its `gnubin` directory
+(`$(brew --prefix make)/libexec/gnubin`) on the `PATH` to have it run as `make`.
 
 ### Cranelift
 
