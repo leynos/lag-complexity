@@ -20,8 +20,10 @@ use thiserror::Error;
 /// Errors returned by [`HeuristicComplexity`].
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HeuristicComplexityError {
+    /// The depth heuristic failed.
     #[error(transparent)]
     Depth(#[from] DepthHeuristicError),
+    /// The ambiguity heuristic failed.
     #[error(transparent)]
     Ambiguity(#[from] AmbiguityHeuristicError),
 }

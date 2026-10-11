@@ -38,6 +38,9 @@ name = "lagc"
 path = "src/bin/lagc.rs"
 required-features = ["cli"]
 
+[lints.rust]
+missing_docs = "deny"
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 

@@ -106,7 +106,9 @@ impl Complexity {
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trace {
+    /// The query text that was scored.
     pub query: String,
+    /// The complexity scores computed for the query.
     pub complexity: Complexity,
 }
 
