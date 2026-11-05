@@ -1,4 +1,4 @@
-.PHONY: help all clean test test-workflow-contracts build release lint typecheck \
+.PHONY: help all clean test test-workflow-contracts build release lint typecheck yamllint actionlint \
 	fmt check-fmt markdownlint nixie spelling bless
 
 APP ?= lagc
@@ -62,7 +62,7 @@ test-workflow-contracts: ## Validate the mutation-testing and CodeScene coverage
 target/%/$(APP): ## Build binary in debug or release mode
 	$(if $(findstring release,$(@)),RUSTFLAGS="$${RUSTFLAGS-}",RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }$(STANDARD_RUSTFLAGS)") $(CARGO) build $(BUILD_JOBS) $(if $(findstring release,$(@)),--release) --bin $(APP)
 
-lint: ## Run Clippy and the Whitaker Dylint suite with warnings denied
+lint: yamllint actionlint ## Run Clippy and the Whitaker Dylint suite with warnings denied
 	RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }$(STANDARD_RUSTFLAGS)" $(CARGO) clippy $(CLIPPY_FLAGS)
 	RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }-D warnings $(STANDARD_RUSTFLAGS)" $(WHITAKER) --all -- --all-targets --all-features
 
@@ -91,6 +91,17 @@ nixie: ## Validate Mermaid diagrams
 
 bless: ## Regenerate golden test snapshots
 	$(CARGO) run --no-default-features --bin bless_traces $(if $(SNAPSHOT),-- "$(SNAPSHOT)",)
+
+YAMLLINT ?= yamllint
+ACTIONLINT ?= actionlint
+
+# yamllint reads `.yamllint.yml`, which extends `.yamllint-estate.yml`, and
+# resolves that path against the working directory, so it runs from the root.
+yamllint: ## Lint every tracked YAML file strictly
+	git ls-files -z '*.yml' '*.yaml' | xargs -0 -r $(YAMLLINT) --strict --
+
+actionlint: ## Lint the GitHub Actions workflows, including their shell scripts
+	$(ACTIONLINT)
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \
