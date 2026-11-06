@@ -44,9 +44,9 @@ flags into each development recipe, keeping the caller's own `RUSTFLAGS`.
 Coverage assigns its own flags and ignores the caller's. The release recipe
 keeps the caller's flags and names neither fast flag, so it ships from the
 platform linker; a direct `cargo build --release` takes the configuration's
-flags unless `RUSTFLAGS` is assigned. Cranelift is the development-profile code
-generator, selected in `.cargo/config.toml`; coverage selects LLVM explicitly
-because instrumentation needs it.
+flags unless `RUSTFLAGS` is assigned. Cranelift is not the development-profile
+code generator, because the suite aborts under it; the developers' guide
+records the measurement.
 
 `tests/build_standard_contract.rs` reads the Cargo configuration sources and
 the commands `make -n` prints for each target, and the `setup-rust` steps of
@@ -58,4 +58,5 @@ the workflows, so a flag lost through a recipe or workflow edit fails there.
   must be GCC 12.1 or newer, or clang.
 - A change to a recipe or workflow step that assigns `RUSTFLAGS` must restate
   the flags, and the contract says which clause fails when it does not.
-- Re-measure the suite under Cranelift on the next toolchain bump.
+- Re-measure the suite under Cranelift when the toolchain or the failing test
+  changes.

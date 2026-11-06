@@ -213,11 +213,28 @@ from Homebrew installs as `gmake`; put its `gnubin` directory
 
 ### Cranelift
 
-Cranelift is the development-profile codegen backend. The full suite was
-measured under it on the pinned `nightly-2025-06-26` on 2026-09-29: all 182
-tests across the 13 test binaries and the doctests pass. Coverage selects LLVM
-explicitly (`CARGO_PROFILE_DEV_CODEGEN_BACKEND=llvm`), because instrumentation
-needs it, and release builds use the release profile, which Cranelift does not
-touch. Re-measure the whole suite on the next toolchain bump; if it fails,
-record the failing tests here as an exception and remove the backend from
-`.cargo/config.toml`.
+Exception: Cranelift is not the development-profile backend. The suite was
+measured under it on `nightly-2026-11-05` on 2026-11-06, and
+`test_bearer_auth_success` in `tests/api_embedding.rs` aborts with
+`llvm.x86.sse2.pmulhu.w is not yet supported`
+([rustc_codegen_cranelift#171](https://github.com/rust-lang/rustc_codegen_cranelift/issues/171)).
+It passed on the earlier `nightly-2025-06-26` pin (all 182 tests, measured on
+2026-09-29). Re-measure the whole suite under the backend when the toolchain or
+that intrinsic support changes, and adopt Cranelift again only if every test
+passes.
+
+## Development build footprint
+
+The repository follows the estate's `rust-dev-build-footprint` rule.
+`Cargo.toml`'s default development profile sets `incremental = false` and
+`debug = 0`, and the test profile inherits both, so builds keep no incremental
+state and no debug information. `.cargo/config.toml` sets the native
+`[unstable] embed-metadata = false` key, which dated nightlies accept from
+2026-07-31; raw rustc metadata flags are not used, because they broke build
+scripts. Override the profile locally with `CARGO_PROFILE_DEV_DEBUG=true` or
+`CARGO_INCREMENTAL=1`.
+
+The direct Whitaker command in `make lint` assigns `RUSTFLAGS="-D warnings"`
+alone and clears `CARGO_ENCODED_RUSTFLAGS`. Whitaker builds on its own
+installer-managed toolchain, so it takes neither the frontend nor the linker
+flags.
