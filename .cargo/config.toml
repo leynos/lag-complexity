@@ -5,15 +5,13 @@
 # defaults for every development, test, lint and typecheck build. Cargo
 # auto-discovers this file, so a bare `cargo build` gets them too.
 #
-# The Cranelift codegen backend is the development-profile default: the
-# repository's whole suite passes under it (see "Cranelift" in
-# docs/developers-guide.md). Coverage selects LLVM explicitly, since
-# instrumentation needs it, and release builds use the release profile.
+# Cranelift is not the development-profile backend: the suite aborts under it
+# (see "Cranelift" in docs/developers-guide.md).
 [unstable]
-codegen-backend = true
-
-[profile.dev]
-codegen-backend = "cranelift"
+# Native metadata setting for dated nightlies from 2026-07-31 (rule
+# `rust-dev-build-footprint`, DF-003). Never use raw rustc metadata flags; they
+# broke build scripts.
+embed-metadata = false
 
 # Cargo selects a single `rustflags` source rather than merging them: a
 # matching `[target.*]` table replaces `[build] rustflags` outright, and an

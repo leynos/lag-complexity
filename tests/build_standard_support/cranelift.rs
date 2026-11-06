@@ -14,7 +14,7 @@ use super::ci_steps::{Workflow, cranelift_workflow_problems, whitaker_cranelift_
 use super::config::{CONFIG, Problems, TOOLCHAIN};
 
 /// Whether this repository selects Cranelift for the development profile.
-pub const SELECTED: bool = true;
+pub const SELECTED: bool = false;
 
 /// The component a toolchain must ship for the backend.
 const COMPONENT: &str = "rustc-codegen-cranelift-preview";
@@ -204,7 +204,7 @@ fn a_cranelift_repository_declares_everything_the_backend_needs() -> Result<(), 
 /// Invariant: both declarations are needed, in their own tables, and a comment declares nothing.
 #[test]
 fn the_configuration_reader_wants_the_feature_and_the_selection() {
-    assert!(config_problems(CONFIG_OK).is_empty());
+    assert_eq!(config_problems(CONFIG_OK), Vec::<String>::new());
     assert_eq!(config_problems(CONFIG_NO_FEATURE).len(), 1);
     assert_eq!(config_problems(CONFIG_FEATURE_OFF).len(), 1);
     assert_eq!(config_problems(CONFIG_OTHER_BACKEND).len(), 1);
@@ -218,7 +218,7 @@ fn the_configuration_reader_wants_the_feature_and_the_selection() {
 /// Invariant: only a listed `rustc-codegen-cranelift-preview` counts.
 #[test]
 fn the_toolchain_reader_wants_the_component() {
-    assert!(toolchain_problems(TOOLCHAIN_OK).is_empty());
+    assert_eq!(toolchain_problems(TOOLCHAIN_OK), Vec::<String>::new());
     for lacking in [TOOLCHAIN_LACKING, TOOLCHAIN_COMMENTED, TOOLCHAIN_LOOKALIKE] {
         assert_eq!(toolchain_problems(lacking).len(), 1, "{lacking}");
     }

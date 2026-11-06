@@ -199,7 +199,6 @@ mod tests {
 
     #[test]
     #[expect(clippy::expect_used, reason = "test should fail loudly")]
-    #[expect(clippy::float_cmp, reason = "clamped scope should equal zero")]
     fn scope_weight_non_finite_normalises_to_zero() {
         let hc = HeuristicComplexity::new()
             .with_scope_weight(f32::NAN)
