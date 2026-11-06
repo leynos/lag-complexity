@@ -231,9 +231,8 @@ The repository follows the estate's `rust-dev-build-footprint` rule.
 state and no debug information. `.cargo/config.toml` sets the native
 `[unstable] embed-metadata = false` key, which dated nightlies accept from
 2026-07-31; raw rustc metadata flags are not used, because they broke build
-scripts. `tests/footprint_contract.rs` reads these files as text and starts no
-Cargo process. Override the profile locally with `CARGO_PROFILE_DEV_DEBUG=true`
-or `CARGO_INCREMENTAL=1`.
+scripts. Override the profile locally with `CARGO_PROFILE_DEV_DEBUG=true` or
+`CARGO_INCREMENTAL=1`.
 
 The direct Whitaker command in `make lint` assigns `RUSTFLAGS="-D warnings"`
 alone and clears `CARGO_ENCODED_RUSTFLAGS`. Whitaker builds on its own
