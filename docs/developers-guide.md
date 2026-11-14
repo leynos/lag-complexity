@@ -213,9 +213,13 @@ make from Homebrew installs as `gmake`; put its `gnubin` directory
 
 ### Cranelift
 
-Exception: Cranelift is not the development-profile backend. The suite was
-measured under it on `nightly-2026-11-05` on 2026-11-06, and
-`test_bearer_auth_success` in `tests/api_embedding.rs` aborts with
+LLVM is the default codegen backend for development builds. Cranelift is
+disabled and opt-in only: no configuration in this repository selects it. The
+estate decision is recorded in
+[concordat ADR-0004](https://github.com/leynos/concordat/blob/main/docs/adrs/adr-0004-cranelift-is-not-part-of-the-rust-build-standard.md),
+which is reviewed on 14 May 2027. The suite was measured under Cranelift on
+`nightly-2026-11-05` on 2026-11-06, and `test_bearer_auth_success` in
+`tests/api_embedding.rs` aborts with
 `llvm.x86.sse2.pmulhu.w is not yet supported`
 ([rustc_codegen_cranelift#171](https://github.com/rust-lang/rustc_codegen_cranelift/issues/171)).
 It passed on the earlier `nightly-2025-06-26` pin (all 182 tests, measured on
