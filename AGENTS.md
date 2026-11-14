@@ -254,9 +254,11 @@ project:
     reported by the formatter check.
 - The development build standard sets `-Zthreads=8` and, on Linux only,
   `-Clink-arg=-fuse-ld=mold`, the `mold` linker. Cargo reads these from
-  `.cargo/config.toml`, and the recipes that assign `RUSTFLAGS` compose them
-  onto any inherited value. LLVM is the default codegen backend. Cranelift is
-  disabled and opt-in only, under the estate decision in
+  `.cargo/config.toml`, and the development recipes that assign `RUSTFLAGS`
+  compose them onto any inherited value. The release recipe keeps the inherited
+  value and adds neither flag, and the Whitaker lint assigns only
+  `-D warnings`. LLVM is the default codegen backend. Cranelift is disabled and
+  opt-in only, under the estate decision in
   [concordat ADR-0004](https://github.com/leynos/concordat/blob/main/docs/adrs/adr-0004-cranelift-is-not-part-of-the-rust-build-standard.md),
   which is reviewed on 14 May 2027. See the
   [Cranelift](docs/developers-guide.md#cranelift) section of the developers'

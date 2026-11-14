@@ -190,8 +190,9 @@ the configuration's flags unless `RUSTFLAGS` is assigned, for example
 `RUSTFLAGS="" cargo build --release`.
 
 LLVM is the development-profile code generator. Cranelift is disabled and
-opt-in only: `.cargo/config.toml` does not select it. Coverage selects LLVM
-explicitly because instrumentation needs it. See
+opt-in only: `.cargo/config.toml` does not select it. Coverage uses LLVM
+because instrumentation needs it; the shared coverage action overrides the
+backend to LLVM only when it detects Cranelift. See
 [ADR 001](docs/adrs/adr-0001-rust-build-standard.md) for the reasoning, and
 [concordat ADR-0004](https://github.com/leynos/concordat/blob/main/docs/adrs/adr-0004-cranelift-is-not-part-of-the-rust-build-standard.md)
 for the estate decision, which is reviewed on 14 May 2027.
