@@ -229,9 +229,12 @@ project:
 
     linting every target with all features enabled and denying all Clippy
     warnings. The Clippy run composes the development build standard flags
-    onto any inherited `RUSTFLAGS`. The Whitaker run takes none of them,
-    because Whitaker runs under its installer-managed toolchain. `make lint`
-    does not build documentation with `cargo doc`.
+    onto any inherited `RUSTFLAGS`. The Whitaker run clears an inherited
+    `CARGO_ENCODED_RUSTFLAGS`, which would otherwise outrank `RUSTFLAGS`, and
+    takes none of the standard flags, because Whitaker runs under its
+    installer-managed toolchain. The Clippy run does not clear
+    `CARGO_ENCODED_RUSTFLAGS`, so an inherited value outranks the composed
+    flags there. `make lint` does not build documentation with `cargo doc`.
   - `make test` executes, with `RUSTFLAGS` set to `-D warnings` plus the
     development build standard flags:
 
@@ -241,7 +244,8 @@ project:
     ```
 
     running the full test suite and then the doctests, which `--all-targets`
-    skips. It uses plain `cargo test`, not `cargo-nextest`. The mutation-testing
+    skips. It uses plain `cargo test`, not `cargo-nextest`, and like Clippy it
+    does not clear an inherited `CARGO_ENCODED_RUSTFLAGS`. The mutation-testing
     and CodeScene workflow contracts run under the separate
     `make test-workflow-contracts` target, which `make all` includes.
 
@@ -369,8 +373,6 @@ project:
   `mockable::MockEnv` in tests. A narrow closure seam of the same shape is
   acceptable where a trait object would be disproportionate. Production code
   must not reach for `std::env::var`/`var_os` outside that composition root.
-  See [reliable testing in Rust via dependency injection][reliable-testing-di]
-  for the injection pattern.
 - **Process-wide locks are not an escape hatch.** Serializing environment
   mutation behind a shared `Mutex`, `OnceLock`, or `serial_test` attribute is
   not an accepted fallback. It serializes the suite, defeats property-based
@@ -414,7 +416,11 @@ project:
   diagnostics.
 - In production code and shared fixtures, avoid `.expect()` entirely: return
   `Result` and use `?` to propagate errors instead of panicking.
-- Keep `expect_used` **strict**; do not suppress the lint.
+- Keep `expect_used` **strict**; do not suppress the lint. This repository
+  denies it in `Cargo.toml` and does not set `allow-expect-in-tests`, so a test
+  that calls `.expect(...)` carries an item-scoped
+  `#[expect(clippy::expect_used, reason = "...")]`, as in
+  `tests/api_embedding.rs`.
 - Recognize that `allow-expect-in-tests = true` **doesn’t cover** helpers
   outside `#[cfg(test)]` or `#[test]`; avoid `expect` in such fixtures.
 - Use `anyhow`/`eyre` with `.context(...)` to **preserve backtraces** and
@@ -513,4 +519,3 @@ Additional docs:
   robust scripts
 
 [python-exceptions]: .rules/python-exception-design-raising-handling-and-logging.md
-[reliable-testing-di]: docs/reliable-testing-in-rust-via-dependency-injection.md
