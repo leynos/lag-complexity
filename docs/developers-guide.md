@@ -242,3 +242,18 @@ The direct Whitaker command in `make lint` assigns `RUSTFLAGS="-D warnings"`
 alone and clears `CARGO_ENCODED_RUSTFLAGS`. Whitaker builds on its own
 installer-managed toolchain, so it takes neither the frontend nor the linker
 flags.
+
+## Testing configuration loading
+
+`LagcArgs` loads from `ortho_config` 0.11.0 and never needs a test to change
+the process. The `OrthoConfig` derive's `load_from_iter_with_env` takes one
+injected environment, and `LagcArgs::load_from_env_source` and
+`LagcArgs::load_from_source_and_config` take a `SharedScanEnvSource` for the
+`LAGC_` layer; `load_from_env` and `load_from_env_and_config` pass
+`ortho_config::ProcessEnv`. Tests pass a closed `ortho_config::MapEnv`. A
+hermetic case pins the working directory with `MapEnv::with_current_dir` and
+names `HOME`, `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS` as a directory no test
+creates, because an unset `HOME` falls back to the host and an empty
+`XDG_CONFIG_DIRS` selects `/etc/xdg` (`tests/lagc_args.rs`). `clippy.toml`
+disallows `std::env::set_var`, `remove_var` and `set_current_dir`, so a test
+cannot mutate the process instead.
