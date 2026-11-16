@@ -150,3 +150,42 @@ fn config_file_loading(
     }
     Ok(())
 }
+
+/// Marks the re-run of this binary that reads its own live environment.
+const CHILD_MARKER: &str = "LAGC_TEST_PROCESS_BACKED_CHILD";
+
+/// The process-backed loaders read the live process environment on purpose, so
+/// the parent re-runs this binary as a child that carries `LAGC_DRY_RUN` and
+/// changes nothing in its own process.
+///
+/// The child inherits the rest of the parent's environment, which keeps
+/// `LLVM_PROFILE_FILE` so a coverage run still sees what the child executes.
+#[rstest]
+fn process_backed_loaders_read_the_live_environment() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        return assert_process_backed_loaders_see_the_environment();
+    }
+    let status = std::process::Command::new(std::env::current_exe()?)
+        .args([
+            "--exact",
+            "process_backed_loaders_read_the_live_environment",
+            "--nocapture",
+        ])
+        .env(CHILD_MARKER, "1")
+        .env("LAGC_DRY_RUN", "true")
+        .status()?;
+    assert!(status.success(), "the child run failed: {status}");
+    Ok(())
+}
+
+/// The child half: both process-backed loaders see `LAGC_DRY_RUN=true`, and the
+/// environment still wins over a file that says `false`.
+fn assert_process_backed_loaders_see_the_environment() -> Result<(), Box<dyn std::error::Error>> {
+    assert!(LagcArgs::load_from_env()?.dry_run);
+    let file = written_config(temp_toml_file(), "dry_run = false")?;
+    let Some(path) = get_config_path(&file) else {
+        panic!("config path is not valid UTF-8")
+    };
+    assert!(LagcArgs::load_from_env_and_config(path)?.dry_run);
+    Ok(())
+}
