@@ -387,10 +387,10 @@ project:
   invoking the generated application binary through `assert_cmd` may configure
   the environment via `Command::env`/`Command::env_clear`, because the mutation
   is confined to the child process. A test manipulating the environment
-  in-process does not qualify, whatever layer it claims to occupy. Existing
-  environment-mutating cases in `tests/lagc_args.rs` set and remove process
-  variables under `serial_test`; that is a known exception to this rule, not a
-  pattern to copy.
+  in-process does not qualify, whatever layer it claims to occupy. The cases in
+  `tests/lagc_args.rs` inject an `ortho_config::MapEnv` through the `_with_env`
+  loaders and `LagcArgs::load_from_env_source`, and `clippy.toml` disallows
+  `std::env::set_var`, `remove_var` and `set_current_dir`.
 
 ### Dependency management
 

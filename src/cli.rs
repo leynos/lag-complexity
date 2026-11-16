@@ -4,11 +4,20 @@
 
 use figment::{
     Figment,
-    providers::{Env, Json, Toml, Yaml},
+    providers::{Json, Toml, Yaml},
 };
-use ortho_config::OrthoError;
+use ortho_config::{CsvEnv, OrthoError, ProcessEnv, SharedScanEnvSource};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+/// The prefix every `lagc` environment variable carries.
+const ENV_PREFIX: &str = "LAGC_";
+
+/// The environment layer, read from `source` rather than from the process.
+fn env_layer(source: SharedScanEnvSource) -> CsvEnv {
+    CsvEnv::prefixed(ENV_PREFIX).with_source(source)
+}
 
 /// Command-line arguments for the `lagc` binary.
 ///
@@ -61,8 +70,34 @@ impl LagcArgs {
     ///
     /// Returns an [`OrthoError`] if any variable cannot be parsed.
     pub fn load_from_env() -> Result<Self, OrthoError> {
+        Self::load_from_env_source(Arc::new(ProcessEnv))
+    }
+
+    /// Load configuration solely from the variables `source` supplies.
+    ///
+    /// [`load_from_env`](Self::load_from_env) passes the process environment;
+    /// a test passes a closed [`ortho_config::MapEnv`], so nothing reads or
+    /// writes the process.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`OrthoError`] if any variable cannot be parsed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lag_complexity::cli::LagcArgs;
+    /// use ortho_config::MapEnv;
+    /// use std::sync::Arc;
+    ///
+    /// let env = MapEnv::new().with_var("LAGC_DRY_RUN", "true");
+    /// let args = LagcArgs::load_from_env_source(Arc::new(env))
+    ///     .expect("load args from an injected environment");
+    /// assert!(args.dry_run);
+    /// ```
+    pub fn load_from_env_source(source: SharedScanEnvSource) -> Result<Self, OrthoError> {
         Figment::new()
-            .merge(Env::prefixed("LAGC_"))
+            .merge(env_layer(source))
             .extract()
             .map_err(Into::into)
     }
@@ -110,9 +145,26 @@ impl LagcArgs {
     /// Returns an [`OrthoError`] if either source contains invalid values.
     /// Environment takes precedence over file values.
     pub fn load_from_env_and_config(path: &str) -> Result<Self, OrthoError> {
+        Self::load_from_source_and_config(Arc::new(ProcessEnv), path)
+    }
+
+    /// Load configuration from the variables `source` supplies and a TOML file
+    /// path.
+    ///
+    /// [`load_from_env_and_config`](Self::load_from_env_and_config) passes the
+    /// process environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`OrthoError`] if either source contains invalid values.
+    /// Environment takes precedence over file values.
+    pub fn load_from_source_and_config(
+        source: SharedScanEnvSource,
+        path: &str,
+    ) -> Result<Self, OrthoError> {
         Figment::new()
             .merge(<Toml as figment::providers::Format>::file(path))
-            .merge(Env::prefixed("LAGC_"))
+            .merge(env_layer(source))
             .extract()
             .map_err(Into::into)
     }
