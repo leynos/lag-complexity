@@ -1,5 +1,7 @@
-# Align with CodeScene’s ceiling
-cognitive-complexity-threshold = 12     # default is 25
+# Cognitive complexity is not gated by Clippy: it scores code after macro
+# expansion, so it counts branching a macro generated, and no lint level here
+# enables it. Whitaker's `macro_aware_cognitive_complexity` gates it at 9 (see
+# `dylint.toml`).
 
 disallowed-methods = [
   { path = "std::env::set_var", reason = "use a stub environment in tests" },

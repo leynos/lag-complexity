@@ -243,6 +243,14 @@ alone and clears `CARGO_ENCODED_RUSTFLAGS`. Whitaker builds on its own
 installer-managed toolchain, so it takes neither the frontend nor the linker
 flags.
 
+Whitaker also gates cognitive complexity. Clippy's `cognitive_complexity` is a
+nursery lint that nothing enabled here, so the threshold of 12 once in
+`clippy.toml` applied to nothing, and it scores after macro expansion in any
+case. Whitaker's experimental `macro_aware_cognitive_complexity` gates it at
+`max_complexity = 9`, CodeScene's ceiling; `dylint.toml` opts in with
+`[whitaker] experimental = ["macro_aware_cognitive_complexity"]`. Fix a finding
+by extracting named helpers, never by raising the threshold.
+
 ## Testing configuration loading
 
 `LagcArgs` loads from `ortho_config` 0.11.0 and never needs a test to change
