@@ -31,7 +31,9 @@
 - **Keep file size manageable.** No single code file may be longer than 400
   lines. Long switch statements or dispatch tables should be broken up by
   feature and constituents colocated with targets. Large blocks of test data
-  should be moved to external data files.
+  should be moved to external data files. A file vendored byte for byte from an
+  upstream, such as `scripts/uv_gate.py`, is exempt, because splitting it would
+  break its canonical digest.
 
 ## Documentation maintenance
 
@@ -220,7 +222,8 @@ project:
     validating Rust formatting across the whole workspace and the Markdown
     layout checked by `mdtablefix`, without modifying files.
   - `make lint` first runs `make interrogate`, which checks Python docstring
-    coverage under `tests/` and fails on any `MISSED` row. It then executes:
+    coverage under `scripts/` and `tests/` and fails on any `MISSED` row. It
+    then executes:
 
     ```sh
     cargo clippy --all-targets --all-features -- -D warnings
